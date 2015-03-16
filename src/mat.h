@@ -1,221 +1,255 @@
-#include "vec.h"
+#ifndef MAT_H
+#define MAT_H
 
-// Many of the matrix parameters are passed by value to allow the input matrix to also be the output location.
-static const float PI = 3.14159265;
-static const float EPS = 1e-8;
-static const float EPS2 = EPS*EPS;
-static const float EPS3 = EPS*EPS*EPS;
+#include <cassert>
+#include <cmath>
+//#include "vec.h"
 
+// TODO: MakeProjection()
 
-// Column major
-typedef union{
-    float d_[16];
-
-    struct{
-        float ax, ay, az, aa;
-        float bx, by, bz, ba;
-        float cx, cy, cz, ca;
-        float dx, dy, dz, da;
-    };
-}mat4;
-// TODO: test this
-inline void IDMat(mat4 *output)
+class Mat4
 {
-    int i;
-    for(i = 0; i < 16; i++)
-        output->d_[i] = 0;
-    for(i = 0; i < 4; i++)
-        output->d_[i*4 + i] = 1;
-}
-// TODO: test this
-inline void CopyMat(mat4 *output, const mat4 *input)
-{
-    int i;
-    for(i = 0; i < 16; i++)
-        output->d_[i] = input->d_[i];
-}
-// Re-test this to see if pass by value makes a difference or if pass by reference was fine
-inline void Transpose(mat4 *output, const mat4 input)
-{
-    output->ax = input.ax;
-    output->ay = input.bx;
-    output->az = input.cx;
-    output->aa = input.dx;
-    output->bx = input.ay;
-    output->by = input.by;
-    output->bz = input.cy;
-    output->ba = input.dy;
-    output->cx = input.az;
-    output->cy = input.bz;
-    output->cz = input.cz;
-    output->ca = input.dz;
-    output->dx = input.aa;
-    output->dy = input.ba;
-    output->dz = input.ca;
-    output->da = input.da;
-}
+    float f_[16];
 
-inline void M4MultScalar(mat4 *output, const mat4 a, const float b)
-{
-    int i;
-    for(i = 0; i < 16; i++)
+public:
+    //tested?
+    float& operator () (const int row, const int col)
     {
-        output->d_[i] = a.d_[i] * b;
+        return f_[(row << 2) + col];
     }
-}
-
-// TODO: test this
-inline void M4Mult(mat4 *output, const mat4 a, const mat4 b)
-{
-    int i, j;
-    for(i = 0; i < 4; i++)
+    //tested
+    const float& operator () (const int row, const int col) const
     {
-        vec4 leftRow = {.x = a.d_[i], .y = a.d_[4 + i], .z = a.d_[8 + i], .a = a.d_[12 + i]};
-        for(j = 0; j < 4; j++)
+        return f_[(row << 2) + col];
+    }
+    //tested?
+    float& operator [] (const int i)
+    {
+        return f_[i];
+    }
+    //tested
+    const float& operator [] (const int i) const
+    {
+        return f_[i];
+    }
+    //tested
+    Mat4()
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] = 0;
+
+        for(int i = 0; i < 4; i++)
+            f_[(i << 2) + i] = 1;
+    }
+    //tested
+    Mat4(const float a)
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] = a;
+    }
+    //tested
+    Mat4(const Mat4& m)
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] = m.f_[i];
+    }
+    //tested
+    Mat4& operator +=(const Mat4& m)
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] += m.f_[i];
+        return *this;
+    }
+    //tested
+    Mat4& operator -=(const Mat4& m)
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] -= m.f_[i];
+        return *this;
+    }
+    //tested
+    Mat4& operator *=(const float a)
+    {
+        for(int i = 0; i < 16; i++)
+            f_[i] *= a;
+        return *this;
+    }
+    //tested
+    Mat4& operator *=(const Mat4& m)
+    {
+        return *this = *this * m;
+    }
+    //tested
+    Mat4 operator + (const Mat4& m) const
+    {
+        return Mat4(*this) += m;
+    }
+    //tested
+    Mat4 operator - (const Mat4& m) const
+    {
+        return Mat4(*this) -= m;
+    }
+    //tested
+    Mat4 operator * (const float a) const
+    {
+        return Mat4(*this) *= a;
+    }
+    //tested?
+    Vec4 operator * (const Vec4& v) const
+    {
+        Vec4 r(0);
+        for(int i = 0; i < 4; i++)
         {
-            vec4 rightCol = {.x = b.d_[j*4], .y = b.d_[j*4 + 1], .z = b.d_[j*4 + 2], .a = b.d_[j*4 + 3]};
-            output->d_[j*4 + 1] = dotVec4(&leftRow, &rightCol);
+            for(int j = 0; j < 4; j++)
+                r[i] += (*this)(i, j)*v[j];
         }
+        return r;
     }
-}
-
-// TODO: test this
-inline void M4MultVec3(vec3 *output, const mat4 *a, const vec3 b)
-{
-    int i;
-    for(i = 0; i < 3; i++)
+    //tested?
+    Mat4 operator * (const Mat4& m) const
     {
-        vec3 leftRow = {.x = a->d_[i], .y = a->d_[4 + i], .z = a->d_[8 + i]};
-        output->v_[i] = DotV3(&leftRow, b);
+        Mat4 r(0);
+        for(int i = 0; i < 4; i++)
+        {
+            for(int j = 0; j < 4; j++)
+            {
+                for(int k = 0; k < 4; k++)
+                    r(i, k) += (*this)(i, j) * m(j, k);
+            }
+        }
+        return r;
+    }
+    //tested?
+    static Mat4 makeXRotation(const float ang)
+    {
+        Mat4 r;
+        float cosAng = (float)cos(ang * PI / 180.0);
+        float sinAng = (float)sin(ang * PI / 180.0);
+        r(1, 1) = cosAng;
+        r(1, 2) = sinAng;
+        r(2, 1) = -sinAng;
+        r(2, 2) = cosAng;
+        return r;
+    }
+    //tested?
+    static Mat4 makeYRotation(const float ang)
+    {
+        Mat4 r;
+        float cosAng = (float)cos(ang * PI / 180.0);
+        float sinAng = (float)sin(ang * PI / 180.0);
+        r(0, 0) = cosAng;
+        r(0, 2) = -sinAng;
+        r(2, 1) = sinAng;
+        r(2, 2) = cosAng;
+        return r;
+    }
+    //tested?
+    static Mat4 makeZRotation(const float ang)
+    {
+        Mat4 r;
+        float cosAng = (float)cos(ang * PI / 180.0);
+        float sinAng = (float)sin(ang * PI / 180.0);
+        r(0, 0) = cosAng;
+        r(0, 1) = sinAng;
+        r(1, 0) = -sinAng;
+        r(1, 1) = cosAng;
+        return r;
+    }
+    //tested
+    static Mat4 makeTranslation(const Vec3& t)
+    {
+        Mat4 r;
+        for(int i = 0; i < 3; i++)
+            r(i, 3) = t[i];
+        return r;
+    }
+    //tested?
+    static Mat4 makeScale(const Vec3& s)
+    {
+        Mat4 r;
+        for(int i = 0; i < 3; i++)
+            r(i, i) = s[i];
+        return r;
+    }
+};
+//tested?
+inline bool isAffine(const Mat4& m)
+{
+    return abs(m[15]-1) + abs(m[14]) + abs(m[13]) + abs(m[12]) < EPS;
+}
+//tesed?
+inline float norm2(const Mat4& m)
+{
+    float r = 0;
+    for(int i = 0; i < 16; i++)
+        r += m[i]*m[i];
+    return r;
+}
+// we'll see
+// computes inverse of affine matrix. assumes last row is [0,0,0,1]
+inline Mat4 inv(const Mat4& m) {
+  Mat4 r;                                              // default constructor initializes it to identity
+  assert(isAffine(m));
+  float det = m(0,0)*(m(1,1)*m(2,2) - m(1,2)*m(2,1)) +
+               m(0,1)*(m(1,2)*m(2,0) - m(1,0)*m(2,2)) +
+               m(0,2)*(m(1,0)*m(2,1) - m(1,1)*m(2,0));
+
+  // check non-singular matrix
+  assert(abs(det) > EPS3);
+
+  // "rotation part"
+  r(0,0) =  (m(1,1) * m(2,2) - m(1,2) * m(2,1)) / det;
+  r(1,0) = -(m(1,0) * m(2,2) - m(1,2) * m(2,0)) / det;
+  r(2,0) =  (m(1,0) * m(2,1) - m(1,1) * m(2,0)) / det;
+  r(0,1) = -(m(0,1) * m(2,2) - m(0,2) * m(2,1)) / det;
+  r(1,1) =  (m(0,0) * m(2,2) - m(0,2) * m(2,0)) / det;
+  r(2,1) = -(m(0,0) * m(2,1) - m(0,1) * m(2,0)) / det;
+  r(0,2) =  (m(0,1) * m(1,2) - m(0,2) * m(1,1)) / det;
+  r(1,2) = -(m(0,0) * m(1,2) - m(0,2) * m(1,0)) / det;
+  r(2,2) =  (m(0,0) * m(1,1) - m(0,1) * m(1,0)) / det;
+
+  // "translation part" - multiply the translation (on the left) by the inverse linear part
+  r(0,3) = -(m(0,3) * r(0,0) + m(1,3) * r(0,1) + m(2,3) * r(0,2));
+  r(1,3) = -(m(0,3) * r(1,0) + m(1,3) * r(1,1) + m(2,3) * r(1,2));
+  r(2,3) = -(m(0,3) * r(2,0) + m(1,3) * r(2,1) + m(2,3) * r(2,2));
+  assert(isAffine(r) && norm2(Mat4() - m*r) < EPS2);
+  return r;
+}
+//tested
+inline Mat4 transpose(const Mat4& m)
+{
+    Mat4 r(0);
+    for(int i = 0; i < 4; i++)
+    {
+        for(int j = 0; j < 4; j++)
+            r(i, j) = m(j, i);
+    }
+    return r;
+}
+
+inline Mat4 normalMatrix(const Mat4& m)
+{
+    Mat4 invm = inv(m);
+    invm(0, 3) = invm(1, 3) = invm(2, 3) = 0;
+    return transpose(invm);
+}
+
+inline Mat4 transFact(const Mat4& m)
+{
+    Mat4 r;
+    for(int i = 0; i < 3; i++)
+    {
+        for(int j = 0; j < 3; j++)
+            r(i, j) = m(i, j);
     }
 }
-// TODO: test these two
-inline void M4Add(mat4 *output, const mat4 a, const mat4 b)
+
+inline Mat4 linFact(const Mat4& m)
 {
-    int i;
-    for(i = 0; i < 16; i++)
-        output->d_[i] = a.d_[i] + b.d_[i];
+    Mat4 r;
+    r(0, 3) = m(0, 3);
+    r(1, 3) = m(1, 3);
+    r(2, 3) = m(2, 3);
 }
 
-inline void M4Add(mat4 *output, const mat4 a, const mat4 b)
-{
-    int i;
-    for(i = 0; i < 16; i++)
-        output->d_[i] = a.d_[i] - b.d_[i];
-}
-
-// TODO: test the rotation functions
-inline void MakeXRotation(mat4 *output, const float ang)
-{
-    float cosAng = (float)cos(ang * PI / 180.0);
-    float sinAng = (float)sin(ang * PI / 180.0);
-    
-    int i;
-    for(i = 0; i < 15; i++)
-        output->d_[i] = 0.0;
-    
-    output->d_[0] = 1.0;
-    output->d_[15] = 1.0;
-    output->d_[5] = cosAng;
-    output->d_[6] = -sinAng;
-    output->d_[9] = sinAng;
-    output->d_[10] = cosAng;    
-}
-    
-
-inline void MakeYRotation(mat4 *output, const float ang)
-{
-    float cosAng = (float)cos(ang * PI / 180.0);
-    float sinAng = (float)sin(ang * PI / 180.0);
-    
-    int i;
-    for(i = 1; i < 15; i++)
-        output->d_[i] = 0.0;
-    
-    output->d_[5] = 1.0;
-    output->d_[15] = 1.0;
-    output->d_[0] = cosAng;
-    output->d_[2] = sinAng;
-    output->d_[8] = -sinAng;
-    output->d_[10] = cosAng;    
-}
-
-inline void MakeZRotation(mat4 *output, const float ang)
-{
-    float cosAng = (float)cos(ang * PI / 180.0);
-    float sinAng = (float)sin(ang * PI / 180.0);
-    
-    int i;
-    for(i = 1; i < 15; i++)
-        output->d_[i] = 0.0;
-    
-    output->d_[10] = 1.0;
-    output->d_[15] = 1.0;
-    output->d_[0] = cosAng;
-    output->d_[1] = -sinAng;
-    output->d_[4] = sinAng;
-    output->d_[5] = cosAng;    
-}
-
-// TODO: test this
-inline void MakeScale(mat4 *output, const float s)
-{
-    int i;
-    for(i = 0; i < 15; i++)
-        output->d_[i] = 0.0;
-    
-    output->d_[15] = 1.0;
-    output->d_[0] = s;
-    output->d_[5] = s;
-    output->d_[10] = s;
-}
-// TODO: test this
-inline int IsAffine(const Mat4 *input)
-{
-    if((abs(input->da) + abs(input->ca) + abs(input->ba) + abs(input->aa)) < EPS)
-        return 1;
-    else
-        return 0;
-}
-// TODO: test this
-inline float Norm2M4(const Mat4 *input)
-{
-    float ret;
-    int i;
-    for(i = 0; i < 16; i++)
-        i += input->d_[i]*input->d_[i];
-}
-// TODO: test this
-inline void M4Inv(mat4 *output, const mat4 input)
-{
-     float det = input.d_[0](input.d_[5]*input.d_[10] - input.d_[9]*input.d_[6]) +
-        input.d_[4](input.d_[9]*input.d_[2] - input.d_[1]*input.d_[10]) +
-        input.d_[8](input.d_[1]*input.d_[6] - input.d_[5]*input.d_[2]);
-
-     // assert that |det| > 0?
-     int i;
-     for(i = 0; i < 15; i++)
-         output->d_[i] = 0;
-     // Rotation partition
-     output->ax = (input.by*input.cz - input.cy*input.bz)/det;
-     output->ay = (input.bx*input.cz - input.cx*input.bz)/det;
-     output->az = (input.bx*input.cy - input.cx*input.by)/det;
-     output->bx = (input.ay*input.cz - input.cy*input.az)/det;
-     output->by = (input.ax*input.cz - input.cx*input.az)/det;
-     output->bz = (input.ax*input.cy - input.cx*input.ay)/det;
-     output->cx = (input.ay*input.bz - input.by*input.az)/det;
-     output->cy = (input.ax*input.bz - input.bx*input.az)/det;
-     output->cz = (input.ax*input.by - input.bx*input.ay)/det;
-     // Translation partition
-     output->dx = -(input.dx*output->ax + input.dy*output->bx + input.dz*output->cx);
-     output->dy = -(input.dx*output->ay + input.dy*output->by + input.dz*output->cy);
-     output->dz = -(input.dx*output->az + input.dy*output->bz + input.dz*output->cz);
-
-     output->da = 1.0;
-     // assert
-     mat4 tmp1, tmp2;
-     IDMat(&tmp);
-     M4Mult(&tmp2, input, *output);
-     M4Sub(&tmp, &tmp, &tmp2);
-     assert(IsAffine(output) == 1 && Norm2M4(&tmp) < EPS2);
-}
+#endif

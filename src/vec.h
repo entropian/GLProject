@@ -1,180 +1,188 @@
 #ifndef VEC_H
 #define VEC_H
 
-#include <math.h>
-#include <assert.h>
+#include <cmath>
+#include <cassert>
 
-// TODO: add assert equivalents
-typedef union{
-    float v_[2];
-    struct{
-        float x;
-        float y;        
-    };
-}vec2;
+// TODO: figure out this stuff
+static const double PI = 3.14159265358979323846264338327950288;
+static const double EPS = 1e-8;
+static const double EPS2 = EPS*EPS;
+static const double EPS3 = EPS*EPS*EPS;
 
-typedef union{
-    float v_[3];
-    struct{
-        float x;
-        float y;
-        float z;        
-    };
-}vec3;
-
-typedef union{
-    float v_[4];
-    struct{
-        float x;
-        float y;
-        float z;
-        float a;        
-    };
-}vec4;
-
-// Addition and subtraction
-
-void V2Add(vec2 *output, vec2 *a, vec2 *b)
+template <int n>
+class Vec
 {
-    output->x = a->x + b->x;
-    output->y = a->y + b->y;
+    float f_[n];
+    
+public:
+    Vec()
+    {
+        for(int i = 0; i < n; i++)
+            f_[i] = 0;
+    }
+
+    // tested
+    Vec(float t)
+    {
+        for(int i = 0; i < n; i++)
+            f_[i] = t;
+    }
+
+    // tested
+    Vec(float a, float b)
+    {
+        assert(n == 2);
+        f_[0] = a;
+        f_[1] = b;
+    }
+    // tested
+    Vec(float a, float b, float c)
+    {
+        assert(n == 3);
+        f_[0] = a;
+        f_[1] = b;
+        f_[2] = c;
+    }
+    // tested
+    Vec(float a, float b, float c, float d)
+    {
+        assert(n == 4);
+        f_[0] = a;
+        f_[1] = b;
+        f_[2] = c;
+        f_[3] = d;
+    }
+
+    // truncate if m < n, or extend the vector with extendValue
+    template<int m>
+    explicit Vec(const Vec<m>& a, const float extendValue = 0.0)
+    {
+        for(int i = 0; i < min(m, n); i++)
+            f_[i] = a[i];
+
+        for(int i = min(m, n); i < n; i++)
+            f_[i] = extendValue;
+    }
+
+    float& operator [](const int i)
+    {
+        return f_[i];
+    }
+
+    const float& operator[](const int i) const
+    {
+        return f_[i];
+    }
+    //tested
+    Vec operator - () const
+    {
+        return Vec(*this) *= -1;
+    }
+    //tested
+    Vec& operator +=(const Vec& v)
+    {
+        for(int i = 0; i < n; i++)
+            f_[i] += v[i];
+        return *this;
+    }
+    //tested
+    Vec& operator -=(const Vec& v)
+    {
+        for(int i = 0; i < n; i++)
+            f_[i] -= v[i];
+        return *this;
+    }
+    //tested
+    Vec& operator *=(const float a)
+    {
+        for(int i = 0; i < n; i++)
+            f_[i] *= a;
+        return *this;
+    }
+    //tested
+    Vec& operator /=(const float a)
+    {
+        const float inva = 1/a;
+        for(int i = 0; i < n; i++)
+            f_[i] *= inva;
+        return *this;
+    }
+    //tested
+    Vec operator +(const Vec& v)
+    {
+        return Vec(*this) += v;
+    }
+    //tested
+    Vec operator -(const Vec& v)
+    {
+        return Vec(*this) -= v;
+    }
+    //tested
+    Vec operator *(const float a)
+    {
+        return Vec(*this) *= a;
+    }
+    //tested
+    Vec operator /(const float a)
+    {
+        return Vec(*this) /= a;
+    }
+    //tested
+    Vec& normalize()
+    {
+        assert(dot(*this, *this) > EPS2);
+        return *this /= sqrt(dot(*this, *this));
+    }
+};
+
+typedef Vec<2> Vec2;
+typedef Vec<3> Vec3;
+typedef Vec<4> Vec4;
+
+//tested
+inline Vec3 cross(const Vec3& a, const Vec3& b)
+{
+  return Vec3(a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]);
+}
+/*
+inline Vec3 cross(const Vec3& a, const Vec3& b)
+{
+    return Vec<3 > r;
+    //return Vec3(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]);
+}
+*/
+
+//tested
+template<int n>
+inline float dot(const Vec<n>& a, const Vec<n>& b)
+{
+    float r = 0;
+    for(int i = 0; i < n; i++)
+        r += a[i]*b[i];
+    return r;
 }
 
-void V2Sub(vec2 *output, vec2 *a, vec2 *b)
+template<int n>
+inline float norm2(const Vec<n>& v)
 {
-    vec2 tmp;
-    tmp.x = -b->x;
-    tmp.y = -b->y;
-    V2Add(output, a, &tmp);
+    return dot(v, v);
 }
 
-void V3Add(vec3 *output, vec3 *a, vec3 *b)
+template<int n>
+inline float norm(const Vec<n>& v)
 {
-    output->x = a->x + b->x;
-    output->y = a->y + b->y;
-    output->z = a->z + b->z;
+    return sqrt(dot(v, v));
 }
 
-void V3Sub(vec3 *output, vec3 *a, vec3 *b)
+// Return a normalized vector without modifying the input
+template<int n>
+inline Vec<n> normalize(const Vec<n>& v)
 {
-    vec3 tmp;
-    tmp.x = -b->x;
-    tmp.y = -b->y;
-    tmp.z = -b->z;
-    V3Add(output, a, &tmp);
+    assert(dot(v, v) > EPS2);
+    return v/norm(v);
 }
 
-// TODO: decide what to do with 4 element vectors
-void V4Add(vec4 *output, vec4 *a, vec4 *b)
-{
-    output->x = a->x + b->x;
-    output->y = a->y + b->y;
-    output->z = a->z + b->z;
-    output->a = a->a + b->a;
-}
 
-void V4Sub(vec4 *output, vec4 *a, vec4 *b)
-{
-    vec4 tmp;
-    tmp.x = -b->x;
-    tmp.y = -b->y;
-    tmp.z = -b->z;
-    tmp.a = -b->a;
-    V4Add(output, a, &tmp);
-}
 
-void V2Mult(vec2 *output, vec2 *a, float b)
-{
-    output->x = a->x*b;
-    output->y = a->y*b;
-}
-
-void V3Mult(vec3 *output, vec3 *a, float b)
-{
-    output->x = a->x*b;
-    output->y = a->y*b;
-    output->z = a->z*b;
-}
-
-void V4Mult(vec4 *output, vec4 *a, float b)
-{
-    output->x = a->x*b;
-    output->y = a->y*b;
-    output->z = a->z*b;
-    output->a = a->a*b;
-}
-
-void V2Div(vec2 *output, vec2 *a, float b)
-{
-    V2Mult(output, a, 1/b);
-}
-
-void V3Div(vec3 *output, vec3 *a, float b)
-{
-    V3Mult(output, a, 1/b);
-}
-
-void V4Div(vec4 *output, vec4 *a, float b)
-{
-    V4Mult(output, a, 1/b);
-}
-
-float DotV2(vec2 *a, vec2 *b)
-{
-    return (a->x*b->x + a->y*b->y);
-}
-
-float DotV3(vec3 *a, vec3 *b)
-{
-    return (a->x*b->x + a->y*b->y + a->z*b->z);
-}
-
-float DotV4(vec4 *a, vec4 *b)
-{
-    return (a->x*b->x + a->y*b->y + a->z*b->z + a->a*b->a);
-}
-
-void NormalizeV2(vec2 *output, vec2 *input)
-{
-    float tmp;
-    tmp = dotVec2(input, input);
-    vec2Div(output, input, (float)sqrt(tmp));
-}
-
-void NormalizeV3(vec3 *output, vec3 *input)
-{
-    float tmp;
-    tmp = dotVec3(input, input);
-    vec3Div(output, input, (float)sqrt(tmp));
-}
-
-void NormalizeV4(vec4 *output, vec4 *input)
-{
-    float tmp;
-    tmp = DotV4(input, input);
-    vec4Div(output, input, (float)sqrt(tmp));
-}
-
-void Cross(vec3 *output, vec3 *a, vec3 *b)
-{
-    output->x = a->y*b->z - a->z*b->y;
-    output->y = a->z*b->x - a->x*b->z;
-    output->z = a->x*b->y - a->y*b->x;
-}
-
-// TODO: test norm functions
-float NormV2(vec2 *a)
-{
-    return (float)sqrt(DotV2(a, a));
-}
-
-float NormV3(vec3 *a)
-{
-    return (float)sqrt(DotV3(a, a));
-}
-
-float NormV4(vec4 *a)
-{
-    return (float)sqrt(DotV4(a, a));
-}
-
+#endif
