@@ -171,6 +171,30 @@ public:
             r(i, i) = s[i];
         return r;
     }
+
+    static Mat4 makeProjection(const float fovy, const float aspectRatio, const float near, const float far)
+    {
+        Mat4 r(0);
+        float ang = (float)(fovy*0.5*PI/180.0);
+        float f = abs(sin(ang)) < EPS ? 0 : 1/tan(ang);
+        if(abs(aspectRatio) > EPS)
+            r(0, 0) = f/aspectRatio;
+
+        r(1, 1) = f;
+
+        if(abs(far - near) > EPS)
+        {
+            // TODO: figure out why the matrix4.h version is positive
+            //       and figure out how the glm version works
+            //       and read the books
+            r(2, 2) = -(far + near)/(far - near);
+            r(2, 3) = (float)(-2.0*far*near/(far-near));
+        }
+
+        r(3, 2) = -1.0;
+        return r;
+    }
+
 };
 //tested?
 inline bool isAffine(const Mat4& m)
@@ -251,5 +275,26 @@ inline Mat4 linFact(const Mat4& m)
     r(1, 3) = m(1, 3);
     r(2, 3) = m(2, 3);
 }
+
+inline Mat4 lookAt(const Vec3& pos, const Vec3& center, const Vec3& up)
+{
+    Vec3 z = normalize(center - pos);
+    // up isn't the y axis, it's a vector in the yz plane
+    // crossing up and the z axis produces the x axis
+    Vec3 x = normalize(cross(z, up));
+    Vec3 y = normalize(cross(x, z));
+    Mat4 r;
+    for(int i = 0; i < 3; i++)
+    {
+        r(0, i) = x[i];
+        r(1, i) = y[i];
+        r(2, i) = -z[i];
+    }
+    r(0, 3) = -dot(x, pos);
+    r(1, 3) = -dot(y, pos);
+    r(2, 3) =  dot(z, pos);
+    return r;
+} 
+
 
 #endif

@@ -109,22 +109,22 @@ public:
         return *this;
     }
     //tested
-    Vec operator +(const Vec& v)
+    Vec operator +(const Vec& v) const
     {
         return Vec(*this) += v;
     }
     //tested
-    Vec operator -(const Vec& v)
+    Vec operator -(const Vec& v) const
     {
         return Vec(*this) -= v;
     }
     //tested
-    Vec operator *(const float a)
+    Vec operator *(const float a) const
     {
         return Vec(*this) *= a;
     }
     //tested
-    Vec operator /(const float a)
+    Vec operator /(const float a) const
     {
         return Vec(*this) /= a;
     }
