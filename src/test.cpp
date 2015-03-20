@@ -2,9 +2,12 @@
 #include <GL/glew.h>
 #include <GL/glfw3.h>
 #include "SOIL.h"
+#include <iostream>
 
 #include "vec.h"
 #include "mat.h"
+#include "quat.h"
+#include "rigtform.h"
 
 #define GLSL(src) "#version 150 core\n" #src
 
@@ -38,15 +41,7 @@ int main()
 
     // ----------------------------- RESOURCES ----------------------------- //
 
-    // Create Vertex Array Object
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
 
-    // Create a Vertex Buffer Object and copy the vertex data to it
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     GLfloat vertices[] = {
         -0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
@@ -91,21 +86,15 @@ int main()
         -0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
         -0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f
     };
-    
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    Mat4 moveCube1 = Mat4::makeTranslation(Vec3(0.7f, 0, 0));
 
-    // Create an Element Buffer Object and copy the element data to it    
-    GLuint ebo;
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
+    RigTForm moveCube(Vec3(0.7f, 0, 0));
 
     GLuint elements[] = {
          0, 1, 2,
          2, 3, 0
     };
-
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements,
-        GL_STATIC_DRAW);
 
     // Create and compile the vertex shader
     const char* vertexSource = GLSL(
@@ -230,6 +219,27 @@ int main()
 
     SOIL_free_image_data(image);
 
+    // Create Vertex Array Object
+    GLuint vao1, vao2;
+    GLuint vbo1, vbo2;
+    GLuint ebo;
+    glGenVertexArrays(1, &vao1);
+    glGenVertexArrays(1, &vao2);
+    glGenBuffers(1, &vbo1);
+    glGenBuffers(1, &vbo2);
+    glGenBuffers(1, &ebo);
+
+    
+    glBindVertexArray(vao1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements,
+        GL_STATIC_DRAW);
+
+    
     // Specify the layout of the vertex data
     GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
     glEnableVertexAttribArray(posAttrib);
@@ -243,27 +253,63 @@ int main()
     glEnableVertexAttribArray(texAttrib);
     glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
 
-    // ---------------------------- RENDERING ------------------------------ //
 
+    /*
+    glBindVertexArray(vao2);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo2);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), verts2, GL_STATIC_DRAW);
+
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    
+    // Specify the layout of the vertex data
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+
+    glEnableVertexAttribArray(colAttrib);
+    glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+
+    glEnableVertexAttribArray(texAttrib);
+    glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+
+    glBindVertexArray(0);
+    */
+
+    // ---------------------------- RENDERING ------------------------------ //
+    glEnable(GL_DEPTH_TEST);
     while(!glfwWindowShouldClose(window))
     {
 		// Clear the screen to black
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Apply a rotation
-
-
+        /*
         Mat4 trans;
         trans = Mat4::makeZRotation((float)(glfwGetTime()*6));
+        */
+        RigTForm tform(Quat::makeZRotation((float)(glfwGetTime()*30)));
+        tform = tform*moveCube;
+        Mat4 trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
+        trans = trans*moveCube1;
+        trans = rigTFormToMat(tform);
         trans = transpose(trans);
+            
 
         for(int i = 0; i < 16; i++)
             tmp[i] = trans[i];
         glUniformMatrix4fv(uniTrans, 1, GL_FALSE, tmp);
         
         // Draw a quad from the 2 triangles using 6 elements
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(vao1);
+        //glBindBuffer(GL_ARRAY_BUFFER, vbo1);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        /*
+        glBindVertexArray(vao2);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        */
 
         // Swap buffers and poll window events
         glfwSwapBuffers(window);
@@ -278,8 +324,9 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteTextures(2, textures);
     glDeleteBuffers(1, &ebo);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vbo1);
+    glDeleteVertexArrays(1, &vao1);
+    glDeleteVertexArrays(1, &vao2);
 
     // ---------------------------- TERMINATE ----------------------------- //
 

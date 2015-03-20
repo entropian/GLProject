@@ -50,11 +50,13 @@ public:
     RigTForm& setTranslation(const Vec3& t)
     {
         t_ = Vec3(t[0], t[1], t[2]);
+        return *this;
     }
 
     RigTForm& setRotation(const Quat& r)
     {
         r_ = Quat(r[0], r[1], r[2], r[3]);
+        return *this;
     }
 
     // TODO: make sure the next two functions work
@@ -91,6 +93,16 @@ inline RigTForm transFact(const RigTForm& tform)
 inline RigTForm linFact(const RigTForm& tform)
 {
     return RigTForm(tform.getRotation());
+}
+
+inline Mat4 rigTFormToMat(const RigTForm& tform)
+{
+    Mat4 r = quatToMat(tform.getRotation());
+    Vec3 t = tform.getTranslation();
+    r(0, 3) = t[0];
+    r(1, 3) = t[1];
+    r(2, 3) = t[2];
+    return r;
 }
 
 inline RigTForm interp(const RigTForm& src, const RigTForm& dest, float t)

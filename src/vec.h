@@ -183,6 +183,4 @@ inline Vec<n> normalize(const Vec<n>& v)
     return v/norm(v);
 }
 
-
-
 #endif
