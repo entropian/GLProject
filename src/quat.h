@@ -7,6 +7,8 @@
 //#include "vec.h"
 #include "mat.h"
 
+// TODO: quat difference
+
 class Quat;
 Quat inv(const Quat& q);
 
@@ -84,10 +86,10 @@ public:
         return Quat(q_[0]*a.q_[0] - dot(u, v), (v*q_[0] + u*a.q_[0]) + cross(u, v));
     }
 
-    Vec4 operator * (const Vec4& a) const
+    Vec3 operator * (const Vec3& a) const
     {
         const Quat r = *this * (Quat(0, a[0], a[1], a[2]) * inv(*this));
-        return Vec4(r[1], r[2], r[3], a[3]);
+        return Vec3(r[1], r[2], r[3]);
     }
 
     static Quat makeXRotation(const float ang)
@@ -167,6 +169,13 @@ inline Mat4 quatToMat(const Quat& q)
 inline Quat slerp(const Quat &src, const Quat& dest, float t)
 {
     Quat r;
+    return r;
+}
+
+inline Quat power(const Quat& a, float exponent)
+{
+    Quat r;
+
     return r;
 }
 
