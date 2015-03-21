@@ -7,6 +7,8 @@
 #include "vec.h"
 #include "mat.h"
 #include "quat.h"
+#include <iostream>
+#include <stdio.h>
 
 class RigTForm
 {
@@ -72,6 +74,32 @@ public:
         RigTForm r;
         r.setTranslation(t_ + r_*a.getTranslation());
         r.setRotation(r_*a.getRotation());
+        return r;
+    }
+
+    // TODO: crashes when center is already in the z axis
+    static RigTForm lookAt(const Vec3& pos, const Vec3& center, const Vec3& up)
+    {
+        RigTForm r;
+        Vec3 newCenter = normalize(center - pos);
+        Vec3 rotAxis = normalize(cross(newCenter, Vec3(0, 0, -1)));
+        float halfAngle = (float)acos(dot(newCenter, Vec3(0, 0, -1))) / 2.0f;
+        // rotAxis can contain negative zero?!?!
+        float sinHalfAng = sin(halfAngle);
+        Quat q(cos(halfAngle), sinHalfAng*rotAxis[0], sinHalfAng*rotAxis[1], sinHalfAng*rotAxis[2]);
+
+        Vec3 newUp = q*up;
+        Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
+        halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
+        float sign = 1;
+        // Not sure why this works
+        if(newUp[0] < 0.0f)
+            sign = -1;
+
+        q = Quat(cos(halfAngle), 0, 0, sin(halfAngle)*sign) * q;
+        Vec3 newPos = q*pos;
+        r.setRotation(q);
+        r.setTranslation(-newPos);
         return r;
     }
 };
