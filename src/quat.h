@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <iostream>
 
 //#include "vec.h"
 #include "mat.h"
@@ -96,8 +97,8 @@ public:
     {
         Quat r;
         const float halfAngle = (float)(ang*0.5*PI/180);
-        r[0] = (float)cos(halfAngle);
-        r[1] = (float)sin(halfAngle);
+        r.q_[0] = (float)cos(halfAngle);
+        r.q_[1] = (float)sin(halfAngle);
         return r;
     }
 
@@ -105,8 +106,8 @@ public:
     {
         Quat r;
         const float halfAngle = (float)(ang*0.5*PI/180);
-        r[0] = (float)cos(halfAngle);
-        r[2] = (float)sin(halfAngle);
+        r.q_[0] = (float)cos(halfAngle);
+        r.q_[2] = (float)sin(halfAngle);
         return r;
     }
 
@@ -114,8 +115,8 @@ public:
     {
         Quat r;
         const float halfAngle = (float)(ang*0.5*PI/180);
-        r[0] = (float)cos(halfAngle);
-        r[3] = (float)sin(halfAngle);
+        r.q_[0] = (float)cos(halfAngle);
+        r.q_[3] = (float)sin(halfAngle);
         return r;
     }
 };

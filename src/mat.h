@@ -294,7 +294,4 @@ inline Mat4 linFact(const Mat4& m)
     r(2, 3) = m(2, 3);
 }
 
-
-
-
 #endif

@@ -9,9 +9,11 @@
 #include "quat.h"
 #include "rigtform.h"
 
+
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+
 
 #define GLSL(src) "#version 150 core\n" #src
 
@@ -20,13 +22,86 @@ GLint uniView;
 static double cursorX;
 static double cursorY;
 
-static RigTForm g_view;
+static RigTForm g_view, g_trans;
+static Mat4 g_proj;
+
+GLuint textures[2];
+GLuint shaderProgram;
+GLuint vao1, vao2;
+GLuint vbo1, vbo2;
+GLint uniTrans;
+
+GLFWwindow* window;
+
+//up vector
+
+// Create and compile the vertex shader
+static const char* vertexSource = GLSL(
+    uniform mat4 trans;
+    uniform mat4 view;
+    uniform mat4 proj;
+
+    in vec3 position;
+    in vec3 color;
+    in vec2 texcoord;
+
+    out vec3 Color;
+    out vec2 Texcoord;
+        
+    void main() {
+        Color = color;
+        Texcoord = texcoord;
+        gl_Position = proj * view * trans * vec4(position, 1.0);
+    }
+);
+
+
+// Create and compile the fragment shader
+static const char* fragmentSource = GLSL(
+    uniform sampler2D texKitten;
+    uniform sampler2D texPuppy;
+
+    in vec3 Color;
+    in vec2 Texcoord;
+
+    out vec4 outColor;
+        
+    void main() {
+        //outColor = mix(texture(texKitten, Texcoord), texture(texPuppy, Texcoord), 0.5) * vec4(Color, 1.0);
+        outColor = vec4(Color, 1.0);
+    }
+);
 
 void draw_scene()
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    Mat4 trans = Mat4::makeTranslation(Vec3(-1, 0, 0));
+    trans = transpose(trans);
+    //trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * trans;
+    //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
+
+    //RigTForm tform(Quat::makeZRotation((float)(glfwGetTime()*30)));
+    //g_trans = RigTForm(Quat(1, 0, 0, 0));
+    //trans = rigTFormToMat(g_trans);
+    //trans = transpose(trans)
+
+    glUniformMatrix4fv(uniTrans, 1, GL_FALSE, &(trans[0]));
+
+        
+    // Draw a quad from the 2 triangles using 6 elements
+    glBindVertexArray(vao1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(vao2);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     
+    /*
+      glBindVertexArray(vao2);
+      glDrawArrays(GL_TRIANGLES, 0, 36);
+    */
+    glfwSwapBuffers(window);
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -61,15 +136,101 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         float dx = (float)(x - cursorX);
         float dy = (float)(y - cursorY);
 
-        g_view = RigTForm(Quat::makeYRotation(dx)) * g_view;
-        g_view = RigTForm(Quat::makeXRotation(dy)) * g_view;
-        Mat4 view = rigTFormToMat(g_view);
-        view = transpose(view);
+        RigTForm tform = RigTForm(Quat::makeYRotation(dx)) * RigTForm(Quat::makeXRotation(dy));
+        g_view = tform * g_view;
+        Vec3 newUp = g_view.getRotation() * Vec3(0, 1, 0);
+        Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
+        float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
+        float sign = 1;
+        // Not sure why this works
+        if(newUp[0] < 0.0f)
+            sign = -1;
+        Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
+        tform = RigTForm(Vec3(0, 0, 0), q);
+        g_view = tform * g_view;
+        Mat4 view = transpose(rigTFormToMat(g_view));
 
         glUniformMatrix4fv(uniView, 1, GL_FALSE, &(view[0]));
+        //Vec3 trans = g_view.getTranslation();
+        //std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
+        draw_scene();
         cursorX = x;
-        cursorY = y;        
+        cursorY = y;
     }
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if(action != GLFW_PRESS && action != GLFW_REPEAT)
+        return;
+
+    Vec3 movement;
+    switch(key)
+    {
+    case GLFW_KEY_ESCAPE:
+        glfwSetWindowShouldClose(window, GL_TRUE);
+        break;
+    case GLFW_KEY_A:
+        movement[0] = -.1f;
+        break;
+    case GLFW_KEY_D:
+        movement[0] = .1f;
+        break;
+    case GLFW_KEY_W:
+        movement[2] = -.1f;
+        break;
+    case GLFW_KEY_S:
+        movement[2] = .1f;
+        break;
+    default:
+        break;
+    }
+    // had to change from + to - because of view space
+    g_view.setTranslation(g_view.getTranslation() - movement);
+    Mat4 view = transpose(rigTFormToMat(g_view));
+
+    glUniformMatrix4fv(uniView, 1, GL_FALSE, &(view[0]));
+    draw_scene();
+}
+
+void initTextures()
+{
+    // Create 2 textures and load images to them    
+    glGenTextures(2, textures);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    
+    int width, height;
+    unsigned char* image;
+    image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glUniform1i(glGetUniformLocation(shaderProgram, "texKitten"), 0);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    image = SOIL_load_image("sample2.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glUniform1i(glGetUniformLocation(shaderProgram, "texPuppy"), 1);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);    
 }
 
 int main()
@@ -90,7 +251,7 @@ int main()
 
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     // Init GLEW
@@ -102,6 +263,7 @@ int main()
 
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetKeyCallback(window, keyCallback);
 
     // ----------------------------- RESOURCES ----------------------------- //
 
@@ -156,35 +318,20 @@ int main()
         -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
         -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f
     };
-    Mat4 moveCube1 = Mat4::makeTranslation(Vec3(0.7f, 0, 0));
 
-
-    RigTForm moveCube(Vec3(0.0f, 0, 0));
+    GLfloat floor_verts[] = {
+        -2.0f, -0.5f, -2.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+        2.0f, -0.5f, -2.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        2.0f, -0.5f, 2.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
+        -2.0f, -0.5f, 2.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+    };
 
     GLuint elements[] = {
          0, 1, 2,
          2, 3, 0
     };
 
-    // Create and compile the vertex shader
-    const char* vertexSource = GLSL(
-        uniform mat4 trans;
-        uniform mat4 view;
-        uniform mat4 proj;
-
-        in vec3 position;
-        in vec3 color;
-        in vec2 texcoord;
-
-        out vec3 Color;
-        out vec2 Texcoord;
-        
-        void main() {
-            Color = color;
-            Texcoord = texcoord;
-            gl_Position = proj * view * trans * vec4(position, 1.0);
-        }
-    );
+    initTextures();
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, NULL);
@@ -195,23 +342,6 @@ int main()
 
     if(status != GL_TRUE)
         fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-
-    // Create and compile the fragment shader
-    const char* fragmentSource = GLSL(
-        uniform sampler2D texKitten;
-        uniform sampler2D texPuppy;
-
-        in vec3 Color;
-        in vec2 Texcoord;
-
-        out vec4 outColor;
-        
-        void main() {
-            //outColor = mix(texture(texKitten, Texcoord), texture(texPuppy, Texcoord), 0.5) * vec4(Color, 1.0);
-            outColor = vec4(Color, 1.0);
-        }
-    );
-
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
     glCompileShader(fragmentShader);
@@ -222,7 +352,7 @@ int main()
         fprintf(stderr, "Fragment shader compiled incorrectly.\n");
 
     // Link the vertex and fragment shader into a shader program
-    GLuint shaderProgram = glCreateProgram();
+    shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glBindFragDataLocation(shaderProgram, 0, "outColor");
@@ -230,63 +360,29 @@ int main()
     glUseProgram(shaderProgram);
 
     // Transform matrices
-    GLint uniTrans = glGetUniformLocation(shaderProgram, "trans");
+    uniTrans = glGetUniformLocation(shaderProgram, "trans");
 
-    //Mat4 view = Mat4::lookAt(Vec3(1.2f, 1.2f, 1.2f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
-    g_view = RigTForm::lookAt(Vec3(1.2f, 1.2f, 1.2f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
+    g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
+    Vec3 trans = g_view.getTranslation();
+    std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
     Mat4 view = rigTFormToMat(g_view);
     view = transpose(view);
+
 
     uniView = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(uniView, 1, GL_FALSE, &(view[0]));
 
-    Mat4 proj = Mat4::makeProjection(80.0f, 800.0f/600.0f, 0.1f, 10.0f);
-    proj = transpose(proj);
+    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 10.0f);
+    Mat4 proj = transpose(g_proj);
 
     GLint uniProj = glGetUniformLocation(shaderProgram, "proj");
     glUniformMatrix4fv(uniProj, 1, GL_FALSE, &(proj[0]));
 
-    // Create 2 textures and load images to them
-    GLuint textures[2];
-    glGenTextures(2, textures);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    
-    int width, height;
-    unsigned char* image;
-    image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-    glUniform1i(glGetUniformLocation(shaderProgram, "texKitten"), 0);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    image = SOIL_load_image("sample2.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-    glUniform1i(glGetUniformLocation(shaderProgram, "texPuppy"), 1);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
 
     // Create Vertex Array Object
-    GLuint vao1, vao2;
-    GLuint vbo1, vbo2;
+
+
     GLuint ebo;
     glGenVertexArrays(1, &vao1);
     glGenVertexArrays(1, &vao2);
@@ -303,7 +399,6 @@ int main()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements,
         GL_STATIC_DRAW);
-
     
     // Specify the layout of the vertex data
     GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
@@ -326,10 +421,10 @@ int main()
     glUniform3fv(uColor, 1, &(colorVec[0]));
     */
 
-    /*
+
     glBindVertexArray(vao2);
     glBindBuffer(GL_ARRAY_BUFFER, vbo2);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), verts2, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW);
 
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -345,43 +440,21 @@ int main()
     glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
 
     glBindVertexArray(0);
-    */
+
 
     // ---------------------------- RENDERING ------------------------------ //
+    
     glEnable(GL_DEPTH_TEST);
+    draw_scene();
     while(!glfwWindowShouldClose(window))
     {
-		// Clear the screen to black
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Apply a rotation
 
-        Mat4 trans;
-        //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
-
-        //RigTForm tform(Quat::makeZRotation((float)(glfwGetTime()*30)));
-        RigTForm tform(Quat(1, 0, 0, 0));
-        //tform = tform*moveCube;
-        trans = rigTFormToMat(tform);
-        trans = transpose(trans);
-
-        glUniformMatrix4fv(uniTrans, 1, GL_FALSE, &(trans[0]));
-
         
-        // Draw a quad from the 2 triangles using 6 elements
-        glBindVertexArray(vao1);
-        //glBindBuffer(GL_ARRAY_BUFFER, vbo1);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        /*
-        glBindVertexArray(vao2);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        */
 
         // Swap buffers and poll window events
-        glfwSwapBuffers(window);
+   
         glfwPollEvents();
     }
 

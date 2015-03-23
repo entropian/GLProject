@@ -143,7 +143,7 @@ typedef Vec<4> Vec4;
 //tested
 inline Vec3 cross(const Vec3& a, const Vec3& b)
 {
-  return Vec3(a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]);
+    return Vec3((a[1]*b[2])-(a[2]*b[1]), (a[2]*b[0])-(a[0]*b[2]), (a[0]*b[1])-(a[1]*b[0]));
 }
 /*
 inline Vec3 cross(const Vec3& a, const Vec3& b)
@@ -182,5 +182,6 @@ inline Vec<n> normalize(const Vec<n>& v)
     assert(dot(v, v) > EPS2);
     return v/norm(v);
 }
+
 
 #endif
