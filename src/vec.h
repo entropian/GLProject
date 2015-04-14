@@ -13,127 +13,127 @@ static const double EPS3 = EPS*EPS*EPS;
 template <int n>
 class Vec
 {
-    float f_[n];
-    
+	float f_[n];
+
 public:
-    Vec()
-    {
-        for(int i = 0; i < n; i++)
-            f_[i] = 0;
-    }
+	Vec()
+	{
+		for (int i = 0; i < n; i++)
+			f_[i] = 0;
+	}
 
-    // tested
-    Vec(float t)
-    {
-        for(int i = 0; i < n; i++)
-            f_[i] = t;
-    }
+	// tested
+	Vec(float t)
+	{
+		for (int i = 0; i < n; i++)
+			f_[i] = t;
+	}
 
-    // tested
-    Vec(float a, float b)
-    {
-        assert(n == 2);
-        f_[0] = a;
-        f_[1] = b;
-    }
-    // tested
-    Vec(float a, float b, float c)
-    {
-        assert(n == 3);
-        f_[0] = a;
-        f_[1] = b;
-        f_[2] = c;
-    }
-    // tested
-    Vec(float a, float b, float c, float d)
-    {
-        assert(n == 4);
-        f_[0] = a;
-        f_[1] = b;
-        f_[2] = c;
-        f_[3] = d;
-    }
+	// tested
+	Vec(float a, float b)
+	{
+		assert(n == 2);
+		f_[0] = a;
+		f_[1] = b;
+	}
+	// tested
+	Vec(float a, float b, float c)
+	{
+		assert(n == 3);
+		f_[0] = a;
+		f_[1] = b;
+		f_[2] = c;
+	}
+	// tested
+	Vec(float a, float b, float c, float d)
+	{
+		assert(n == 4);
+		f_[0] = a;
+		f_[1] = b;
+		f_[2] = c;
+		f_[3] = d;
+	}
 
-    // truncate if m < n, or extend the vector with extendValue
-    template<int m>
-    explicit Vec(const Vec<m>& a, const float extendValue = 0.0)
-    {
-        for(int i = 0; i < min(m, n); i++)
-            f_[i] = a[i];
+	// truncate if m < n, or extend the vector with extendValue
+	template<int m>
+	explicit Vec(const Vec<m>& a, const float extendValue = 0.0)
+	{
+		for (int i = 0; i < min(m, n); i++)
+			f_[i] = a[i];
 
-        for(int i = min(m, n); i < n; i++)
-            f_[i] = extendValue;
-    }
+		for (int i = min(m, n); i < n; i++)
+			f_[i] = extendValue;
+	}
 
-    float& operator [](const int i)
-    {
-        return f_[i];
-    }
+	float& operator [](const int i)
+	{
+		return f_[i];
+	}
 
-    const float& operator[](const int i) const
-    {
-        return f_[i];
-    }
-    //tested
-    Vec operator - () const
-    {
-        return Vec(*this) *= -1;
-    }
-    //tested
-    Vec& operator +=(const Vec& v)
-    {
-        for(int i = 0; i < n; i++)
-            f_[i] += v[i];
-        return *this;
-    }
-    //tested
-    Vec& operator -=(const Vec& v)
-    {
-        for(int i = 0; i < n; i++)
-            f_[i] -= v[i];
-        return *this;
-    }
-    //tested
-    Vec& operator *=(const float a)
-    {
-        for(int i = 0; i < n; i++)
-            f_[i] *= a;
-        return *this;
-    }
-    //tested
-    Vec& operator /=(const float a)
-    {
-        const float inva = 1/a;
-        for(int i = 0; i < n; i++)
-            f_[i] *= inva;
-        return *this;
-    }
-    //tested
-    Vec operator +(const Vec& v) const
-    {
-        return Vec(*this) += v;
-    }
-    //tested
-    Vec operator -(const Vec& v) const
-    {
-        return Vec(*this) -= v;
-    }
-    //tested
-    Vec operator *(const float a) const
-    {
-        return Vec(*this) *= a;
-    }
-    //tested
-    Vec operator /(const float a) const
-    {
-        return Vec(*this) /= a;
-    }
-    //tested
-    Vec& normalize()
-    {
-        assert(dot(*this, *this) > EPS2);
-        return *this /= sqrt(dot(*this, *this));
-    }
+	const float& operator[](const int i) const
+	{
+		return f_[i];
+	}
+	//tested
+	Vec operator - () const
+	{
+		return Vec(*this) *= -1;
+	}
+	//tested
+	Vec& operator +=(const Vec& v)
+	{
+		for (int i = 0; i < n; i++)
+			f_[i] += v[i];
+		return *this;
+	}
+	//tested
+	Vec& operator -=(const Vec& v)
+	{
+		for (int i = 0; i < n; i++)
+			f_[i] -= v[i];
+		return *this;
+	}
+	//tested
+	Vec& operator *=(const float a)
+	{
+		for (int i = 0; i < n; i++)
+			f_[i] *= a;
+		return *this;
+	}
+	//tested
+	Vec& operator /=(const float a)
+	{
+		const float inva = 1 / a;
+		for (int i = 0; i < n; i++)
+			f_[i] *= inva;
+		return *this;
+	}
+	//tested
+	Vec operator +(const Vec& v) const
+	{
+		return Vec(*this) += v;
+	}
+	//tested
+	Vec operator -(const Vec& v) const
+	{
+		return Vec(*this) -= v;
+	}
+	//tested
+	Vec operator *(const float a) const
+	{
+		return Vec(*this) *= a;
+	}
+	//tested
+	Vec operator /(const float a) const
+	{
+		return Vec(*this) /= a;
+	}
+	//tested
+	Vec& normalize()
+	{
+		assert(dot(*this, *this) > EPS2);
+		return *this /= sqrt(dot(*this, *this));
+	}
 };
 
 typedef Vec<2> Vec2;
@@ -143,13 +143,13 @@ typedef Vec<4> Vec4;
 //tested
 inline Vec3 cross(const Vec3& a, const Vec3& b)
 {
-    return Vec3((a[1]*b[2])-(a[2]*b[1]), (a[2]*b[0])-(a[0]*b[2]), (a[0]*b[1])-(a[1]*b[0]));
+	return Vec3((a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0]));
 }
 /*
 inline Vec3 cross(const Vec3& a, const Vec3& b)
 {
-    return Vec<3 > r;
-    //return Vec3(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]);
+return Vec<3 > r;
+//return Vec3(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]);
 }
 */
 
@@ -157,30 +157,30 @@ inline Vec3 cross(const Vec3& a, const Vec3& b)
 template<int n>
 inline float dot(const Vec<n>& a, const Vec<n>& b)
 {
-    float r = 0;
-    for(int i = 0; i < n; i++)
-        r += a[i]*b[i];
-    return r;
+	float r = 0;
+	for (int i = 0; i < n; i++)
+		r += a[i] * b[i];
+	return r;
 }
 
 template<int n>
 inline float norm2(const Vec<n>& v)
 {
-    return dot(v, v);
+	return dot(v, v);
 }
 
 template<int n>
 inline float norm(const Vec<n>& v)
 {
-    return sqrt(dot(v, v));
+	return sqrt(dot(v, v));
 }
 
 // Return a normalized vector without modifying the input
 template<int n>
 inline Vec<n> normalize(const Vec<n>& v)
 {
-    assert(dot(v, v) > EPS2);
-    return v/norm(v);
+	assert(dot(v, v) > EPS2);
+	return v / norm(v);
 }
 
 
