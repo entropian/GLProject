@@ -102,10 +102,10 @@ struct Geometry {
         glBindVertexArray(vao);
         // Now create the VBO and IBO
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vtx), vtx, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * 8, vtx, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(edx), edx, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * eboLen, edx, GL_STATIC_DRAW);
         
         glBindVertexArray(0);
     }
@@ -119,7 +119,7 @@ struct Geometry {
         glBindVertexArray(vao);
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vtx), vtx, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * 8, vtx, GL_STATIC_DRAW);
         
         glBindVertexArray(0);
     }
@@ -249,7 +249,7 @@ struct ShaderState {
 
         if(geometry->shaderProgram != shaderProgram)
         {
-            
+            std::cout << "run once.\n";
             glEnableVertexAttribArray(h_aPosition);
             glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
             glEnableVertexAttribArray(h_aTexcoord);
@@ -259,9 +259,14 @@ struct ShaderState {
         }
 
         if(geometry->eboLen == 0)
+        {
+            std::cout << "vboLen = " << geometry->vboLen << "\n";
             glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
-        else
+        }else
+        {
+            std::cout << "and ebo\n";
             glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
+        }
     }
 
 };
@@ -291,46 +296,28 @@ void draw_scene()
 
 
     glUseProgram(flatShader->shaderProgram);
-    glBindVertexArray(g_cube->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, g_cube->vbo);
-
-    glEnableVertexAttribArray(flatShader->h_aPosition);
-    glVertexAttribPointer(flatShader->h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-    glEnableVertexAttribArray(flatShader->h_aTexcoord);
-    glVertexAttribPointer(flatShader->h_aTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+    flatShader->draw(g_cube);
     
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glUseProgram(texturedShader->shaderProgram);
+    texturedShader->draw(g_floor);
 
-    
-    /*
-    glUseProgram(shaderProgram2);
-    glBindVertexArray(vao2);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo2);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    */
+    texturedShader->draw(g_wall);
 
-
-    /*
-    glBindVertexArray(vao3);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo3);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    */
-
-    trans = Mat4::makeTranslation(Vec3(1, 0, 0));
+    trans = Mat4::makeTranslation(Vec3(-1.0f, 0.0f, 20.0f));
     trans = transpose(trans);
+    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
+    texturedShader->draw(g_wall);
 
+    trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * Mat4::makeYRotation(90.0f);
+    trans = transpose(trans);
+    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
+    texturedShader->draw(g_wall);
 
-    /*
-    glUseProgram(shaderProgram1);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
-    glUniformMatrix4fv(uniTrans1, 1, GL_FALSE, &(trans[0]));
-    */
+    trans = Mat4::makeTranslation(Vec3(19, 0, 0)) * Mat4::makeYRotation(90.0f);
+    trans = transpose(trans);
+    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
+    texturedShader->draw(g_wall);
 
-
-    /*
-    glBindVertexArray(vao1);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    */
     glfwSwapBuffers(window);
 }
 
