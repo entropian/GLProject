@@ -27,22 +27,23 @@ static Mat4 g_proj;
 
 GLuint textures[2];
 GLuint shaderProgram1, shaderProgram2;
-GLuint vao1, vao2;
-GLuint vbo1, vbo2, ebo;
+GLuint vao1, vao2, vao3;
+GLuint vbo1, vbo2, vbo3, ebo;
 GLint uniTrans1, uniTrans2;
 
 GLFWwindow* window;
 
 //up vector
 
+
 // Create and compile the vertex shader
 static const char* vertexSource = GLSL(
     uniform mat4 trans;
     uniform mat4 view;
     uniform mat4 proj;
+    uniform vec3 color;
 
     in vec3 position;
-    in vec3 color;
     in vec2 texcoord;
 
     out vec3 Color;
@@ -88,6 +89,124 @@ static const char* floorFragSrc = GLSL(
     }
 );
 
+struct Geometry {
+    GLuint vao, vbo, ebo;
+    int vboLen, eboLen;
+    GLuint shaderProgram;
+
+    Geometry(GLfloat vtx[], unsigned short edx[], int vboLen, int eboLen) {
+        this->vboLen = vboLen;
+        this->eboLen = eboLen;
+
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
+
+        glBindVertexArray(vao);
+        // Now create the VBO and IBO
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vtx), vtx, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(edx), edx, GL_STATIC_DRAW);
+        
+        glBindVertexArray(0);
+    }
+
+    /*
+    void draw(const ShaderState& curSS) {
+        // Enable the attributes used by our shader
+        safe_glEnableVertexAttribArray(curSS.h_aPosition);
+        safe_glEnableVertexAttribArray(curSS.h_aNormal);
+
+        // bind vbo
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        safe_glVertexAttribPointer(curSS.h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, p));
+        safe_glVertexAttribPointer(curSS.h_aNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, n));
+
+        // bind ibo
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+
+        // draw!
+        glDrawElements(GL_TRIANGLES, iboLen, GL_UNSIGNED_SHORT, 0);
+
+        // Disable the attributes used by our shader
+        safe_glDisableVertexAttribArray(curSS.h_aPosition);
+        safe_glDisableVertexAttribArray(curSS.h_aNormal);
+    }
+    */
+};
+
+struct ShaderState {
+    GLuint shaderProgram;
+
+    // Handles to uniforms
+    GLint h_uTrans, h_uView, h_uProj, h_uColor;;
+    // Handles to attributes
+    GLint h_aPosition, h_aTexcoord;
+    
+
+    ShaderState(const char* vertexSource, const char* fragmentSource) {
+        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &vertexSource, NULL);
+        glCompileShader(vertexShader);
+
+        GLint status;
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
+        
+        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+        glCompileShader(fragmentShader);
+
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+
+        // Link the vertex and fragment shader into a shader program
+        shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glBindFragDataLocation(shaderProgram, 0, "outColor");
+        glLinkProgram(shaderProgram);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        //glUseProgram(program);
+
+        // Retrieve handles to uniform variables
+        h_uProj = glGetUniformLocation(shaderProgram, "proj");
+        h_uView = glGetUniformLocation(shaderProgram, "view");
+        h_uTrans = glGetUniformLocation(shaderProgram, "trans");
+        h_uColor = glGetUniformLocation(shaderProgram, "color");
+
+        // Retrieve handles to vertex attributes
+        h_aPosition = glGetAttribLocation(shaderProgram, "position");
+        h_aTexcoord = glGetAttribLocation(shaderProgram, "texcoord");
+        glEnableVertexAttribArray(h_aPosition);
+        glEnableVertexAttribArray(h_aTexcoord);
+        /*
+        if (!g_Gl2Compatible)
+            glBindFragDataLocation(h, 0, "fragColor");
+        checkGlErrors();
+        */
+    }
+
+    void draw(Geometry geometry) {
+        glBindVertexArray(geometry.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, geometry.vbo);
+
+        if(geometry.shaderProgram != shaderProgram)
+        {
+            //glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof
+            geometry.shaderProgram = shaderProgram;
+        }
+    }
+
+};
+
 void draw_scene()
 {    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -109,18 +228,50 @@ void draw_scene()
     glUniformMatrix4fv(uniTrans2, 1, GL_FALSE, &(trans[0]));
 
     glUseProgram(shaderProgram1);
-    // Draw a quad from the 2 triangles using 6 elements
     glBindVertexArray(vao1);
-    //glBindBuffer(GL_ARRAY_BUFFER, vbo1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
     glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    
     glUseProgram(shaderProgram2);
     glBindVertexArray(vao2);
-    //glBindBuffer(GL_ARRAY_BUFFER, vbo2);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo2);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    /*
-      glBindVertexArray(vao2);
-      glDrawArrays(GL_TRIANGLES, 0, 36);
-    */
+
+    glBindVertexArray(vao3);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo3);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    trans = Mat4::makeTranslation(Vec3(-1.0f, 0, 20.0f));
+    trans = transpose(trans);
+    glUniformMatrix4fv(uniTrans2, 1, GL_FALSE, &(trans[0]));
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    trans = Mat4::makeYRotation(90.0f);
+    trans = Mat4::makeTranslation(Vec3(-1.0f, 0, 0)) * Mat4::makeYRotation(90.0f);
+    trans = transpose(trans);
+    glUniformMatrix4fv(uniTrans2, 1, GL_FALSE, &(trans[0]));
+    
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    trans = Mat4::makeTranslation(Vec3(19.0f, 0, 0)) * Mat4::makeYRotation(90.0f);
+
+    trans = transpose(trans);
+    glUniformMatrix4fv(uniTrans2, 1, GL_FALSE, &(trans[0]));
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    trans = Mat4::makeTranslation(Vec3(1, 0, 0));
+    trans = transpose(trans);
+
+    glUseProgram(shaderProgram1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
+    glUniformMatrix4fv(uniTrans1, 1, GL_FALSE, &(trans[0]));
+
+    glBindVertexArray(vao1);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
     glfwSwapBuffers(window);
 }
 
@@ -236,8 +387,9 @@ void initTextures()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
     glUniform1i(glGetUniformLocation(shaderProgram2, "texKitten"), 0);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -252,8 +404,9 @@ void initTextures()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
     glUniform1i(glGetUniformLocation(shaderProgram2, "texPuppy"), 1);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -347,10 +500,17 @@ int main()
     };
 
     GLfloat floor_verts[] = {
-        -2.0f, -0.5f, -2.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-        2.0f, -0.5f, -2.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        2.0f, -0.5f, 2.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
-        -2.0f, -0.5f, 2.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+        -10.0f, -0.5f, -10.0f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
+        10.0f, -0.5f, -10.0f, 0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
+        10.0f, -0.5f, 10.0f, 0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        -10.0f, -0.5f, 10.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
+    };
+
+    GLfloat wall_verts[] = {
+        -10.0f, -0.5f, -10.0f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
+        10.0f, -0.5f, -10.0f, 0.5f, 0.5f, 0.5f, 10.0f, 1.0f,
+        10.0f, 1.5f, -10.0f, 0.5f, 0.5f, 0.5f, 10.0f, 0.0f,
+        -10.0f, 1.5f, -10.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
     };
 
     GLuint elements[] = {
@@ -361,8 +521,10 @@ int main()
     // Create Vertex Array Object
     glGenVertexArrays(1, &vao1);
     glGenVertexArrays(1, &vao2);
+    glGenVertexArrays(1, &vao3);
     glGenBuffers(1, &vbo1);
     glGenBuffers(1, &vbo2);
+    glGenBuffers(1, &vbo3);
     glGenBuffers(1, &ebo);
 
     
@@ -374,11 +536,17 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, vbo2);
     glBufferData(GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+
+    glBindVertexArray(vao3);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo3);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(wall_verts), wall_verts, GL_STATIC_DRAW);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
 
-    glBindVertexArray(vao1);
+    // Shaders
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, NULL);
     glCompileShader(vertexShader);
@@ -419,42 +587,48 @@ int main()
     uniView1 = glGetUniformLocation(shaderProgram1, "view");
     glUniformMatrix4fv(uniView1, 1, GL_FALSE, &(view[0]));
 
-    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 10.0f);
+    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
 
     GLint uniProj1 = glGetUniformLocation(shaderProgram1, "proj");
     glUniformMatrix4fv(uniProj1, 1, GL_FALSE, &(proj[0]));
 
+    GLint uniColor1 = glGetUniformLocation(shaderProgram1, "color");
+    glUniform3f(uniColor1, 0.6f, 0.6f, 0.6f);
+
+    glBindVertexArray(vao1);
     glBindBuffer(GL_ARRAY_BUFFER, vbo1);
     // Specify the layout of the vertex data
     GLint posAttrib1 = glGetAttribLocation(shaderProgram1, "position");
     glEnableVertexAttribArray(posAttrib1);
     glVertexAttribPointer(posAttrib1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
 
-
-    GLint colAttrib1 = glGetAttribLocation(shaderProgram1, "color");
-    glEnableVertexAttribArray(colAttrib1);
-    glVertexAttribPointer(colAttrib1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-
-
     GLint texAttrib1 = glGetAttribLocation(shaderProgram1, "texcoord");
     glEnableVertexAttribArray(texAttrib1);
     glVertexAttribPointer(texAttrib1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
 
-    glBindVertexArray(vao1);
+    glBindVertexArray(vao2);
     glBindBuffer(GL_ARRAY_BUFFER, vbo2);
+
     glEnableVertexAttribArray(posAttrib1);
     glVertexAttribPointer(posAttrib1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-
-    glEnableVertexAttribArray(colAttrib1);
-    glVertexAttribPointer(colAttrib1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
 
     glEnableVertexAttribArray(texAttrib1);
     glVertexAttribPointer(texAttrib1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
 
+    glBindVertexArray(vao3);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo3);
+
+    glEnableVertexAttribArray(posAttrib1);
+    glVertexAttribPointer(posAttrib1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+
+    glEnableVertexAttribArray(texAttrib1);
+    glVertexAttribPointer(texAttrib1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+
+
     ////////////////////////////////////////////////////////////////
     // SECOND SHADER
-    glBindVertexArray(vao1);
+ 
     GLuint floorFragShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(floorFragShader, 1, &floorFragSrc, NULL);
     glCompileShader(floorFragShader);
@@ -485,23 +659,21 @@ int main()
     uniView2 = glGetUniformLocation(shaderProgram2, "view");
     glUniformMatrix4fv(uniView2, 1, GL_FALSE, &(view[0]));
 
-    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 10.0f);
+    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     proj = transpose(g_proj);
 
     GLint uniProj2 = glGetUniformLocation(shaderProgram2, "proj");
     glUniformMatrix4fv(uniProj2, 1, GL_FALSE, &(proj[0]));
 
+    GLint uniColor2 = glGetUniformLocation(shaderProgram2, "color");
+    glUniform3f(uniColor2, 0.6f, 0.6f, 0.6f);
+
+    glBindVertexArray(vao1);
     glBindBuffer(GL_ARRAY_BUFFER, vbo1);
     // Specify the layout of the vertex data
     GLint posAttrib2 = glGetAttribLocation(shaderProgram2, "position");
     glEnableVertexAttribArray(posAttrib2);
     glVertexAttribPointer(posAttrib2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-
-
-    GLint colAttrib2 = glGetAttribLocation(shaderProgram2, "color");
-    glEnableVertexAttribArray(colAttrib2);
-    glVertexAttribPointer(colAttrib2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-
 
     GLint texAttrib2 = glGetAttribLocation(shaderProgram2, "texcoord");
     glEnableVertexAttribArray(texAttrib2);
@@ -512,14 +684,17 @@ int main()
     glEnableVertexAttribArray(posAttrib2);
     glVertexAttribPointer(posAttrib2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
 
-    glEnableVertexAttribArray(colAttrib2);
-    glVertexAttribPointer(colAttrib2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(texAttrib2);
+    glVertexAttribPointer(texAttrib2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+
+    glBindVertexArray(vao3);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo3);
+    glEnableVertexAttribArray(posAttrib2);
+    glVertexAttribPointer(posAttrib2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
 
     glEnableVertexAttribArray(texAttrib2);
     glVertexAttribPointer(texAttrib2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
     
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo1);
     initTextures();
     // ---------------------------- RENDERING ------------------------------ //
     
@@ -543,6 +718,7 @@ int main()
     glDeleteTextures(2, textures);
     glDeleteBuffers(1, &vbo1);
     glDeleteVertexArrays(1, &vao1);
+    glDeleteVertexArrays(1, &vao2);
 
     // ---------------------------- TERMINATE ----------------------------- //
 
