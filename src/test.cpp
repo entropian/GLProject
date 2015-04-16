@@ -91,7 +91,7 @@ static const char* floorFragSrc = GLSL(
 
 struct Geometry {
     GLuint vao, vbo, ebo;
-    int vboLen, eboLen;
+    int vboLen = 0, eboLen = 0;
     GLuint shaderProgram;
 
     Geometry(GLfloat vtx[], unsigned short edx[], int vboLen, int eboLen) {
@@ -109,6 +109,20 @@ struct Geometry {
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(edx), edx, GL_STATIC_DRAW);
+        
+        glBindVertexArray(0);
+    }
+
+    Geometry(GLfloat vtx[], int vboLen) {
+        this->vboLen = vboLen;
+
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+
+        glBindVertexArray(vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vtx), vtx, GL_STATIC_DRAW);
         
         glBindVertexArray(0);
     }
@@ -185,8 +199,47 @@ struct ShaderState {
         // Retrieve handles to vertex attributes
         h_aPosition = glGetAttribLocation(shaderProgram, "position");
         h_aTexcoord = glGetAttribLocation(shaderProgram, "texcoord");
-        glEnableVertexAttribArray(h_aPosition);
-        glEnableVertexAttribArray(h_aTexcoord);
+
+        // Create 2 textures and load images to them    
+        glGenTextures(2, textures);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+
+        glUseProgram(shaderProgram);
+        int width, height;
+        unsigned char* image;
+        image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
+        if(image == NULL)
+            fprintf(stderr, "NULL pointer.\n");
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        glUniform1i(glGetUniformLocation(shaderProgram, "texKitten"), 0);
+
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        SOIL_free_image_data(image);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
+        image = SOIL_load_image("sample2.png", &width, &height, 0, SOIL_LOAD_RGB);
+        if(image == NULL)
+            fprintf(stderr, "NULL pointer.\n");
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        glUniform1i(glGetUniformLocation(shaderProgram, "texPuppy"), 1);
+
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        SOIL_free_image_data(image);
+
         /*
         if (!g_Gl2Compatible)
             glBindFragDataLocation(h, 0, "fragColor");
@@ -194,15 +247,24 @@ struct ShaderState {
         */
     }
 
-    void draw(Geometry geometry) {
-        glBindVertexArray(geometry.vao);
-        glBindBuffer(GL_ARRAY_BUFFER, geometry.vbo);
+    void draw(Geometry* geometry) {
+        glBindVertexArray(geometry->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
-        if(geometry.shaderProgram != shaderProgram)
+        if(geometry->shaderProgram != shaderProgram)
         {
-            //glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof
-            geometry.shaderProgram = shaderProgram;
+            glEnableVertexAttribArray(h_aPosition);
+            glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+            glEnableVertexAttribArray(h_aTexcoord);
+            glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+            
+            geometry->shaderProgram = shaderProgram;
         }
+
+        if(geometry->eboLen == 0)
+            glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
+        else
+            glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
     }
 
 };
