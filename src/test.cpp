@@ -211,7 +211,6 @@ struct ShaderState {
 
         if(geometry->shaderProgram != shaderProgram)
         {
-            std::cout << "run once.\n";
             glEnableVertexAttribArray(h_aPosition);
             glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
             glEnableVertexAttribArray(h_aNormal);
@@ -223,16 +222,10 @@ struct ShaderState {
         }
 
         if(geometry->eboLen == 0)
-        {
-            std::cout << "vboLen = " << geometry->vboLen << "\n";
             glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
-        }else
-        {
-            std::cout << "and ebo\n";
+        else
             glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
-        }
     }
-
 };
 
 Geometry *g_cube, *g_floor, *g_wall;
@@ -240,7 +233,7 @@ ShaderState *flatShader, *texturedShader;
 
 void draw_scene()
 {    
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     Mat4 trans = Mat4::makeTranslation(Vec3(-1, 0, 0));
@@ -488,12 +481,18 @@ int main()
 
     GLfloat *mesh_verts;
     int numVertices;
-    mesh_verts = readFromCollada("torus.dae", &numVertices);
+    mesh_verts = readFromCollada("monkey.dae", &numVertices);
+
+
+
     
     //g_cube = new Geometry(vertices, 36);
     g_cube = new Geometry(mesh_verts, numVertices);
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
+
+    //readFrom3DS("cube.3ds", &numVertices);
+    readFromObj("Ship.obj", &numVertices);
 
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     flatShader = new ShaderState(lightVertexSrc, fragmentSource);
@@ -508,32 +507,15 @@ int main()
     view = transpose(view);
 
     glUniformMatrix4fv(flatShader->h_uView, 1, GL_FALSE, &(view[0]));
-
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
-
     glUniformMatrix4fv(flatShader->h_uProj, 1, GL_FALSE, &(proj[0]));
-
     glUniform3f(flatShader->h_uColor, 0.6f, 0.6f, 0.6f);
-
-
-    ////////////////////////////////////////////////////////////////
+    
     // SECOND SHADER
- 
     glUseProgram(texturedShader->shaderProgram);
-
-    g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
-    trans = g_view.getTranslation();
-    view = rigTFormToMat(g_view);
-    view = transpose(view);
-
     glUniformMatrix4fv(texturedShader->h_uView, 1, GL_FALSE, &(view[0]));
-
-    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
-    proj = transpose(g_proj);
-
     glUniformMatrix4fv(texturedShader->h_uProj, 1, GL_FALSE, &(proj[0]));
-
     glUniform3f(texturedShader->h_uColor, 0.6f, 0.6f, 0.6f);
 
     // ---------------------------- RENDERING ------------------------------ //

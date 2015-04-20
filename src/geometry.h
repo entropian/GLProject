@@ -46,11 +46,15 @@ struct Geometry {
 };
 
 // returns the index of the character immediately after the substring.
-static int subStringAlpha(const char* fileContent, char buffer[], int index)
+// returns -1 if no new substring
+static int subStringAlpha(const char* fileContent, char buffer[], int fileSize, int index)
 {
     int i, j;
     for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
-    {}
+    {
+        if(i >= fileSize)
+            return -1;
+    }
 
     for(j = 0; (fileContent[j+i] >= 'A' && fileContent[j+i] <= 'Z') || (fileContent[j+i] >= 'a' && fileContent[j+i] <= 'z'); j++)
         buffer[j] = fileContent[j+i];
@@ -60,11 +64,14 @@ static int subStringAlpha(const char* fileContent, char buffer[], int index)
     return j + i;
 }
 
-static int subStringNum(const char* fileContent, char buffer[], int index)
+static int subStringNum(const char* fileContent, char buffer[], int fileSize, int index)
 {
     int i, j;
     for(i = index; (fileContent[i] < '0' || fileContent[i] > '9') && fileContent[i] != '-'; i++)
-    {}
+    {
+        if(i >= fileSize)
+            return -1;
+    }
 
     for(j = 0; ((fileContent[j+i] >= '0' && fileContent[j+i] <= '9') || fileContent[j+i] == '.') || fileContent[j+i] == '-'; j++)
         buffer[j] = fileContent[j+i];
@@ -111,47 +118,47 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
     // Read in the positions
     index = 0;
     while(strcmp(buffer, "count") != 0)
-        index = subStringAlpha(fileContent, buffer, index);
+        index = subStringAlpha(fileContent, buffer, readResult, index);
 
-    index = subStringNum(fileContent, buffer, index);
+    index = subStringNum(fileContent, buffer, readResult, index);
     posCount = atoi(buffer);
     printf("posCount = %d\n", posCount);
     posArray = (float*)malloc(sizeof(float) * posCount);
     for(i = 0; i < posCount; i++)
     {
-        index = subStringNum(fileContent, buffer, index);
+        index = subStringNum(fileContent, buffer, readResult, index);
         posArray[i] = atof(buffer);
     }
 
     // Read in the normals
     while(strcmp(buffer, "normals") != 0)
-        index = subStringAlpha(fileContent, buffer, index);
+        index = subStringAlpha(fileContent, buffer, readResult, index);
 
     while(strcmp(buffer, "count") != 0)
-        index = subStringAlpha(fileContent, buffer, index);
+        index = subStringAlpha(fileContent, buffer, readResult, index);
 
-    index = subStringNum(fileContent, buffer, index);
+    index = subStringNum(fileContent, buffer, readResult, index);
     normCount = atoi(buffer);
     printf("normCount = %d\n", normCount);
     normArray = (float*)malloc(sizeof(float) * normCount);
     for(i = 0; i < normCount; i++)
     {
-        index = subStringNum(fileContent, buffer, index);
+        index = subStringNum(fileContent, buffer, readResult, index);
         normArray[i] = atof(buffer);
     }
 
     // Read in the indices
     while(strcmp(buffer, "vcount") != 0)
-        index = subStringAlpha(fileContent, buffer, index);
+        index = subStringAlpha(fileContent, buffer, readResult, index);
 
-    index = subStringAlpha(fileContent, buffer, index);
+    index = subStringAlpha(fileContent, buffer, readResult, index);
 
     indexCount = normCount * 2;
     indexArray = (int*)malloc(sizeof(int) * indexCount);
     printf("new indexCount = %d\n", indexCount);
     for(i = 0; i < indexCount; i++)
     {
-        index = subStringNum(fileContent, buffer, index);
+        index = subStringNum(fileContent, buffer, readResult, index);
         indexArray[i] = atoi(buffer);
     }
     // Stuff positions and normals into the final vertex attribute array
@@ -264,4 +271,97 @@ int readFrom3DS(const char* fileName, int *numVertices)
     
     fclose(l_file);
     return 1;
+}
+
+GLfloat* readFromObj(const char* fileName, int *numVertices)
+{
+    int posCount, normCount, indexCount, texcoordCount, fileSize, readResult, index;
+    char *fileContent, buffer[50];;
+    GLfloat *posArray, *normArray, *texcoordArray; 
+    int *indexArray;
+    GLfloat *ret;
+    
+    // Determine the size of the file
+    FILE *fp = fopen(fileName, "rb");
+    if(fp == NULL)
+    {
+        fprintf(stderr, "Cannot open file.");
+        exit(0);
+    }
+    
+    fseek(fp, 0L, SEEK_END);
+    fileSize = ftell(fp);
+    fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
+    rewind(fp);
+    printf("File size = %d\n", fileSize);
+
+    readResult = fread((void*)fileContent, 1, fileSize, fp);
+    
+    if(readResult != fileSize)
+    {
+        fprintf(stderr, "Reading error.\n");
+        exit(1);
+    }
+    fclose(fp);
+
+    fileContent[readResult] = '\0';
+
+    //printf("%s\n", fileContent);
+    posCount = normCount = texcoordCount = 0;
+
+    index = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "v") == 0)
+            posCount++;
+        else if(strcmp(buffer, "vt") == 0)
+            texcoordCount++;
+        else if(strcmp(buffer, "vn") == 0)
+            normCount++;
+    }
+    printf("posCount = %d\n", posCount);
+    printf("normCount = %d\n", normCount);
+    printf("texcoordCount = %d\n", texcoordCount);
+
+    posArray = (GLfloat*)malloc(sizeof(GLfloat)*posCount*3);
+    normArray = (GLfloat*)malloc(sizeof(GLfloat)*normCount*3);
+    texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
+
+    int posIndex = 0, normIndex = 0, texcoordIndex = 0;
+
+    index = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "v") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            posArray[posIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            posArray[posIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            posArray[posIndex++] = (GLfloat)atof(buffer);
+        }else if(strcmp(buffer, "vt") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
+        }else if(strcmp(buffer, "vn") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            normArray[normIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            normArray[normIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            normArray[normIndex++] = (GLfloat)atof(buffer);
+        }
+    }
+
+    free(posArray);
+    free(normArray);
+    free(texcoordArray);
+    free(fileContent);
+    return NULL;
 }
