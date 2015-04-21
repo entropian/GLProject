@@ -40,7 +40,7 @@ struct Geometry {
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * 8, vtx, GL_STATIC_DRAW);
-        
+
         glBindVertexArray(0);
     }
 };
@@ -64,6 +64,8 @@ static int subStringAlpha(const char* fileContent, char buffer[], int fileSize, 
     return j + i;
 }
 
+// returns the index of the character immediately after the substring.
+// returns -1 if no new substring
 static int subStringNum(const char* fileContent, char buffer[], int fileSize, int index)
 {
     int i, j;
@@ -87,11 +89,9 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
 
 
     char buffer[50], *fileContent;
-    char c;
-    int i, j, posCount, normCount, indexCount, fileSize, readResult, index;
+    int i, posCount, normCount, indexCount, fileSize, readResult, index;
     float *posArray, *normArray, *vertexArray;
     int *indexArray;
-    char *token;
     
     // Determine the size of the file
     FILE *fp = fopen(fileName, "rb");
@@ -127,7 +127,7 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
     for(i = 0; i < posCount; i++)
     {
         index = subStringNum(fileContent, buffer, readResult, index);
-        posArray[i] = atof(buffer);
+        posArray[i] = (float)atof(buffer);
     }
 
     // Read in the normals
@@ -144,7 +144,7 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
     for(i = 0; i < normCount; i++)
     {
         index = subStringNum(fileContent, buffer, readResult, index);
-        normArray[i] = atof(buffer);
+        normArray[i] = (float)atof(buffer);
     }
 
     // Read in the indices
@@ -275,11 +275,11 @@ int readFrom3DS(const char* fileName, int *numVertices)
 
 GLfloat* readFromObj(const char* fileName, int *numVertices)
 {
-    int posCount, normCount, indexCount, texcoordCount, fileSize, readResult, index;
+    int posCount, normCount, indexCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
     char *fileContent, buffer[50];;
     GLfloat *posArray, *normArray, *texcoordArray; 
-    int *indexArray;
-    GLfloat *ret;
+    int *faceArray;
+    GLfloat *vertexArray;
     
     // Determine the size of the file
     FILE *fp = fopen(fileName, "rb");
@@ -307,7 +307,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     fileContent[readResult] = '\0';
 
     //printf("%s\n", fileContent);
-    posCount = normCount = texcoordCount = 0;
+    posCount = normCount = texcoordCount  = faceCount = 0;
 
     index = 0;
     while(index != -1)
@@ -317,20 +317,26 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
             posCount++;
         else if(strcmp(buffer, "vt") == 0)
             texcoordCount++;
-        else if(strcmp(buffer, "vn") == 0)
+        else if(strcmp(buffer, "vn") == 0)            
             normCount++;
+        else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
+            faceCount++;
     }
+
     printf("posCount = %d\n", posCount);
     printf("normCount = %d\n", normCount);
     printf("texcoordCount = %d\n", texcoordCount);
-
+    printf("faceCount = %d\n", faceCount);
+    
     posArray = (GLfloat*)malloc(sizeof(GLfloat)*posCount*3);
     normArray = (GLfloat*)malloc(sizeof(GLfloat)*normCount*3);
     texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
+    faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2);
 
-    int posIndex = 0, normIndex = 0, texcoordIndex = 0;
+    int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
 
     index = 0;
+    int maxSlash = 0;
     while(index != -1)
     {
         index = subStringAlpha(fileContent, buffer, readResult, index);
@@ -356,12 +362,74 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
             normArray[normIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, readResult, index);
             normArray[normIndex++] = (GLfloat)atof(buffer);
-        }
+        }else if(strcmp(buffer, "f") == 0)
+        {
+            int slashCount = 0;
+
+            for(int i = index; fileContent[i] != '\n'; i++)
+            {
+                if(fileContent[i] == '/')
+                    slashCount++;
+            }
+            if(maxSlash < slashCount)
+                maxSlash = slashCount;
+
+            int tmpIndex = index;
+            for(int i = 0; i < 9; i++)
+            {
+                tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
+                faceArray[faceIndex++] = atoi(buffer);
+            }
+
+            if(slashCount >= 8)
+            {
+                tmpIndex = index;
+                for(int i = 0; i < 12; i++)
+                {
+                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
+                    if(i < 3 || i > 5)
+                        faceArray[faceIndex++] = atoi(buffer);
+                }
+            }
+
+            if(slashCount >= 10)
+            {
+                tmpIndex = index;
+                for(int i = 0; i < 15; i++)
+                {
+                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
+                    if(i < 3 || i > 8)
+                        faceArray[faceIndex++] = atoi(buffer);
+                }
+            }
+        }                 
     }
 
+    vertexCount  = int((float)faceIndex*(2.0f + 2.0f/3.0f));
+    vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
+
+    int vertexIndex = 0;
+    for(int i = 0; i < faceIndex; i+=3)
+    {
+        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3];
+        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 1];
+        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 2];
+
+        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3];
+        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 1];
+        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 2];
+
+        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2];
+        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2 + 1];
+    }
+
+    *numVertices = vertexIndex / 8;
+    
     free(posArray);
     free(normArray);
     free(texcoordArray);
+    free(faceArray);
     free(fileContent);
-    return NULL;
+    return vertexArray;
 }
+

@@ -69,7 +69,7 @@ static const char* lightVertexSrc = GLSL(
         
     void main() {
         vec3 lightDir;
-        lightDir = normalize(vec3(0.0, 3.0, 0.0) - position);
+        lightDir = normalize(vec3(0.0, 3.0, 6.0) - position);
         Color = color * dot(normal, lightDir);
         Texcoord = texcoord;
         gl_Position = proj * view * trans * vec4(position, 1.0);
@@ -254,7 +254,7 @@ void draw_scene()
 
     glUseProgram(flatShader->shaderProgram);
     flatShader->draw(g_cube);
-    
+    /*
     glUseProgram(texturedShader->shaderProgram);
     texturedShader->draw(g_floor);
 
@@ -274,7 +274,7 @@ void draw_scene()
     trans = transpose(trans);
     glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
     texturedShader->draw(g_wall);
-
+    */
     glfwSwapBuffers(window);
 }
 
@@ -481,18 +481,18 @@ int main()
 
     GLfloat *mesh_verts;
     int numVertices;
-    mesh_verts = readFromCollada("monkey.dae", &numVertices);
-
-
+    //mesh_verts = readFromCollada("monkey.dae", &numVertices);
+    mesh_verts = readFromObj("dish.obj", &numVertices);
 
     
     //g_cube = new Geometry(vertices, 36);
     g_cube = new Geometry(mesh_verts, numVertices);
+
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
 
     //readFrom3DS("cube.3ds", &numVertices);
-    readFromObj("Ship.obj", &numVertices);
+    //readFromObj("Ship.obj", &numVertices);
 
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     flatShader = new ShaderState(lightVertexSrc, fragmentSource);
