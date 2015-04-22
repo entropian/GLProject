@@ -191,88 +191,6 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
     return vertexArray;
 }
 
-
-int readFrom3DS(const char* fileName, int *numVertices)
-{
-    int i, fileSize, numVerts, numPolygons;
-    FILE *l_file;
-    unsigned short l_chunk_id;
-    unsigned int l_chunk_length;
-    unsigned char l_char;
-    unsigned short l_qty;
-    unsigned short l_face_flags;
-    char objName[20];
-    GLfloat vertices[MAX_VERTICES];
-    unsigned short polygons[MAX_POLYGONS];
-    unsigned short texcoords[MAX_VERTICES];
-
-    if((l_file = fopen(fileName, "rb")) == NULL)
-        return 0;
-
-    fseek(l_file, 0, SEEK_END);
-    fileSize = ftell(l_file);
-    rewind(l_file);
-
-    while(ftell(l_file) < fileSize)
-    {
-        fread(&l_chunk_id, 2, 1, l_file);
-        printf("ChunkID: %x\n", l_chunk_id);
-        fread(&l_chunk_length, 4, 1, l_file);
-        printf("ChunkLength: %x\n", l_chunk_length);
-
-        switch(l_chunk_id)
-        {
-        case 0x4d4d: // Main chunk. Has no data.
-            break;
-        case 0x3d3d: // 3D editor chunk. Also has no data.
-            break;
-        case 0x4000: // Object block
-            i = 0;
-            do{
-                fread(&l_char, 1, 1, l_file);
-                objName[i] = l_char;
-                i++;
-            }while(l_char != '\0' && i< 20);
-            break;
-        case 0x4100: // empty node
-            break;
-        case 0x4110: // Vertices list
-            fread(&l_qty, sizeof(unsigned short), 1, l_file);
-            numVerts = l_qty;
-            printf("Number of vertices: %d\n", l_qty);
-            for(i = 0; i < l_qty; i++)
-            {
-                fread(&vertices[i*3], sizeof(GLfloat), 3, l_file);
-            }
-            break;
-        case 0x4120: // Faces description
-            fread(&l_qty, sizeof(unsigned short), 1, l_file);
-            numPolygons = l_qty;
-            printf("Number of polygons: %d\n", l_qty);
-            for(i = 0; i < l_qty; i++)
-            {
-                fread(&(polygons[i*3]), sizeof(unsigned short), 3, l_file);
-                fread(&l_face_flags, sizeof(unsigned short), 1, l_file);
-            }
-            break;
-        case 0x4140:
-            fread(&l_qty, sizeof(unsigned short), 1, l_file);
-            for(i = 0; i < l_qty; i++)
-                fread(&(texcoords[i*2]), sizeof(float), 2, l_file);
-            break;
-        default:
-            fseek(l_file, l_chunk_length-6, SEEK_CUR);
-        }
-    }
-
-    for(i = 0; i < numVerts; i++)
-        printf("Position %f, %f, %f\n", vertices[i], vertices[i+1], vertices[i+2]);
-
-    
-    fclose(l_file);
-    return 1;
-}
-
 GLfloat* readFromObj(const char* fileName, int *numVertices)
 {
     int posCount, normCount, indexCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
@@ -306,9 +224,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
 
     fileContent[readResult] = '\0';
 
-    //printf("%s\n", fileContent);
     posCount = normCount = texcoordCount  = faceCount = 0;
-
     index = 0;
     while(index != -1)
     {
@@ -320,7 +236,10 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
         else if(strcmp(buffer, "vn") == 0)            
             normCount++;
         else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
+        {
             faceCount++;
+            int slashCount = 0;
+        }
     }
 
     printf("posCount = %d\n", posCount);
@@ -336,7 +255,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
 
     index = 0;
-    int maxSlash = 0;
+
     while(index != -1)
     {
         index = subStringAlpha(fileContent, buffer, readResult, index);
@@ -402,7 +321,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
                         faceArray[faceIndex++] = atoi(buffer);
                 }
             }
-        }                 
+        } 
     }
 
     vertexCount  = int((float)faceIndex*(2.0f + 2.0f/3.0f));
