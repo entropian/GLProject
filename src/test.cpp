@@ -59,6 +59,7 @@ static const char* lightVertexSrc = GLSL(
     uniform mat4 view;
     uniform mat4 proj;
     uniform vec3 color;
+    uniform vec3 light;
 
     in vec3 position;
     in vec3 normal;
@@ -68,9 +69,14 @@ static const char* lightVertexSrc = GLSL(
     out vec2 Texcoord;
         
     void main() {
-        vec3 lightDir;
-        lightDir = normalize(vec3(0.0, 3.0, 6.0) - position);
-        Color = color * dot(normal, lightDir);
+        vec3 lightDir = normalize(light - position);
+        mat4 eye = inverse(view);
+        vec3 posE = (eye * vec4(0, 0, 0, 1)).xyz;
+        //vec3 posE = -(view * trans * vec4(0, 0, 0, 1.0)).xyz;
+        //vec3 eyeDir = normalize(posE.xyz);
+        vec3 eyeDir = normalize(posE - position);
+        vec3 reflectDir = normalize(2*dot(lightDir, normal)*normal - lightDir);
+        Color = color * dot(eyeDir, reflectDir);
         Texcoord = texcoord;
         gl_Position = proj * view * trans * vec4(position, 1.0);
     }
@@ -113,7 +119,7 @@ struct ShaderState {
     GLuint shaderProgram;
 
     // Handles to uniforms
-    GLint h_uTrans, h_uView, h_uProj, h_uColor;;
+    GLint h_uTrans, h_uView, h_uProj, h_uColor, h_uLight;
     // Handles to attributes
     GLint h_aPosition, h_aNormal, h_aTexcoord;
     
@@ -153,6 +159,7 @@ struct ShaderState {
         h_uView = glGetUniformLocation(shaderProgram, "view");
         h_uTrans = glGetUniformLocation(shaderProgram, "trans");
         h_uColor = glGetUniformLocation(shaderProgram, "color");
+        h_uLight = glGetUniformLocation(shaderProgram, "light");
 
         // Retrieve handles to vertex attributes
         h_aPosition = glGetAttribLocation(shaderProgram, "position");
@@ -166,7 +173,7 @@ struct ShaderState {
 
         int width, height;
         unsigned char* image;
-        image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
+        image = SOIL_load_image("Ship_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
         if(image == NULL)
             fprintf(stderr, "NULL pointer.\n");
 
@@ -183,7 +190,7 @@ struct ShaderState {
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, textures[1]);
-        image = SOIL_load_image("sample2.png", &width, &height, 0, SOIL_LOAD_RGB);
+        image = SOIL_load_image("Ship_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
         if(image == NULL)
             fprintf(stderr, "NULL pointer.\n");
 
@@ -228,7 +235,7 @@ struct ShaderState {
     }
 };
 
-Geometry *g_cube, *g_floor, *g_wall;
+Geometry *g_cube, *g_floor, *g_wall, *g_mesh;
 ShaderState *flatShader, *texturedShader;
 
 void draw_scene()
@@ -253,6 +260,14 @@ void draw_scene()
 
 
     glUseProgram(flatShader->shaderProgram);
+    glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
+    //glUseProgram(texturedShader->shaderProgram);        
+    flatShader->draw(g_mesh);
+
+    trans = Mat4::makeTranslation(Vec3(0, 1, -6));
+    trans = transpose(trans);
+    glUniformMatrix4fv(flatShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
+    glUniform3f(flatShader->h_uColor, 1.0f, 1.0f, 1.0f);
     flatShader->draw(g_cube);
     /*
     glUseProgram(texturedShader->shaderProgram);
@@ -328,8 +343,10 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         glUniformMatrix4fv(flatShader->h_uView, 1, GL_FALSE, &(view[0]));
         glUseProgram(texturedShader->shaderProgram);
         glUniformMatrix4fv(texturedShader->h_uView, 1, GL_FALSE, &(view[0]));
-        //Vec3 trans = g_view.getTranslation();
-        //std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
+        RigTForm invView = inv(g_view);
+        Vec3 trans = invView.getTranslation();
+        
+        std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
         draw_scene();
         cursorX = x;
         cursorY = y;
@@ -363,14 +380,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         break;
     }
     // had to change from + to - because of view space
-    g_view.setTranslation(g_view.getTranslation() - movement);
+    RigTForm m(-movement);
+    g_view = m * g_view;
+    RigTForm invView =inv(g_view);
+    //g_view.setTranslation(g_view.getTranslation() - movement);
     Mat4 view = transpose(rigTFormToMat(g_view));
-
+    
     glUseProgram(flatShader->shaderProgram);
     glUniformMatrix4fv(flatShader->h_uView, 1, GL_FALSE, &(view[0]));
     glUseProgram(texturedShader->shaderProgram);
     glUniformMatrix4fv(texturedShader->h_uView, 1, GL_FALSE, &(view[0]));
     draw_scene();
+    Vec3 trans = invView.getTranslation();
+    std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
 }
 
 
@@ -481,12 +503,12 @@ int main()
 
     GLfloat *mesh_verts;
     int numVertices;
-    //mesh_verts = readFromCollada("monkey.dae", &numVertices);
-    mesh_verts = readFromObj("dish.obj", &numVertices);
+
+    mesh_verts = readFromObj("galileo.obj", &numVertices);
 
     
-    //g_cube = new Geometry(vertices, 36);
-    g_cube = new Geometry(mesh_verts, numVertices);
+    g_cube = new Geometry(vertices, 36);
+    g_mesh = new Geometry(mesh_verts, numVertices);
 
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
@@ -510,7 +532,9 @@ int main()
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
     glUniformMatrix4fv(flatShader->h_uProj, 1, GL_FALSE, &(proj[0]));
-    glUniform3f(flatShader->h_uColor, 0.6f, 0.6f, 0.6f);
+    glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
+    glUniform3f(flatShader->h_uLight, 0.0f, 1.0f, -6.0f);
+    
     
     // SECOND SHADER
     glUseProgram(texturedShader->shaderProgram);
@@ -540,13 +564,16 @@ int main()
     glDeleteBuffers(1, &(g_cube->vbo));
     glDeleteBuffers(1, &(g_floor->vbo));
     glDeleteBuffers(1, &(g_wall->vbo));
+    glDeleteBuffers(1, &(g_mesh->vbo));
     glDeleteVertexArrays(1, &(g_cube->vao));
     glDeleteVertexArrays(1, &(g_floor->vao));
     glDeleteVertexArrays(1, &(g_wall->vao));
+    glDeleteVertexArrays(1, &(g_mesh->vao));
 
     free(flatShader);
     free(texturedShader);
     free(g_cube);
+    free(g_mesh);
     free(g_floor);
     free(g_wall);
     free(mesh_verts);
