@@ -2,6 +2,8 @@
 #include <GL/glfw3.h>
 #include "SOIL.h"
 #include <iostream>
+#include <stdlib.h>
+#include <time.h>
 
 #include "vec.h"
 #include "mat.h"
@@ -27,15 +29,14 @@ static double cursorY;
 static RigTForm g_view, g_trans;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh;
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 static ShaderState *flatShader, *texturedShader;
-static RenderObject *g_cubeObject, *g_meshObject;
+static RenderObject *g_cubeObject, *g_meshObject, *ROArray[20], *g_terrainObject;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
 GLFWwindow* window;
 
-//up vector
 
 //////////////// Shaders
 //////// Vertex Shaders
@@ -107,7 +108,8 @@ static const char* diffuseVertSrc = GLSL(
         */
 
         vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vec3 normE = (inverse(transpose(uModelViewMat)) * vec4(aNormal, 1.0)).xyz;
+        //vec3 normE = (inverse(transpose(uModelViewMat)) * vec4(aNormal, 1.0)).xyz;
+        vec3 normE = (normalMat * vec4(aNormal, 1.0)).xyz;
         vec3 lightDirE = normalize(uLight - posE);
 
         if(dot(lightDirE, normE) > 0)
@@ -144,17 +146,7 @@ static const char* lightVertexSrc = GLSL(
     out vec2 vTexcoord;
         
     void main() {
-        // in world space
-        // TODO: figure out the dot product and the angles
-        /*
-        vec3 posW = (trans * vec4(position, 1.0)).xyz;
-        vec3 normW = (transpose(inverse(trans)) * vec4(normal, 1.0)).xyz;
-        vec3 lightDir = normalize(light - posW);
-        vec3 eyeW = (inverse(view) * vec4(0, 0, 0, 1.0)).xyz;
-        vec3 eyeDir = normalize(eyeW - posW);
-        vec3 reflectDir = 2.0*dot(lightDir, normW)*normW - lightDir;
-        */
-
+        // in eye space
         vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         vec3 normE = (uNormalMat * vec4(aNormal, 1.0)).xyz;
         vec3 lightDirE = normalize(uLight - posE);
@@ -253,14 +245,22 @@ void draw_scene()
     //trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * trans;
     //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
 
-    //Update modelViewRbt of all RenderObject
+    // Update modelViewRbt of all RenderObject
     g_cubeObject->calcModelView(g_view);
     g_meshObject->calcModelView(g_view);
+    g_terrainObject->calcModelView(g_view);
+    for(int i = 0; i < 20; i++)
+        ROArray[i]->calcModelView(g_view);
 
+    // Setup additional uniforms
     g_lightE = g_view * g_lightW;
     flatShader->sendLightEyePos(g_lightE);
     flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
-    flatShader->draw(g_meshObject);
+
+    // Draw objects
+    flatShader->draw(g_terrainObject);
+
+
     
     /*
     Mat4 modelViewMat = view * model;
@@ -290,7 +290,7 @@ void draw_scene()
     flatShader->draw(g_cube);
     */
     
-    /*
+    /* Floor and walls
     glUseProgram(texturedShader->shaderProgram);
     texturedShader->draw(g_floor);
 
@@ -346,8 +346,12 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         float dx = (float)(x - cursorX);
         float dy = (float)(y - cursorY);
 
+
         RigTForm tform = RigTForm(Quat::makeYRotation(dx)) * RigTForm(Quat::makeXRotation(dy));
         g_view = tform * g_view;
+        // Keep the camera upright
+        // Rotate the camera around its z axis so that its y axis is
+        // in the plane defined by its z axis and world y axis.
         Vec3 newUp = g_view.getRotation() * Vec3(0, 1, 0);
         Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
         float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
@@ -381,22 +385,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, GL_TRUE);
         break;
     case GLFW_KEY_A:
-        movement[0] = -.1f;
-        break;
-    case GLFW_KEY_D:
         movement[0] = .1f;
         break;
+    case GLFW_KEY_D:
+        movement[0] = -.1f;
+        break;
     case GLFW_KEY_W:
-        movement[2] = -.1f;
+        movement[2] = .1f;
         break;
     case GLFW_KEY_S:
-        movement[2] = .1f;
+        movement[2] = -.1f;
         break;
     default:
         break;
     }
-    // had to change from + to - because of view space
-    RigTForm m(-movement);
+
+    RigTForm m(movement);
     g_view = m * g_view;
     RigTForm invView = inv(g_view);
     draw_scene();
@@ -478,7 +482,7 @@ void initGeometry()
     GLfloat *mesh_verts;
     int numVertices;
 
-    mesh_verts = readFromObj("Ship.obj", &numVertices);
+    mesh_verts = readFromObj("dish.obj", &numVertices);
 
     
     g_cube = new Geometry(vertices, 36);
@@ -487,6 +491,116 @@ void initGeometry()
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
 
+    // Terrain
+    struct vertex
+    {
+        float x, y, z;
+    };
+
+    vertex grid[20][20];
+
+    // make flat grid
+    for(int i = 0; i < 20; i++)
+    {
+        for(int j = 0; j < 20; j++)
+        {
+            grid[i][j].x = -10.0f + j;
+            grid[i][j].z = 10.0f - i;
+            grid[i][j].y = 0.0f;
+        }
+    }
+
+    // add varying height to each vertex on the grid
+    srand(time(NULL));
+    for(int i = 0; i < 20; i++)
+    {
+        for(int j = 0; j < 20; j++)
+        {
+            int random = rand() % 100 + 1;
+            grid[i][j].y += (float)random / 100.0f * 1.0f;
+        }
+    }
+
+    GLfloat terrain_verts[19*19*2*3*8];
+    int index = 0;
+
+    for(int i = 0; i < 19; i++)
+    {
+        for(int j = 0; j < 19; j++)
+        {
+            // first triangle
+            // position
+            terrain_verts[index++] = grid[i][j].x;
+            terrain_verts[index++] = grid[i][j].y;
+            terrain_verts[index++] = grid[i][j].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+
+            terrain_verts[index++] = grid[i+1][j].x;
+            terrain_verts[index++] = grid[i+1][j].y;
+            terrain_verts[index++] = grid[i+1][j].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+
+            terrain_verts[index++] = grid[i+1][j+1].x;
+            terrain_verts[index++] = grid[i+1][j+1].y;
+            terrain_verts[index++] = grid[i+1][j+1].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+
+            // second triangle
+            terrain_verts[index++] = grid[i][j].x;
+            terrain_verts[index++] = grid[i][j].y;
+            terrain_verts[index++] = grid[i][j].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+
+            terrain_verts[index++] = grid[i+1][j+1].x;
+            terrain_verts[index++] = grid[i+1][j+1].y;
+            terrain_verts[index++] = grid[i+1][j+1].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+
+            terrain_verts[index++] = grid[i][j+1].x;
+            terrain_verts[index++] = grid[i][j+1].y;
+            terrain_verts[index++] = grid[i][j+1].z;
+            // normal
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 1.0f;
+            terrain_verts[index++] = 0.0f;
+            // texcoord
+            terrain_verts[index++] = 0.0f;
+            terrain_verts[index++] = 0.0f;
+        }
+    }
+
+    g_terrain = new Geometry(terrain_verts, index/8);
+    printf("here\n");
     free(mesh_verts);
 }
 
@@ -524,7 +638,13 @@ void initScene()
     RigTForm modelRbt(g_lightW);
     g_cubeObject = new RenderObject(g_cube, modelRbt);
     modelRbt = RigTForm(Vec3(0, 0, 0));
-    g_meshObject = new RenderObject(g_mesh, modelRbt); 
+    g_meshObject = new RenderObject(g_mesh, modelRbt);
+
+    for(int i = 0; i < 20; i++)
+        ROArray[i] = new RenderObject(g_cube, RigTForm(Vec3(-20.0f + i*2, 0, 0)));
+
+    g_terrainObject = new RenderObject(g_terrain, modelRbt);
+
 }
 
 int main()
