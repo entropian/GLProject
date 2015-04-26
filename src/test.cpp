@@ -9,6 +9,7 @@
 #include "rigtform.h"
 #include "geometry.h"
 #include "material.h"
+#include "scenegraph.h"
 
 /*
 #include "glm/glm.hpp"
@@ -24,9 +25,11 @@ static double cursorX;
 static double cursorY;
 
 static RigTForm g_view, g_trans;
-static Vec3 lightE, lightW(0.0f, 10.0f, 5.0f);
+static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
-
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh;
+static ShaderState *flatShader, *texturedShader;
+static RenderObject *g_cubeObject, *g_meshObject;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -239,8 +242,7 @@ static const char* floorFragSrc = GLSL(
     }
 );
 
-Geometry *g_cube, *g_floor, *g_wall, *g_mesh;
-ShaderState *flatShader, *texturedShader;
+
 
 void draw_scene()
 {    
@@ -251,28 +253,29 @@ void draw_scene()
     //trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * trans;
     //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
 
-    //RigTForm tform(Quat::makeZRotation((float)(glfwGetTime()*30)));
-    //g_trans = RigTForm(Quat(1, 0, 0, 0));
-    //trans = rigTFormToMat(g_trans);
-    //trans = transpose(trans)
+    //Update modelViewRbt of all RenderObject
+    g_cubeObject->calcModelView(g_view);
+    g_meshObject->calcModelView(g_view);
 
-    Mat4 model = Mat4::makeTranslation(Vec3(0, 0, 0));
-    Mat4 view = rigTFormToMat(g_view);
-
-    //Mat4 modelViewMat = viewTranspose * modelTranspose;
+    g_lightE = g_view * g_lightW;
+    flatShader->sendLightEyePos(g_lightE);
+    flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
+    flatShader->draw(g_meshObject);
+    
+    /*
     Mat4 modelViewMat = view * model;
     modelViewMat = transpose(modelViewMat);
-    // TODO: try playing around with the order of inverse and transpose
     Mat4 normalMat = inv(transpose(modelViewMat));
 
-    lightE = g_view * lightW;
+
+    g_lightE = g_view * g_lightW;
 
 
     glUseProgram(flatShader->shaderProgram);
     glUniformMatrix4fv(flatShader->h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
     glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
     glUniformMatrix4fv(flatShader->h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
-    glUniform3f(flatShader->h_uLight, lightE[0], lightE[1], lightE[2]);
+    glUniform3f(flatShader->h_uLight, g_lightE[0], g_lightE[1], g_lightE[2]);
     //glUseProgram(texturedShader->shaderProgram);        
     flatShader->draw(g_mesh);
 
@@ -285,6 +288,8 @@ void draw_scene()
     glUniformMatrix4fv(flatShader->h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
     glUniform3f(flatShader->h_uColor, 1.0f, 1.0f, 1.0f);
     flatShader->draw(g_cube);
+    */
+    
     /*
     glUseProgram(texturedShader->shaderProgram);
     texturedShader->draw(g_floor);
@@ -399,43 +404,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
 }
 
-
-int main()
+void initGeometry()
 {
-    // -------------------------------- INIT ------------------------------- //
-
-    // Init GLFW
-    if (glfwInit() != GL_TRUE) {
-        fprintf(stderr, "Failed to initialize GLFW\n");
-        return -1;
-    }
-    
-    // Create a rendering window with OpenGL 3.2 context
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-
-    window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
-    glfwMakeContextCurrent(window);
-
-    // Init GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        return -1;
-    }
-
-    glfwSetMouseButtonCallback(window, mouseButtonCallback);
-    glfwSetCursorPosCallback(window, cursorPosCallback);
-    glfwSetKeyCallback(window, keyCallback);
-
-    // ----------------------------- RESOURCES ----------------------------- //
-
-
-
     GLfloat vertices[] = {
         // front
         -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
@@ -517,9 +487,11 @@ int main()
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
 
-    //readFrom3DS("cube.3ds", &numVertices);
-    //readFromObj("Ship.obj", &numVertices);
+    free(mesh_verts);
+}
 
+void initShader()
+{
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     //flatShader = new ShaderState(lightVertexSrc, fragmentSource);
     //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
@@ -537,14 +509,63 @@ int main()
     glUniformMatrix4fv(flatShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
     glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
     // transform light to eye space
-    lightE = g_view * Vec3(0.0f, 10.0f, 5.0f);
-    glUniform3f(flatShader->h_uLight, lightE[0], lightE[1], lightE[2]);
+    g_lightE = g_view * g_lightW;
+    glUniform3f(flatShader->h_uLight, g_lightE[0], g_lightE[1], g_lightE[2]);
     
     
     // SECOND SHADER
     glUseProgram(texturedShader->shaderProgram);
     glUniformMatrix4fv(texturedShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
     glUniform3f(texturedShader->h_uColor, 0.6f, 0.6f, 0.6f);
+}
+
+void initScene()
+{
+    RigTForm modelRbt(g_lightW);
+    g_cubeObject = new RenderObject(g_cube, modelRbt);
+    modelRbt = RigTForm(Vec3(0, 0, 0));
+    g_meshObject = new RenderObject(g_mesh, modelRbt); 
+}
+
+int main()
+{
+    // -------------------------------- INIT ------------------------------- //
+
+    // Init GLFW
+    if (glfwInit() != GL_TRUE) {
+        fprintf(stderr, "Failed to initialize GLFW\n");
+        return -1;
+    }
+    
+    // Create a rendering window with OpenGL 3.2 context
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+
+    window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
+    glfwMakeContextCurrent(window);
+
+    // Init GLEW
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK) {
+        fprintf(stderr, "Failed to initialize GLEW\n");
+        return -1;
+    }
+
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetKeyCallback(window, keyCallback);
+
+    // ----------------------------- RESOURCES ----------------------------- //
+
+    initGeometry();
+    initShader();
+    initScene();
+
+
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
 
@@ -582,7 +603,7 @@ int main()
     free(g_mesh);
     free(g_floor);
     free(g_wall);
-    free(mesh_verts);
+
 
     // ---------------------------- TERMINATE ----------------------------- //
 

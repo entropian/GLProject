@@ -1,6 +1,9 @@
+#ifndef GEOMETRY_H
+#define GEOMETRY_H
+
 #include <stdlib.h>
 #include <string.h>
-#include <stdlib.h>
+#include <stdio.h>
 
 // Not sure why 
 #define MAX_VERTICES 8000
@@ -83,7 +86,6 @@ static int subStringNum(const char* fileContent, char buffer[], int fileSize, in
 }
 
 
-//void readFromCollada(const char* fileName, Geometry *geometry)
 GLfloat* readFromCollada(const char* fileName, int *numVertices)
 {
 
@@ -191,6 +193,10 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
     return vertexArray;
 }
 
+// Reads a .obj file and returns an array of floats in the format:
+// [pos.x, pos.y, pos.z, normal.x, normal.x, normal,y, normal.z, texcoord.x, texcoord.y,
+//  pos.x, pos.y, pos.z, normal.x, normal.x, normal,y, normal.z, texcoord.x, texcoord.y,
+//  ...]
 GLfloat* readFromObj(const char* fileName, int *numVertices)
 {
     int posCount, normCount, indexCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
@@ -198,8 +204,8 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     GLfloat *posArray, *normArray, *texcoordArray; 
     int *faceArray;
     GLfloat *vertexArray;
-    
-    // Determine the size of the file
+
+    // Read the file into the string fileContent
     FILE *fp = fopen(fileName, "rb");
     if(fp == NULL)
     {
@@ -224,6 +230,8 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
 
     fileContent[readResult] = '\0';
 
+    // Count the number of positions, normals, texcoords, and faces in the file
+    // and allocate an array for each of them.
     posCount = normCount = texcoordCount  = faceCount = 0;
     index = 0;
     while(index != -1)
@@ -252,10 +260,9 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
     faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2);
 
+    // Iterate through fileContent and put data into the appropriate array
     int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
-
     index = 0;
-
     while(index != -1)
     {
         index = subStringAlpha(fileContent, buffer, readResult, index);
@@ -283,16 +290,17 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
             normArray[normIndex++] = (GLfloat)atof(buffer);
         }else if(strcmp(buffer, "f") == 0)
         {
+            // If a face is a quad, it's split into two triangles.
+            // If it's a pentagon, it's split into three triangles.
             int slashCount = 0;
 
+            // Count the number of slashes in the line to determine what polygon the face is.
             for(int i = index; fileContent[i] != '\n'; i++)
             {
                 if(fileContent[i] == '/')
                     slashCount++;
             }
-            if(maxSlash < slashCount)
-                maxSlash = slashCount;
-
+            
             int tmpIndex = index;
             for(int i = 0; i < 9; i++)
             {
@@ -300,6 +308,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
                 faceArray[faceIndex++] = atoi(buffer);
             }
 
+            // If the face is at least a quad
             if(slashCount >= 8)
             {
                 tmpIndex = index;
@@ -311,6 +320,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
                 }
             }
 
+            // If the face is at least a pentagon
             if(slashCount >= 10)
             {
                 tmpIndex = index;
@@ -324,20 +334,24 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
         } 
     }
 
+    // Construct the output array
     vertexCount  = int((float)faceIndex*(2.0f + 2.0f/3.0f));
     vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
 
     int vertexIndex = 0;
     for(int i = 0; i < faceIndex; i+=3)
     {
+        // the z component of position and normal are both reversed
+        // normal used to be untouched, and the object was lit on the wrong side
+        // Position
         vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3];
         vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 1];
-        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 2];
-
+        vertexArray[vertexIndex++] = -posArray[(faceArray[i]-1)*3 + 2];
+        // Normal
         vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3];
         vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 1];
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 2];
-
+        vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2]-1)*3 + 2];
+        // Texcoord
         vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2];
         vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2 + 1];
     }
@@ -352,3 +366,4 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     return vertexArray;
 }
 
+#endif
