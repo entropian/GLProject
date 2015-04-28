@@ -5,11 +5,11 @@
 #include <GL/glfw3.h>
 #include "SOIL.h"
 #include "geometry.h"
-#include "scenegraph.h"
 
 #define GLSL(src) "#version 150 core\n" #src
 
 extern GLuint textures[2];
+
 
 struct ShaderState {
 
@@ -43,7 +43,7 @@ struct ShaderState {
             fprintf(stderr, "Fragment shader compiled incorrectly.\n");
 
         // Link the vertex and fragment shader into a shader program
-         shaderProgram = glCreateProgram();
+        shaderProgram = glCreateProgram();
         glAttachShader(shaderProgram, vertexShader);
         glAttachShader(shaderProgram, fragmentShader);
         glBindFragDataLocation(shaderProgram, 0, "outColor");
@@ -110,12 +110,12 @@ struct ShaderState {
         */
     }
 
-    void draw(RenderObject *ro)
+    void draw(Geometry *geometry, RigTForm& modelViewRbt)
     {
-        glBindVertexArray(ro->geometry->vao);
-        glBindBuffer(GL_ARRAY_BUFFER, ro->geometry->vbo);
+        glBindVertexArray(geometry->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
-        Mat4 modelViewMat = rigTFormToMat(ro->modelViewRbt);
+        Mat4 modelViewMat = rigTFormToMat(modelViewRbt);
         modelViewMat = transpose(modelViewMat);
         
         Mat4 normalMat = inv(transpose(modelViewMat));
@@ -124,7 +124,7 @@ struct ShaderState {
         glUniformMatrix4fv(h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
         glUniformMatrix4fv(h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
 
-        if(ro->geometry->shaderProgram != shaderProgram)
+        if(geometry->shaderProgram != shaderProgram)
         {
             glEnableVertexAttribArray(h_aPosition);
             glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
@@ -133,17 +133,19 @@ struct ShaderState {
             glEnableVertexAttribArray(h_aTexcoord);
             glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
             
-            ro->geometry->shaderProgram = shaderProgram;
+            geometry->shaderProgram = shaderProgram;
         }
 
-        if(ro->geometry->eboLen == 0)
-            glDrawArrays(GL_TRIANGLES, 0, ro->geometry->vboLen);
+        if(geometry->eboLen == 0)
+            glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
         else
-            glDrawElements(GL_TRIANGLES, ro->geometry->eboLen, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
 
         glUseProgram(0);
     }
 
+
+    // Note: Having so many glUseProgram() might be expensive.
     void sendLightEyePos(Vec3& lightE)
     {
         glUseProgram(shaderProgram);

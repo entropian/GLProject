@@ -83,6 +83,7 @@ static const char* basicVertSrc = GLSL(
     }
 );
 
+// TODO: why doesn't this work anymore?
 // the most primitive shader with lighting
 static const char* diffuseVertSrc = GLSL(
     uniform mat4 uModelViewMat;
@@ -258,7 +259,8 @@ void draw_scene()
     flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
     // Draw objects
-    flatShader->draw(g_terrainObject);
+    //flatShader->draw(g_terrainObject);
+    g_terrainObject->draw();
 
 
     
@@ -518,12 +520,14 @@ void initGeometry()
         {
             int random = rand() % 100 + 1;
             grid[i][j].y += (float)random / 100.0f * 1.0f;
+            //grid[i][j].y += (sin(grid[i][j].x) - cos(grid[i][j].z)) * 1.0f;
         }
     }
 
     GLfloat terrain_verts[19*19*2*3*8];
     int index = 0;
 
+    // TODO: change this to index drawing
     for(int i = 0; i < 19; i++)
     {
         for(int j = 0; j < 19; j++)
@@ -609,8 +613,8 @@ void initShader()
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     //flatShader = new ShaderState(lightVertexSrc, fragmentSource);
     //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
-    //flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
-    flatShader = new ShaderState(basicVertSrc, specularFragSrc);
+    flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
+    //flatShader = new ShaderState(basicVertSrc, specularFragSrc);
     texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
@@ -636,14 +640,14 @@ void initShader()
 void initScene()
 {
     RigTForm modelRbt(g_lightW);
-    g_cubeObject = new RenderObject(g_cube, modelRbt);
+    g_cubeObject = new RenderObject(g_cube, modelRbt, flatShader);
     modelRbt = RigTForm(Vec3(0, 0, 0));
-    g_meshObject = new RenderObject(g_mesh, modelRbt);
+    g_meshObject = new RenderObject(g_mesh, modelRbt, flatShader);
 
     for(int i = 0; i < 20; i++)
-        ROArray[i] = new RenderObject(g_cube, RigTForm(Vec3(-20.0f + i*2, 0, 0)));
+        ROArray[i] = new RenderObject(g_cube, RigTForm(Vec3(-20.0f + i*2, 0, 0)), flatShader);
 
-    g_terrainObject = new RenderObject(g_terrain, modelRbt);
+    g_terrainObject = new RenderObject(g_terrain, modelRbt, flatShader);
 
 }
 

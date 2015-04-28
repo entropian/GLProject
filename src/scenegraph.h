@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "geometry.h"
 #include "rigtform.h"
+#include "material.h"
 
 // Arbitrary limit
 #define MAX_CHILDREN 20
@@ -61,7 +62,7 @@ public:
 
 private:
     RigTForm rbt;
-    TransformNode *children[MAX_CHILDREN] = {NULL}, *parent;;
+    TransformNode *children[MAX_CHILDREN], *parent;;
     int childrenCount;
 };
 
@@ -71,16 +72,23 @@ struct RenderObject
     Geometry *geometry;
     RigTForm modelRbt;
     RigTForm modelViewRbt;
+    ShaderState *st;
 
-    RenderObject(Geometry *g, RigTForm& m)
+    RenderObject(Geometry *g, RigTForm& m, ShaderState *shaderstate)
     {
         geometry = g;
         modelRbt = m;
+        st = shaderstate;
     }
 
     void calcModelView(RigTForm& viewRbt)
     {
         modelViewRbt = viewRbt * modelRbt;
+    }
+
+    void draw()
+    {
+        st->draw(geometry, modelViewRbt);
     }
 };
 
