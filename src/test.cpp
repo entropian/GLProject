@@ -32,6 +32,9 @@ static Mat4 g_proj;
 static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 static ShaderState *flatShader, *texturedShader;
 static RenderObject *g_cubeObject, *g_meshObject, *ROArray[20], *g_terrainObject;
+static TransformNode *g_worldNode;
+static GeometryNode *g_terrainNode;
+
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -252,6 +255,7 @@ void draw_scene()
     g_terrainObject->calcModelView(g_view);
     for(int i = 0; i < 20; i++)
         ROArray[i]->calcModelView(g_view);
+    
 
     // Setup additional uniforms
     g_lightE = g_view * g_lightW;
@@ -259,8 +263,9 @@ void draw_scene()
     flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
     // Draw objects
-    //flatShader->draw(g_terrainObject);
-    g_terrainObject->draw();
+    //g_terrainObject->draw();
+    Visitor visitor(g_view);
+    visitor.visitNode(g_worldNode);
 
 
     
@@ -604,7 +609,6 @@ void initGeometry()
     }
 
     g_terrain = new Geometry(terrain_verts, index/8);
-    printf("here\n");
     free(mesh_verts);
 }
 
@@ -648,6 +652,9 @@ void initScene()
         ROArray[i] = new RenderObject(g_cube, RigTForm(Vec3(-20.0f + i*2, 0, 0)), flatShader);
 
     g_terrainObject = new RenderObject(g_terrain, modelRbt, flatShader);
+    g_worldNode = new TransformNode();
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
+    g_worldNode->addChild(g_terrainNode);
 
 }
 

@@ -6,10 +6,7 @@
 #include "SOIL.h"
 #include "geometry.h"
 
-#define GLSL(src) "#version 150 core\n" #src
-
 extern GLuint textures[2];
-
 
 struct ShaderState {
 
