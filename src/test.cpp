@@ -31,10 +31,11 @@ static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 static ShaderState *flatShader, *texturedShader;
-static RenderObject *g_cubeObject, *g_meshObject, *ROArray[20], *g_terrainObject;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode;
+static GeometryNode *g_terrainNode, *g_cubeArray[4];
 
+//test
+static Material *material;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -249,13 +250,10 @@ void draw_scene()
     //trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * trans;
     //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
 
-    // Update modelViewRbt of all RenderObject
-    g_cubeObject->calcModelView(g_view);
-    g_meshObject->calcModelView(g_view);
-    g_terrainObject->calcModelView(g_view);
-    for(int i = 0; i < 20; i++)
-        ROArray[i]->calcModelView(g_view);
-    
+    // Update cube positions
+    for(int i = 0; i < 2; i++)
+        g_cubeArray[i]->setRbt(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
+
 
     // Setup additional uniforms
     g_lightE = g_view * g_lightW;
@@ -267,36 +265,6 @@ void draw_scene()
     Visitor visitor(g_view);
     visitor.visitNode(g_worldNode);
 
-
-    
-    /*
-    Mat4 modelViewMat = view * model;
-    modelViewMat = transpose(modelViewMat);
-    Mat4 normalMat = inv(transpose(modelViewMat));
-
-
-    g_lightE = g_view * g_lightW;
-
-
-    glUseProgram(flatShader->shaderProgram);
-    glUniformMatrix4fv(flatShader->h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
-    glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
-    glUniformMatrix4fv(flatShader->h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
-    glUniform3f(flatShader->h_uLight, g_lightE[0], g_lightE[1], g_lightE[2]);
-    //glUseProgram(texturedShader->shaderProgram);        
-    flatShader->draw(g_mesh);
-
-    model = Mat4::makeTranslation(Vec3(0, 10, 5));
-    modelViewMat = view * model;
-    modelViewMat = transpose(modelViewMat);
-    normalMat = inv(transpose(modelViewMat));
-
-    glUniformMatrix4fv(flatShader->h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
-    glUniformMatrix4fv(flatShader->h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
-    glUniform3f(flatShader->h_uColor, 1.0f, 1.0f, 1.0f);
-    flatShader->draw(g_cube);
-    */
-    
     /* Floor and walls
     glUseProgram(texturedShader->shaderProgram);
     texturedShader->draw(g_floor);
@@ -380,6 +348,7 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
     }
 }
 
+// TODO: rewrite this to have smooth movement
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if(action != GLFW_PRESS && action != GLFW_REPEAT)
@@ -619,7 +588,7 @@ void initShader()
     //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
     flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
     //flatShader = new ShaderState(basicVertSrc, specularFragSrc);
-    texturedShader = new ShaderState(vertexSource, floorFragSrc);
+    //texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
     glUseProgram(flatShader->shaderProgram);
@@ -636,26 +605,35 @@ void initShader()
     
     
     // SECOND SHADER
+    /*
     glUseProgram(texturedShader->shaderProgram);
     glUniformMatrix4fv(texturedShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
     glUniform3f(texturedShader->h_uColor, 0.6f, 0.6f, 0.6f);
+    */
+    // Material
+    material = new Material(basicVertSrc, diffuseFragSrc);
 }
 
 void initScene()
 {
     RigTForm modelRbt(g_lightW);
-    g_cubeObject = new RenderObject(g_cube, modelRbt, flatShader);
     modelRbt = RigTForm(Vec3(0, 0, 0));
-    g_meshObject = new RenderObject(g_mesh, modelRbt, flatShader);
-
-    for(int i = 0; i < 20; i++)
-        ROArray[i] = new RenderObject(g_cube, RigTForm(Vec3(-20.0f + i*2, 0, 0)), flatShader);
-
-    g_terrainObject = new RenderObject(g_terrain, modelRbt, flatShader);
+    
     g_worldNode = new TransformNode();
     g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_worldNode->addChild(g_terrainNode);
+    //g_worldNode->addChild(g_terrainNode);
 
+    for(int i = 0; i < 2; i++)
+    {
+        g_cubeArray[i] = new GeometryNode(NULL, RigTForm(), g_cube, flatShader);
+        g_worldNode->addChild(g_cubeArray[i]);
+    }
+
+    modelRbt;
+    modelRbt = RigTForm(Vec3(2, 0, 0));
+    g_cubeArray[0]->setRbt(modelRbt);
+    modelRbt = RigTForm(Quat::makeXRotation(90.0f)) * RigTForm(Quat::makeYRotation(90.0f)) * RigTForm(Vec3(2, 0, 0));
+    g_cubeArray[1]->setRbt(modelRbt);
 }
 
 int main()
@@ -697,6 +675,27 @@ int main()
     initScene();
 
 
+    // Test material
+    
+    for(GLint i = 0; i < material->numUniforms; i++)
+    {
+        printf("Name: %s\n", material->uniformDesc[i].name);
+        printf("Index: %d\n", material->uniformDesc[i].index);
+        switch(material->uniformDesc[i].type)
+        {
+        case GL_FLOAT_VEC3:
+        {
+            printf("Type: GL_FLOAT_VEC3\n");
+        } break;
+
+        case GL_FLOAT_MAT4:
+        {
+            printf("Type: GL_FLOAT_MAT4\n");
+        } break;
+        }
+        printf("Size: %d\n", material->uniformDesc[i].size);
+    }
+
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
 
@@ -709,7 +708,7 @@ int main()
 
         // Apply a rotation        
         // Swap buffers and poll window events
-   
+        //draw_scene();
         glfwPollEvents();
     }
 
@@ -717,7 +716,7 @@ int main()
 
     // Delete allocated resources
     glDeleteProgram(flatShader->shaderProgram);
-    glDeleteProgram(texturedShader->shaderProgram);
+    //glDeleteProgram(texturedShader->shaderProgram);
     glDeleteTextures(2, textures);
     glDeleteBuffers(1, &(g_cube->vbo));
     glDeleteBuffers(1, &(g_floor->vbo));
@@ -729,7 +728,7 @@ int main()
     glDeleteVertexArrays(1, &(g_mesh->vao));
 
     free(flatShader);
-    free(texturedShader);
+    //free(texturedShader);
     free(g_cube);
     free(g_mesh);
     free(g_floor);

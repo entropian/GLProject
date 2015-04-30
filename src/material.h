@@ -8,6 +8,92 @@
 
 extern GLuint textures[2];
 
+
+struct Uniform
+{
+    char name[20];
+    Vec3 vec;
+    RigTForm rbt;
+    GLenum type;
+};
+
+struct UniformDesc
+{
+    char name[20];
+    GLuint index;
+    GLenum type;
+    GLuint handle;
+    GLsizei size;
+};
+
+class Material
+{
+public:
+    Material(const char *vs, const char *fs)
+    {
+        // Compile the shaders and link the program
+        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &vs, NULL);
+        glCompileShader(vertexShader);
+
+        GLint status;
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
+        
+        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fs, NULL);
+        glCompileShader(fragmentShader);
+
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+
+        // Link the vertex and fragment shader into a shader program
+        shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glBindFragDataLocation(shaderProgram, 0, "outColor");
+        glLinkProgram(shaderProgram);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+        // Get the number of uniforms in shaderProgram
+        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);
+        uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
+
+        // Populate uniformDesc
+        GLsizei lengthWritten;
+        for(GLint i = 0; i < numUniforms; i++)
+        {
+            uniformDesc[i].index = i;
+            glGetActiveUniform(shaderProgram, uniformDesc[i].index, 20, &lengthWritten,
+                               &(uniformDesc[i].size), &(uniformDesc[i].type), uniformDesc[i].name);
+            assert((lengthWritten + 1) < 20);
+            uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
+        }
+
+    }
+
+    ~Material()
+    {
+        for(GLint i = 0; i < numUniforms; i++)
+        {
+            free(uniformDesc);
+            //free(uniforms[i]);
+        }
+    }
+
+    
+//private:
+    GLuint shaderProgram;
+    Uniform *uniforms;
+    UniformDesc *uniformDesc;
+    GLint numUniforms;
+};
+
 struct ShaderState {
 
     GLuint shaderProgram;
