@@ -8,6 +8,37 @@
 
 extern GLuint textures[2];
 
+static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shaderProgram)
+{
+    // Compile the shaders and link the program
+        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &vs, NULL);
+        glCompileShader(vertexShader);
+
+        GLint status;
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
+        
+        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fs, NULL);
+        glCompileShader(fragmentShader);
+
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
+
+        if(status != GL_TRUE)
+            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+
+        // Link the vertex and fragment shader into a shader program
+        *shaderProgram = glCreateProgram();
+        glAttachShader(*shaderProgram, vertexShader);
+        glAttachShader(*shaderProgram, fragmentShader);
+        glBindFragDataLocation(*shaderProgram, 0, "outColor");
+        glLinkProgram(*shaderProgram);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+}
 
 struct Uniform
 {
@@ -31,34 +62,7 @@ class Material
 public:
     Material(const char *vs, const char *fs)
     {
-        // Compile the shaders and link the program
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vs, NULL);
-        glCompileShader(vertexShader);
-
-        GLint status;
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-        
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fs, NULL);
-        glCompileShader(fragmentShader);
-
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
-
-        // Link the vertex and fragment shader into a shader program
-        shaderProgram = glCreateProgram();
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glBindFragDataLocation(shaderProgram, 0, "outColor");
-        glLinkProgram(shaderProgram);
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+        readAndCompileShaders(vs, fs, &shaderProgram);
 
         // Get the number of uniforms in shaderProgram
         glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);
@@ -106,33 +110,8 @@ struct ShaderState {
     
 
     ShaderState(const char* vs, const char* fs) {
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vs, NULL);
-        glCompileShader(vertexShader);
+        readAndCompileShaders(vs, fs, &shaderProgram);
 
-        GLint status;
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-        
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fs, NULL);
-        glCompileShader(fragmentShader);
-
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
-
-        // Link the vertex and fragment shader into a shader program
-        shaderProgram = glCreateProgram();
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glBindFragDataLocation(shaderProgram, 0, "outColor");
-        glLinkProgram(shaderProgram);
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
         glUseProgram(shaderProgram);
 
         // Retrieve handles to uniform variables
@@ -257,33 +236,7 @@ struct ShaderState {
     
 
     ShaderState(const char* vs, const char* fs) {
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vs, NULL);
-        glCompileShader(vertexShader);
-
-        GLint status;
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-        
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fs, NULL);
-        glCompileShader(fragmentShader);
-
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-
-        if(status != GL_TRUE)
-            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
-
-        // Link the vertex and fragment shader into a shader program
-         shaderProgram = glCreateProgram();
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glBindFragDataLocation(shaderProgram, 0, "outColor");
-        glLinkProgram(shaderProgram);
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+        readAndCompileShaders(vs, fs, &shaderProgram);
         glUseProgram(shaderProgram);
 
         // Retrieve handles to uniform variables
