@@ -1,14 +1,11 @@
 #ifndef RIGTFORM_H
 #define RIGTFORM_H
 
-#include <cmath>
-#include <cassert>
+#include <math.h>
+#include <assert.h>
 
-#include "vec.h"
-#include "mat.h"
 #include "quat.h"
-#include <iostream>
-#include <stdio.h>
+
 
 class RigTForm
 {
@@ -72,6 +69,7 @@ public:
     RigTForm operator * (const RigTForm& a) const
     {
         RigTForm r;
+
         r.setTranslation(t_ + r_*a.getTranslation());
         r.setRotation(r_*a.getRotation());
         return r;
@@ -84,7 +82,7 @@ public:
         Vec3 newCenter = normalize(center - pos);
         Vec3 rotAxis = normalize(cross(newCenter, Vec3(0, 0, -1)));
         float halfAngle = (float)acos(dot(newCenter, Vec3(0, 0, -1))) / 2.0f;
-        // rotAxis can contain negative zero?!?!
+
         float sinHalfAng = sin(halfAngle);
         Quat q(cos(halfAngle), sinHalfAng*rotAxis[0], sinHalfAng*rotAxis[1], sinHalfAng*rotAxis[2]);
 
@@ -133,6 +131,7 @@ inline Mat4 rigTFormToMat(const RigTForm& tform)
     return r;
 }
 
+// TODO
 inline RigTForm interp(const RigTForm& src, const RigTForm& dest, float t)
 {
     RigTForm r;

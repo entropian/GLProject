@@ -1,8 +1,8 @@
 #ifndef VEC_H
 #define VEC_H
 
-#include <cmath>
-#include <cassert>
+#include <math.h>
+#include <assert.h>
 
 // TODO: figure out this stuff
 static const double PI = 3.14159265358979323846264338327950288;

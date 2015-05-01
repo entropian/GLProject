@@ -1,9 +1,9 @@
 #ifndef MAT_H
 #define MAT_H
 
-#include <cassert>
-#include <cmath>
-//#include "vec.h"
+#include <assert.h>
+#include <math.h>
+#include "vec.h"
 
 class Mat4
 {

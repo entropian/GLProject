@@ -1,11 +1,9 @@
 #ifndef QUAT_H
 #define QUAT_H
 
-#include <cassert>
-#include <cmath>
-#include <iostream>
+#include <assert.h>
+#include <math.h>
 
-//#include "vec.h"
 #include "mat.h"
 
 // TODO: quat difference
@@ -167,12 +165,14 @@ inline Mat4 quatToMat(const Quat& q)
     return r;
 }
 
+// TODO
 inline Quat slerp(const Quat &src, const Quat& dest, float t)
 {
     Quat r;
     return r;
 }
 
+// TODO
 inline Quat power(const Quat& a, float exponent)
 {
     Quat r;

@@ -43,6 +43,10 @@ GLint uniTrans1, uniTrans2;
 GLuint textures[2];
 GLFWwindow* window;
 
+static double framesPerSecond = 60.0f;
+static double timeBetweenFrames = 1.0 / framesPerSecond;
+static double timeLastRender;
+
 
 //////////////// Shaders
 //////// Vertex Shaders
@@ -244,14 +248,12 @@ static const char* floorFragSrc = GLSL(
 
 
 void draw_scene()
-{    
+{
+    timeLastRender = glfwGetTime();
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    //trans = transpose(trans);
-    //trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * trans;
     //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
-
     // Update cube positions
     /*
     for(int i = 0; i < 2; i++)
@@ -259,14 +261,17 @@ void draw_scene()
     */
 
     // Setup additional uniforms
-    g_lightE = g_view * g_lightW;
+
     //flatShader->sendLightEyePos(g_lightE);
     //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
+    // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
+    // like g_lightE
+    // Update some uniforms
+    g_lightE = g_view * g_lightW;
     material->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
-    //g_terrainObject->draw();
     Visitor visitor(g_view);
     visitor.visitNode(g_worldNode);
 
@@ -347,7 +352,7 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         Vec3 trans = invView.getTranslation();        
         std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
         
-        draw_scene();
+        //draw_scene();
         cursorX = x;
         cursorY = y;
     }
@@ -384,7 +389,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     RigTForm m(movement);
     g_view = m * g_view;
     RigTForm invView = inv(g_view);
-    draw_scene();
+    //draw_scene();
     Vec3 trans = invView.getTranslation();
     std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
 }
@@ -586,7 +591,7 @@ void initGeometry()
     free(mesh_verts);
 }
 
-void initShader()
+void initMaterial()
 {
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     //flatShader = new ShaderState(lightVertexSrc, fragmentSource);
@@ -597,7 +602,7 @@ void initShader()
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
     //glUseProgram(flatShader->shaderProgram);
-    
+
     g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
 
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
@@ -632,7 +637,7 @@ void initScene()
     
     g_worldNode = new TransformNode();
     //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, material);
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material);
     g_worldNode->addChild(g_terrainNode);
 
     /*
@@ -686,34 +691,13 @@ int main()
     // ----------------------------- RESOURCES ----------------------------- //
 
     initGeometry();
-    initShader();
+    initMaterial();
     initScene();
 
 
-    // Test material
-    // Needs to be gotten rid. keeps material members public
-    int numUniforms = material->getNumUniforms();
-    for(GLint i = 0; i < numUniforms; i++)
-    {
-        printf("Name: %s\n", material->uniformDesc[i].name);
-        printf("Index: %d\n", material->uniformDesc[i].index);
-        switch(material->uniformDesc[i].type)
-        {
-        case GL_FLOAT_VEC3:
-        {
-            printf("Type: GL_FLOAT_VEC3\n");
-        } break;
-
-        case GL_FLOAT_MAT4:
-        {
-            printf("Type: GL_FLOAT_MAT4\n");
-        } break;
-        }
-        printf("Size: %d\n", material->uniformDesc[i].size);
-    }
-
-
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+
+    
 
     // ---------------------------- RENDERING ------------------------------ //
     
@@ -724,11 +708,17 @@ int main()
 
         // Apply a rotation        
         // Swap buffers and poll window events
+        if((glfwGetTime() - timeLastRender) >= timeBetweenFrames)
+        {
+            //printf("Rendering!\n");
+            draw_scene();
+        }
+        
         //draw_scene();
         glfwPollEvents();
     }
 
-    // ---------------------------- CLEARING ------------------------------ //
+    // ---------------------------- Clearing ------------------------------ //
 
     // Delete allocated resources
     //glDeleteProgram(flatShader->shaderProgram);
@@ -745,6 +735,7 @@ int main()
 
     //free(flatShader);
     //free(texturedShader);
+    free(material);
     free(g_cube);
     free(g_mesh);
     free(g_floor);
