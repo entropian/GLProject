@@ -8,6 +8,23 @@
 
 extern GLuint textures[2];
 
+struct Uniform
+{
+    char name[20];
+    Vec3 vec;
+    RigTForm rbt;
+    GLenum type;
+};
+
+struct UniformDesc
+{
+    char name[20];
+    GLuint index;
+    GLenum type;
+    GLuint handle;
+    GLsizei size;
+};
+
 static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shaderProgram)
 {
     // Compile the shaders and link the program
@@ -40,23 +57,6 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
         glDeleteShader(fragmentShader);
 }
 
-struct Uniform
-{
-    char name[20];
-    Vec3 vec;
-    RigTForm rbt;
-    GLenum type;
-};
-
-struct UniformDesc
-{
-    char name[20];
-    GLuint index;
-    GLenum type;
-    GLuint handle;
-    GLsizei size;
-};
-
 class Material
 {
 public:
@@ -79,6 +79,10 @@ public:
             uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
         }
 
+        // Retrieve handles to vertex attributes
+        h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
+        h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
+        h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
     }
 
     ~Material()
@@ -90,13 +94,107 @@ public:
         }
     }
 
-    
+    GLint getNumUniforms()
+    {
+        return numUniforms;
+    }
+
+    bool sendUniform3v(const char *uniformName, Vec3 uniform)
+    {
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            fprintf(stderr, "No such active uniform.\n");
+            return false;
+        }
+
+        glUseProgram(shaderProgram);
+        glUniform3f(uniformDesc[i].handle, uniform[0], uniform[1], uniform[2]);
+        glUseProgram(0);
+        return true;
+    }
+
+    // TODO: change Mat4 to RigTForm to keep a more consistent interface?
+    bool sendUniformMat4(const char *uniformName, Mat4 uniform)
+    {
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            fprintf(stderr, "No such active uniform.\n");
+            return false;
+        }
+
+        glUseProgram(shaderProgram);
+        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(uniform[0]));
+        glUseProgram(0);
+        return true;
+    }
+
+    void draw(Geometry *geometry, RigTForm& modelViewRbt)
+    {
+        glBindVertexArray(geometry->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
+
+        Mat4 modelViewMat = rigTFormToMat(modelViewRbt);
+        modelViewMat = transpose(modelViewMat);
+        
+        Mat4 normalMat = inv(transpose(modelViewMat));
+        
+        glUseProgram(shaderProgram);
+        /*
+        glUniformMatrix4fv(h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
+        glUniformMatrix4fv(h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
+        */
+
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+            if(strcmp(uniformDesc[i].name, "uModelViewMat") == 0)
+                break;
+        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
+
+        for(i = 0; i < numUniforms; i++)
+            if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
+                break;
+        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));
+        
+
+        if(geometry->shaderProgram != shaderProgram)
+        {
+            glEnableVertexAttribArray(h_aPosition);
+            glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+            glEnableVertexAttribArray(h_aNormal);
+            glVertexAttribPointer(h_aNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+            glEnableVertexAttribArray(h_aTexcoord);
+            glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+            
+            geometry->shaderProgram = shaderProgram;
+        }
+
+        if(geometry->eboLen == 0)
+            glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
+        else
+            glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
+
+        glUseProgram(0);
+    }
 //private:
     GLuint shaderProgram;
-    Uniform *uniforms;
+    //Uniform *uniforms;
     UniformDesc *uniformDesc;
     GLint numUniforms;
+    GLuint h_aPosition, h_aNormal, h_aTexcoord;
 };
+
 
 struct ShaderState {
 
@@ -222,6 +320,8 @@ struct ShaderState {
         glUseProgram(0);        
     }
 };
+
+
 
 /*
 struct ShaderState {

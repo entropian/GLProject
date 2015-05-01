@@ -26,9 +26,11 @@ GLint uniView1, uniView2;
 static double cursorX;
 static double cursorY;
 
-static RigTForm g_view, g_trans;
+// some of the shader uniforms
+static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
+
 static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
@@ -612,6 +614,10 @@ void initShader()
     */
     // Material
     material = new Material(basicVertSrc, diffuseFragSrc);
+    Vec3 color(0.1f, 0.6f, 0.6f);
+    material->sendUniform3v("uColor", color);
+    material->sendUniformMat4("uProjMat", proj);
+    //material->sendUniform3v("uLight", g_lightE);
 }
 
 void initScene()
@@ -676,8 +682,9 @@ int main()
 
 
     // Test material
-    
-    for(GLint i = 0; i < material->numUniforms; i++)
+    // Needs to be gotten rid. keeps material members public
+    int numUniforms = material->getNumUniforms();
+    for(GLint i = 0; i < numUniforms; i++)
     {
         printf("Name: %s\n", material->uniformDesc[i].name);
         printf("Index: %d\n", material->uniformDesc[i].index);
