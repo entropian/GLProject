@@ -195,7 +195,7 @@ public:
     GLuint h_aPosition, h_aNormal, h_aTexcoord;
 };
 
-
+/*
 struct ShaderState {
 
     GLuint shaderProgram;
@@ -263,11 +263,11 @@ struct ShaderState {
 
         SOIL_free_image_data(image);
 
-        /*
+
         if (!g_Gl2Compatible)
             glBindFragDataLocation(h, 0, "fragColor");
         checkGlErrors();
-        */
+
     }
 
     void draw(Geometry *geometry, RigTForm& modelViewRbt)
@@ -320,7 +320,7 @@ struct ShaderState {
         glUseProgram(0);        
     }
 };
-
+*/
 
 
 /*

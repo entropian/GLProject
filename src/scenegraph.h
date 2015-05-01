@@ -118,15 +118,8 @@ class GeometryNode : public TransformNode
 {
     
 public:
-    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g, ShaderState *shaderstate)
-        :TransformNode(p, rbt), geometry(g), st(shaderstate)
-    {
-        nt = geometrynode;
-
-    }
-
-    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g, ShaderState *shaderstate, Material *material)
-        :TransformNode(p, rbt), geometry(g), st(shaderstate), m(material)
+    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g,  Material *material)
+        :TransformNode(p, rbt), geometry(g), m(material)
     {
         nt = geometrynode;
     }
@@ -140,16 +133,6 @@ public:
         geometry = g;
     }
 
-    ShaderState* getShaderState()
-    {
-        return st;
-    }
-
-    void setShaderState(ShaderState *shaderstate)
-    {
-        st = shaderstate;
-    }
-
     Material* getMaterial()
     {
         return m;
@@ -159,14 +142,6 @@ public:
     {
         m = material;
     }
-    /*
-    void draw(RigTForm modelViewRbt)
-    {
-        st->draw(geometry, modelViewRbt);
-    }
-    */
-
-    // Material version
 
     void draw(RigTForm modelViewRbt)
     {
@@ -176,7 +151,6 @@ public:
 
 protected:
     Geometry *geometry;
-    ShaderState *st;
     Material *m;
 };
 
@@ -266,6 +240,7 @@ protected:
     int rbtCount;
 };
 
+/*
 struct RenderObject
 {
     // TODO: add a scaling rbt?
@@ -292,5 +267,5 @@ struct RenderObject
         st->draw(geometry, modelViewRbt);
     }
 };
-
+*/
 #endif

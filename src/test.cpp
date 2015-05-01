@@ -32,7 +32,7 @@ static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
 static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
-static ShaderState *flatShader, *texturedShader;
+//static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4];
 
@@ -260,8 +260,8 @@ void draw_scene()
 
     // Setup additional uniforms
     g_lightE = g_view * g_lightW;
-    flatShader->sendLightEyePos(g_lightE);
-    flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
+    //flatShader->sendLightEyePos(g_lightE);
+    //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
     material->sendUniform3v("uLight", g_lightE);
 
@@ -591,22 +591,24 @@ void initShader()
     //flatShader = new ShaderState(vertexSource, fragmentSource);
     //flatShader = new ShaderState(lightVertexSrc, fragmentSource);
     //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
-    flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
+    //flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
     //flatShader = new ShaderState(basicVertSrc, specularFragSrc);
     //texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
-    glUseProgram(flatShader->shaderProgram);
+    //glUseProgram(flatShader->shaderProgram);
     
     g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
 
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
+    g_lightE = g_view * g_lightW;
+    /*
     glUniformMatrix4fv(flatShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
     glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
     // transform light to eye space
-    g_lightE = g_view * g_lightW;
     glUniform3f(flatShader->h_uLight, g_lightE[0], g_lightE[1], g_lightE[2]);
+    */
     
     
     // SECOND SHADER
@@ -630,7 +632,7 @@ void initScene()
     
     g_worldNode = new TransformNode();
     //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader, material);
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, material);
     g_worldNode->addChild(g_terrainNode);
 
     /*
@@ -729,7 +731,7 @@ int main()
     // ---------------------------- CLEARING ------------------------------ //
 
     // Delete allocated resources
-    glDeleteProgram(flatShader->shaderProgram);
+    //glDeleteProgram(flatShader->shaderProgram);
     //glDeleteProgram(texturedShader->shaderProgram);
     glDeleteTextures(2, textures);
     glDeleteBuffers(1, &(g_cube->vbo));
@@ -741,7 +743,7 @@ int main()
     glDeleteVertexArrays(1, &(g_wall->vao));
     glDeleteVertexArrays(1, &(g_mesh->vao));
 
-    free(flatShader);
+    //free(flatShader);
     //free(texturedShader);
     free(g_cube);
     free(g_mesh);
