@@ -7,8 +7,8 @@
 #include "material.h"
 
 // Arbitrary limit
-#define MAX_CHILDREN 20
-#define MAX_LAYER 20
+#define MAX_CHILDREN 30
+#define MAX_LAYER 10
 
 enum NodeType {transformnode, geometrynode};
 
@@ -113,15 +113,23 @@ protected:
     int childrenCount;
 };
 
+// TODO: change member names
 class GeometryNode : public TransformNode
 {
+    
 public:
     GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g, ShaderState *shaderstate)
         :TransformNode(p, rbt), geometry(g), st(shaderstate)
     {
         nt = geometrynode;
+
     }
 
+    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g, ShaderState *shaderstate, Material *material)
+        :TransformNode(p, rbt), geometry(g), st(shaderstate), m(material)
+    {
+        nt = geometrynode;
+    }
     Geometry* getGeometry()
     {
         return geometry;
@@ -142,14 +150,34 @@ public:
         st = shaderstate;
     }
 
+    Material* getMaterial()
+    {
+        return m;
+    }
+
+    void setMaterial(Material *material)
+    {
+        m = material;
+    }
+    /*
     void draw(RigTForm modelViewRbt)
     {
         st->draw(geometry, modelViewRbt);
     }
-    
+    */
+
+    // Material version
+
+    void draw(RigTForm modelViewRbt)
+    {
+        printf("In material!\n");
+        m->draw(geometry, modelViewRbt);
+    }
+
 protected:
     Geometry *geometry;
     ShaderState *st;
+    Material *m;
 };
 
 class Visitor
@@ -246,6 +274,7 @@ struct RenderObject
     RigTForm modelViewRbt;
     ShaderState *st;
 
+
     RenderObject(Geometry *g, RigTForm& m, ShaderState *shaderstate)
     {
         geometry = g;
@@ -262,7 +291,6 @@ struct RenderObject
     {
         st->draw(geometry, modelViewRbt);
     }
-
 };
 
 #endif

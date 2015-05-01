@@ -253,14 +253,17 @@ void draw_scene()
     //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
 
     // Update cube positions
+    /*
     for(int i = 0; i < 2; i++)
         g_cubeArray[i]->setRbt(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
-
+    */
 
     // Setup additional uniforms
     g_lightE = g_view * g_lightW;
     flatShader->sendLightEyePos(g_lightE);
     flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
+
+    material->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
     //g_terrainObject->draw();
@@ -626,20 +629,24 @@ void initScene()
     modelRbt = RigTForm(Vec3(0, 0, 0));
     
     g_worldNode = new TransformNode();
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    //g_worldNode->addChild(g_terrainNode);
+    //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader, material);
+    g_worldNode->addChild(g_terrainNode);
 
+    /*
     for(int i = 0; i < 2; i++)
     {
         g_cubeArray[i] = new GeometryNode(NULL, RigTForm(), g_cube, flatShader);
         g_worldNode->addChild(g_cubeArray[i]);
     }
-
+    */
+    /*
     modelRbt;
     modelRbt = RigTForm(Vec3(2, 0, 0));
     g_cubeArray[0]->setRbt(modelRbt);
     modelRbt = RigTForm(Quat::makeXRotation(90.0f)) * RigTForm(Quat::makeYRotation(90.0f)) * RigTForm(Vec3(2, 0, 0));
     g_cubeArray[1]->setRbt(modelRbt);
+    */
 }
 
 int main()
