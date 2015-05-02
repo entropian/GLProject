@@ -199,7 +199,7 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
 //  ...]
 GLfloat* readFromObj(const char* fileName, int *numVertices)
 {
-    int posCount, normCount, indexCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
+    int posCount, normCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
     char *fileContent, buffer[50];;
     GLfloat *posArray, *normArray, *texcoordArray; 
     int *faceArray;
@@ -341,6 +341,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     int vertexIndex = 0;
     for(int i = 0; i < faceIndex; i+=3)
     {
+        // NOTE: what's with all the reversal?
         // the z component of position and normal are both reversed
         // normal used to be untouched, and the object was lit on the wrong side
         // Position
@@ -353,7 +354,8 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
         vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2]-1)*3 + 2];
         // Texcoord
         vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2];
-        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2 + 1];
+        // also reversed the v component of texcoord
+        vertexArray[vertexIndex++] = 1.0f - texcoordArray[(faceArray[i + 1]-1)*2 + 1];
     }
 
     *numVertices = vertexIndex / 8;
