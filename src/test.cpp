@@ -43,9 +43,11 @@ GLint uniTrans1, uniTrans2;
 GLuint textures[2];
 GLFWwindow* window;
 
-static double framesPerSecond = 60.0f;
-static double timeBetweenFrames = 1.0 / framesPerSecond;
-static double timeLastRender;
+static double framesPerSec = 60.0f;
+static double distancePerSec = 1.0f;
+static double timeBetweenFrames = 1.0 / framesPerSec;
+static double distancePerFrame = distancePerSec / framesPerSec;
+static Vec3 movementDir(0.0f, 0.0f, 0.0f);
 
 
 //////////////// Shaders
@@ -249,7 +251,6 @@ static const char* floorFragSrc = GLSL(
 
 void draw_scene()
 {
-    timeLastRender = glfwGetTime();
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -265,9 +266,13 @@ void draw_scene()
     //flatShader->sendLightEyePos(g_lightE);
     //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
+    // Calculate camera movement
+    RigTForm trans(movementDir * distancePerFrame);
+    g_view = trans * g_view;
+
     // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
-    // Update some uniforms
+    // Update some uniforms    
     g_lightE = g_view * g_lightW;
     material->sendUniform3v("uLight", g_lightE);
 
@@ -358,41 +363,97 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
     }
 }
 
-// TODO: rewrite this to have smooth movement
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    /*
     if(action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
-
-    Vec3 movement;
-    switch(key)
+    */
+    // TODO: behavior of key release when more than one key is pressed down needs to be sorted out
+    if(action == GLFW_PRESS)
     {
-    case GLFW_KEY_ESCAPE:
-        glfwSetWindowShouldClose(window, GL_TRUE);
-        break;
-    case GLFW_KEY_A:
-        movement[0] = .1f;
-        break;
-    case GLFW_KEY_D:
-        movement[0] = -.1f;
-        break;
-    case GLFW_KEY_W:
-        movement[2] = .1f;
-        break;
-    case GLFW_KEY_S:
-        movement[2] = -.1f;
-        break;
-    default:
-        break;
+        int i = -1;
+        float component = 0;
+        switch(key)
+        {
+        case GLFW_KEY_ESCAPE:
+            glfwSetWindowShouldClose(window, GL_TRUE);
+            break;
+        case GLFW_KEY_A: // left
+            i = 0;
+            component = 1.0f;
+            break;
+        case GLFW_KEY_D: // right
+            i = 0;
+            component = -1.0f;
+            break;
+        case GLFW_KEY_W: // forward
+            i = 2;
+            component = 1.0f;
+            break;
+        case GLFW_KEY_S: // backward
+            i = 2;
+            component = -1.0f;
+            break;
+        default:
+            break;
+        }
+        
+        if(i != -1)
+        {
+            if(movementDir[i] == 0.0f)
+                movementDir[i] = component;
+            else if(abs(component - movementDir[i]) > abs(component))
+                movementDir[i] = 0.0f;
+        }
+
+        if(norm2(movementDir) != 0.0f)
+            movementDir = normalize(movementDir);
+        
+    }else if(action == GLFW_RELEASE)
+    {
+        // This is a reverse of the above code in if(action == GLFW_PRESS)
+        // with component taking the opposite value in each case
+        // I treat directioanl key release as pressing a key of the opposite direction
+        int i = -1;
+        float component = 0.0f;
+        switch(key)
+        {
+        case GLFW_KEY_A: // left
+            i = 0;
+            component = -1.0f;
+            break;
+        case GLFW_KEY_D: // right
+            i = 0;
+            component = 1.0f;
+            break;
+        case GLFW_KEY_W: // forward
+            i = 2;
+            component = -1.0f;
+            break;
+        case GLFW_KEY_S: // backward
+            i = 2;
+            component = 1.0f;
+            break;
+        default:
+            break;
+        }
+
+        if(i != -1)
+        {
+            if(movementDir[i] == 0.0f)
+                movementDir[i] = component;
+            else if(abs(component - movementDir[i]) > abs(component))
+                movementDir[i] = 0.0f;
+        }
+
+        if(norm2(movementDir) != 0.0f)
+            movementDir = normalize(movementDir);
     }
 
-    RigTForm m(movement);
-    g_view = m * g_view;
-    RigTForm invView = inv(g_view);
-    //draw_scene();
-    Vec3 trans = invView.getTranslation();
-    std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
 }
+
 
 void initGeometry()
 {
@@ -703,17 +764,20 @@ int main()
     
     glEnable(GL_DEPTH_TEST);
     draw_scene();
+    double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
     {
 
         // Apply a rotation        
         // Swap buffers and poll window events
-        if((glfwGetTime() - timeLastRender) >= timeBetweenFrames)
+
+        currentTime = glfwGetTime();
+        if((currentTime - timeLastRender) >= timeBetweenFrames)
         {
-            //printf("Rendering!\n");
+            timeLastRender = currentTime;
             draw_scene();
         }
-        
+ 
         //draw_scene();
         glfwPollEvents();
     }
