@@ -44,7 +44,7 @@ GLuint textures[2];
 GLFWwindow* window;
 
 static double framesPerSec = 60.0f;
-static double distancePerSec = 1.0f;
+static double distancePerSec = 2.0f;
 static double timeBetweenFrames = 1.0 / framesPerSec;
 static double distancePerFrame = distancePerSec / framesPerSec;
 static Vec3 movementDir(0.0f, 0.0f, 0.0f);
@@ -94,6 +94,8 @@ static const char* basicVertSrc = GLSL(
         gl_Position = uProjMat * vec4(vPosition, 1.0);
     }
 );
+
+
 
 // TODO: why doesn't this work anymore?
 // the most primitive shader with lighting
@@ -209,6 +211,29 @@ static const char* diffuseFragSrc = GLSL(
     {
         vec3 lightDir = normalize(uLight - vPosition);
         outColor = vec4((dot(lightDir, vNormal) * uColor), 1.0);
+    }
+);
+
+static const char* basicFragSrc = GLSL(
+    uniform vec3 uLight;
+    uniform vec3 uColor;
+    uniform sampler2D uTex0;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+
+        vec3 lightDir = normalize(uLight - vPosition);
+        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        outColor = vec4((dot(lightDir, vNormal) * texColor.xyz), 1.0);
+
+        //outColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        //outColor = vec4(uColor, 1.0);
     }
 );
 
@@ -337,7 +362,7 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         float dy = (float)(y - cursorY);
 
 
-        RigTForm tform = RigTForm(Quat::makeYRotation(dx)) * RigTForm(Quat::makeXRotation(dy));
+        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.5f)) * RigTForm(Quat::makeXRotation(dy * 0.5f));
         g_view = tform * g_view;
         // Keep the camera upright
         // Rotate the camera around its z axis so that its y axis is
@@ -352,12 +377,14 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
         tform = RigTForm(Vec3(0, 0, 0), q);
         g_view = tform * g_view;
-        
+
+        // Report camera position in world space
+        /*
         RigTForm invView = inv(g_view);
         Vec3 trans = invView.getTranslation();        
         std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
+        */
         
-        //draw_scene();
         cursorX = x;
         cursorY = y;
     }
@@ -529,7 +556,7 @@ void initGeometry()
     GLfloat *mesh_verts;
     int numVertices;
 
-    mesh_verts = readFromObj("dish.obj", &numVertices);
+    mesh_verts = readFromObj("Ship.obj", &numVertices);
 
     
     g_cube = new Geometry(vertices, 36);
@@ -652,42 +679,67 @@ void initGeometry()
     free(mesh_verts);
 }
 
+void initTexture()
+{
+    // Create 2 textures and load images to them    
+    glGenTextures(2, textures);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+
+    int width, height;
+    unsigned char* image;
+    image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    SOIL_free_image_data(image);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    image = SOIL_load_image("Ship_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
+}
+
 void initMaterial()
 {
     //flatShader = new ShaderState(vertexSource, fragmentSource);
-    //flatShader = new ShaderState(lightVertexSrc, fragmentSource);
     //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
     //flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
     //flatShader = new ShaderState(basicVertSrc, specularFragSrc);
     //texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
-    //glUseProgram(flatShader->shaderProgram);
-
     g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
 
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
     g_lightE = g_view * g_lightW;
-    /*
-    glUniformMatrix4fv(flatShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
-    glUniform3f(flatShader->h_uColor, 0.1f, 0.6f, 0.6f);
-    // transform light to eye space
-    glUniform3f(flatShader->h_uLight, g_lightE[0], g_lightE[1], g_lightE[2]);
-    */
-    
-    
-    // SECOND SHADER
-    /*
-    glUseProgram(texturedShader->shaderProgram);
-    glUniformMatrix4fv(texturedShader->h_uProjMat, 1, GL_FALSE, &(proj[0]));
-    glUniform3f(texturedShader->h_uColor, 0.6f, 0.6f, 0.6f);
-    */
+
     // Material
-    material = new Material(basicVertSrc, diffuseFragSrc);
-    Vec3 color(0.1f, 0.6f, 0.6f);
+    //material = new Material(basicVertSrc, diffuseFragSrc);
+    material = new Material(basicVertSrc, basicFragSrc);
+    //Vec3 color(0.1f, 0.6f, 0.6f);
+    Vec3 color(1.0f, 1.0f, 1.0f);
     material->sendUniform3v("uColor", color);
     material->sendUniformMat4("uProjMat", proj);
+    material->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     //material->sendUniform3v("uLight", g_lightE);
 }
 
@@ -752,6 +804,7 @@ int main()
     // ----------------------------- RESOURCES ----------------------------- //
 
     initGeometry();
+    initTexture();
     initMaterial();
     initScene();
 

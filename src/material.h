@@ -92,6 +92,7 @@ public:
             free(uniformDesc);
             //free(uniforms[i]);
         }
+        glDeleteProgram(shaderProgram);
     }
 
     GLint getNumUniforms()
@@ -109,7 +110,7 @@ public:
         }
         if(i == numUniforms)
         {
-            fprintf(stderr, "No such active uniform.\n");
+            fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
 
@@ -130,7 +131,7 @@ public:
         }
         if(i == numUniforms)
         {
-            fprintf(stderr, "No such active uniform.\n");
+            fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
 
@@ -138,6 +139,27 @@ public:
         glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(uniform[0]));
         glUseProgram(0);
         return true;
+    }
+    
+    bool sendUniformTexture(const char *uniformName, GLuint uniform, GLenum texture, GLint texUnit)
+    {
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            fprintf(stderr, "No active uniform %s.\n", uniformName);
+            return false;
+        }
+        
+        glUseProgram(shaderProgram);
+        glActiveTexture(texture);
+        glBindTexture(GL_TEXTURE_2D, uniform);
+        glUniform1i(uniformDesc[i].handle, texUnit);
+        glUseProgram(0);
     }
 
     void draw(Geometry *geometry, RigTForm& modelViewRbt)
