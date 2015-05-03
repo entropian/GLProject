@@ -10,7 +10,7 @@
 #define MAX_CHILDREN 30
 #define MAX_LAYER 10
 
-enum NodeType {transformnode, geometrynode};
+enum NodeType {TRANSFORM, GEOMETRY, PICKABLEGEO};
 
 class TransformNode 
 {
@@ -18,7 +18,7 @@ public:
     TransformNode()
         :parent(NULL), parentToLocal(), childrenCount(0)
     {
-        nt = transformnode;
+        nt = TRANSFORM;
     }
 
     TransformNode(TransformNode *p, RigTForm& rbt)
@@ -121,7 +121,7 @@ public:
     GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g,  Material *material)
         :TransformNode(p, rbt), geometry(g), m(material)
     {
-        nt = geometrynode;
+        nt = GEOMETRY;
     }
     Geometry* getGeometry()
     {
@@ -145,13 +145,47 @@ public:
 
     void draw(RigTForm modelViewRbt)
     {
-        printf("In material!\n");
         m->draw(geometry, modelViewRbt);
     }
 
 protected:
     Geometry *geometry;
     Material *m;
+};
+
+class PickableGeoNode : public GeometryNode
+{
+public:
+    PickableGeoNode(TransformNode *p, RigTForm& rbt, Geometry *g, Material *material,
+                    Material *pm, int c)
+        :GeometryNode(p, rbt, g, material), pickMaterial(pm), code(c)
+    {
+        nt = PICKABLEGEO;
+    }
+
+    Material* getPickMaterial()
+    {
+        return pickMaterial;
+    }
+
+    void setPickMaterial(Material *pm)
+    {
+        pickMaterial = pm;
+    }
+
+    int getCode()
+    {
+        return code;
+    }
+
+    void drawPicking(RigTForm modelViewRbt)
+    {
+        pickMaterial->draw(geometry, modelViewRbt);
+    }
+
+private:
+    Material *pickMaterial;
+    GLint code;
 };
 
 class Visitor
@@ -207,19 +241,19 @@ public:
 
     void visitNode(TransformNode *tn)
     {
-        if(tn->getNodeType() == transformnode)
+        if(tn->getNodeType() == TRANSFORM)
         {
-            printf("Visiting transform node.\n");
+            //printf("Visiting transform node.\n");
             pushRbt(tn->getRbt());            
             for(int i = 0; i < tn->getNumChildren(); i++)
             {
                 this->visitNode(tn->getChild(i));
             }
             popRbt();
-            printf("Exiting transform node.\n");
-        }else if(tn->getNodeType() == geometrynode)
+            //printf("Exiting transform node.\n");
+        }else if(tn->getNodeType() == GEOMETRY || tn->getNodeType() == PICKABLEGEO)
         {
-            printf("Visiting geometry node.\n");
+            //printf("Visiting geometry node.\n");
             RigTForm modelViewRbt;
             if(rbtCount == 0)
             {
@@ -230,7 +264,40 @@ public:
             }
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
             gn->draw(modelViewRbt);
-            printf("Exiting geometry node.\n");
+            //printf("Exiting geometry node.\n");
+        }
+    }
+
+    void visitPickNode(TransformNode *tn)
+    {
+        if(tn->getNodeType() == TRANSFORM)
+        {
+            //printf("Visiting transform node.\n");
+            pushRbt(tn->getRbt());            
+            for(int i = 0; i < tn->getNumChildren(); i++)
+            {
+                this->visitPickNode(tn->getChild(i));
+            }
+            popRbt();
+            //printf("Exiting transform node.\n");
+        }else if(tn->getNodeType() == GEOMETRY)
+        {
+            // TODO: Render the object with the background color
+            
+        }else if(tn->getNodeType() == PICKABLEGEO)
+        {
+            //printf("Visiting pickable node.\n");
+            RigTForm modelViewRbt;
+            if(rbtCount == 0)
+            {
+                modelViewRbt = viewRbt * tn->getRbt();
+            }else
+            {
+                modelViewRbt = viewRbt * tn->getRbt() * rbtStack[rbtCount-1];
+            }
+            PickableGeoNode *pn = static_cast<PickableGeoNode*>(tn);
+            pn->drawPicking(modelViewRbt);
+            //printf("Exiting pickable node.\n");
         }
     }
 

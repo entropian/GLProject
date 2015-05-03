@@ -6,7 +6,7 @@
 #include "SOIL.h"
 #include "geometry.h"
 
-extern GLuint textures[2];
+bool g_debugUniformString = false;
 
 struct Uniform
 {
@@ -100,6 +100,26 @@ public:
         return numUniforms;
     }
 
+    bool sendUniform1i(const char *uniformName, GLint uniform)
+    {
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            if(g_debugUniformString == true)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
+            return false;
+        }
+
+        glUseProgram(shaderProgram);
+        glUniform1i(uniformDesc[i].handle, uniform);
+        glUseProgram(0);
+    }
+
     bool sendUniform3v(const char *uniformName, Vec3 uniform)
     {
         GLint i;
@@ -110,7 +130,8 @@ public:
         }
         if(i == numUniforms)
         {
-            fprintf(stderr, "No active uniform %s.\n", uniformName);
+            if(g_debugUniformString == true)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
 
@@ -131,7 +152,8 @@ public:
         }
         if(i == numUniforms)
         {
-            fprintf(stderr, "No active uniform %s.\n", uniformName);
+            if(g_debugUniformString == true)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
 
@@ -151,7 +173,8 @@ public:
         }
         if(i == numUniforms)
         {
-            fprintf(stderr, "No active uniform %s.\n", uniformName);
+            if(g_debugUniformString == true)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
         
@@ -188,7 +211,7 @@ public:
             if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
                 break;
         glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));
-        
+
 
         if(geometry->shaderProgram != shaderProgram)
         {

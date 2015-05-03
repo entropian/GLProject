@@ -21,8 +21,6 @@
 
 #define GLSL(src) "#version 150 core\n" #src
 
-GLint uniView1, uniView2;
-
 static double cursorX;
 static double cursorY;
 
@@ -35,9 +33,11 @@ static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4];
+static PickableGeoNode *g_pickableNode;
 
 //test
 static Material *material;
+static Material *pickMaterial;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -48,6 +48,9 @@ static double distancePerSec = 2.0f;
 static double timeBetweenFrames = 1.0 / framesPerSec;
 static double distancePerFrame = distancePerSec / framesPerSec;
 static Vec3 movementDir(0.0f, 0.0f, 0.0f);
+
+// TODO: this is really bad. needs to be changed
+static int numPickObj = 0;
 
 
 //////////////// Shaders
@@ -181,6 +184,34 @@ static const char* lightVertexSrc = GLSL(
     }
 );
 
+static const char* pickVertSrc = GLSL(
+    uniform mat4 uModelViewMat;
+    uniform mat4 uNormalMat;
+    uniform mat4 uProjMat;
+    
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    void main()
+    {
+        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
+    }
+);
+
+static const char* pickFragSrc = GLSL(
+    uniform int uCode;
+
+    out vec4 outColor;
+    
+    void main()
+    {
+        float color = uCode / 255.0;
+        //float color = 255.0 / 255.0;
+        outColor = vec4(color, color, color, 1.0);
+    }
+);
+
 //////// Fragment Shaders
 static const char* fragmentSource = GLSL(
     uniform sampler2D texKitten;
@@ -188,7 +219,7 @@ static const char* fragmentSource = GLSL(
 
     in vec3 vColor;
     in vec2 vTexcoord;
-
+    
     out vec4 outColor;
         
     void main() {
@@ -203,7 +234,7 @@ static const char* diffuseFragSrc = GLSL(
     
     in vec3 vPosition;
     in vec3 vNormal;
-    in vec3 vTexcoord;
+    in vec2 vTexcoord;
 
     out vec4 outColor;
 
@@ -227,12 +258,12 @@ static const char* basicFragSrc = GLSL(
 
     void main()
     {
-
+        /*
         vec3 lightDir = normalize(uLight - vPosition);
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
         outColor = vec4((dot(lightDir, vNormal) * texColor.xyz), 1.0);
-
-        //outColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        */
+        outColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
         //outColor = vec4(uColor, 1.0);
     }
 );
@@ -303,7 +334,8 @@ void draw_scene()
 
     // Draw objects
     Visitor visitor(g_view);
-    visitor.visitNode(g_worldNode);
+    //visitor.visitNode(g_worldNode);
+    visitor.visitPickNode(g_worldNode);
 
     /* Floor and walls
     glUseProgram(texturedShader->shaderProgram);
@@ -368,7 +400,14 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         // Rotate the camera around its z axis so that its y axis is
         // in the plane defined by its z axis and world y axis.
         Vec3 newUp = g_view.getRotation() * Vec3(0, 1, 0);
-        Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
+        // NOTE: this line sometimes casues the program to crash, when the camera is spinning around while pointing
+        // about straight up (or down?). newUp and Vec3(0, 0, -1) are too close together
+        //Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
+        Vec3 newX;
+        if(abs(dot(Vec3(0, 0, -1), newUp)) > (0.999f))
+            newX = Vec3(0, 0, -1);
+        else
+            newX = normalize(cross(Vec3(0, 0, -1), newUp));
         float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
         float sign = 1;
         // Not sure why this works
@@ -740,7 +779,10 @@ void initMaterial()
     material->sendUniform3v("uColor", color);
     material->sendUniformMat4("uProjMat", proj);
     material->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
-    //material->sendUniform3v("uLight", g_lightE);
+    
+
+    pickMaterial = new Material(pickVertSrc, pickFragSrc);
+    pickMaterial->sendUniformMat4("uProjMat", proj);
 }
 
 void initScene()
@@ -749,9 +791,12 @@ void initScene()
     modelRbt = RigTForm(Vec3(0, 0, 0));
     
     g_worldNode = new TransformNode();
-    //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material);
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, material);
+    //g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material);
+    g_pickableNode = new PickableGeoNode(NULL, modelRbt, g_mesh, material, pickMaterial, ++numPickObj);
+    
     g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_pickableNode);
 
     /*
     for(int i = 0; i < 2; i++)
@@ -811,8 +856,6 @@ int main()
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
 
-    
-
     // ---------------------------- RENDERING ------------------------------ //
     
     glEnable(GL_DEPTH_TEST);
@@ -831,7 +874,6 @@ int main()
             draw_scene();
         }
  
-        //draw_scene();
         glfwPollEvents();
     }
 
@@ -853,6 +895,7 @@ int main()
     //free(flatShader);
     //free(texturedShader);
     free(material);
+    free(pickMaterial);
     free(g_cube);
     free(g_mesh);
     free(g_floor);
