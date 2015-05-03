@@ -10,6 +10,8 @@
 #define MAX_CHILDREN 30
 #define MAX_LAYER 10
 
+static bool g_debugString = false;
+
 enum NodeType {transformnode, geometrynode};
 
 class TransformNode 
@@ -109,6 +111,7 @@ public:
 protected:
     NodeType nt;
     RigTForm parentToLocal;
+    // TODO: is parent needed?
     TransformNode *children[MAX_CHILDREN], *parent;;
     int childrenCount;
 };
@@ -118,8 +121,8 @@ class GeometryNode : public TransformNode
 {
     
 public:
-    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g,  Material *material)
-        :TransformNode(p, rbt), geometry(g), m(material)
+    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g,  Material *material, bool c)
+        :TransformNode(p, rbt), geometry(g), m(material), clickable(c)
     {
         nt = geometrynode;
     }
@@ -143,15 +146,31 @@ public:
         m = material;
     }
 
+    bool getClickable()
+    {
+        return clickable;
+    }
+
+    void setClickable(bool c)
+    {
+        clickable = c;
+    }
+
     void draw(RigTForm modelViewRbt)
     {
-        printf("In material!\n");
         m->draw(geometry, modelViewRbt);
+    }
+
+
+    void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
+    {
+        overrideMat->draw(geometry, modelViewRbt);
     }
 
 protected:
     Geometry *geometry;
     Material *m;
+    bool clickable;
 };
 
 class Visitor
@@ -159,11 +178,11 @@ class Visitor
 public:
 
     Visitor()
-        :rbtCount(0)
+        :rbtCount(0), code(0)
     {}
     
     Visitor(RigTForm& rbt)
-        :rbtCount(0)
+        :rbtCount(0), code(0)
     {
         viewRbt = rbt;
     }
@@ -209,17 +228,20 @@ public:
     {
         if(tn->getNodeType() == transformnode)
         {
-            printf("Visiting transform node.\n");
+            if(g_debugString == true)
+                printf("Visiting transform node.\n");
             pushRbt(tn->getRbt());            
             for(int i = 0; i < tn->getNumChildren(); i++)
             {
                 this->visitNode(tn->getChild(i));
             }
             popRbt();
-            printf("Exiting transform node.\n");
+            if(g_debugString == true)
+                printf("Exiting transform node.\n");
         }else if(tn->getNodeType() == geometrynode)
         {
-            printf("Visiting geometry node.\n");
+            if(g_debugString == true)
+                printf("Visiting geometry node.\n");
             RigTForm modelViewRbt;
             if(rbtCount == 0)
             {
@@ -230,7 +252,49 @@ public:
             }
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
             gn->draw(modelViewRbt);
-            printf("Exiting geometry node.\n");
+            if(g_debugString == true)
+                printf("Exiting geometry node.\n");
+        }
+    }
+
+   
+    void visitPickNode(TransformNode *tn, Material *overrideMat)
+    {
+        if(tn->getNodeType() == transformnode)
+        {
+            if(g_debugString == true)
+                printf("Visiting transform node.\n");
+            pushRbt(tn->getRbt());            
+            for(int i = 0; i < tn->getNumChildren(); i++)
+            {
+                this->visitPickNode(tn->getChild(i), overrideMat);
+            }
+            popRbt();
+            if(g_debugString == true)
+                printf("Exiting transform node.\n");
+        }else if(tn->getNodeType() == geometrynode)
+        {
+            if(g_debugString == true)
+            printf("Visiting geometry node.\n");
+            GeometryNode *gn = static_cast<GeometryNode*>(tn);
+            if(gn->getClickable() == true)
+            {
+                RigTForm modelViewRbt;
+                if(rbtCount == 0)
+                {
+                    modelViewRbt = viewRbt * gn->getRbt();
+                }else
+                {
+                    modelViewRbt = viewRbt * gn->getRbt() * rbtStack[rbtCount-1];
+                }
+                overrideMat->sendUniform1i("uCode", ++code);
+                gn->overrideMatDraw(overrideMat, modelViewRbt);
+            }else
+            {
+                // TODO: render the object with background color or something like that
+            }
+            if(g_debugString == true)
+                printf("Exiting geometry node.\n");
         }
     }
 
@@ -238,6 +302,7 @@ protected:
     RigTForm rbtStack[MAX_LAYER];
     RigTForm viewRbt;
     int rbtCount;
+    GLint code;
 };
 
 /*

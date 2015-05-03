@@ -37,7 +37,7 @@ static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4];
 
 //test
-static Material *material;
+static Material *material, *pickMaterial;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -181,6 +181,33 @@ static const char* lightVertexSrc = GLSL(
     }
 );
 
+static const char *pickVertSrc = GLSL(
+    uniform mat4 uModelViewMat;
+    uniform mat4 uProjMat;
+
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    void main()
+    {
+        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
+    }
+);
+
+static const char *pickFragSrc = GLSL(
+    uniform int uCode;
+
+    out vec4 outColor;
+    
+    void main()
+    {
+        float color = uCode / 255.0;
+        //float color = 1.0;
+        outColor = vec4(color, color, color, 1.0);
+    }
+);
+
 //////// Fragment Shaders
 static const char* fragmentSource = GLSL(
     uniform sampler2D texKitten;
@@ -303,7 +330,9 @@ void draw_scene()
 
     // Draw objects
     Visitor visitor(g_view);
-    visitor.visitNode(g_worldNode);
+    //visitor.visitNode(g_worldNode);
+    visitor.visitPickNode(g_worldNode, pickMaterial);
+
 
     /* Floor and walls
     glUseProgram(texturedShader->shaderProgram);
@@ -368,7 +397,11 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         // Rotate the camera around its z axis so that its y axis is
         // in the plane defined by its z axis and world y axis.
         Vec3 newUp = g_view.getRotation() * Vec3(0, 1, 0);
-        Vec3 newX = normalize(cross(Vec3(0, 0, -1), newUp));
+        Vec3 newX;
+        if(abs(dot(newUp, Vec3(0.0f, 0.0f, -1.0f))) > 0.999f)
+            newX = Vec3(0.0f, 0.0f, -1.0f);
+        else
+            newX = normalize(cross(Vec3(0, 0, -1), newUp));
         float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
         float sign = 1;
         // Not sure why this works
@@ -741,6 +774,9 @@ void initMaterial()
     material->sendUniformMat4("uProjMat", proj);
     material->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     //material->sendUniform3v("uLight", g_lightE);
+
+    pickMaterial = new Material(pickVertSrc, pickFragSrc);
+    pickMaterial->sendUniformMat4("uProjMat", proj);
 }
 
 void initScene()
@@ -750,7 +786,7 @@ void initScene()
     
     g_worldNode = new TransformNode();
     //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material);
+    g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material, true);
     g_worldNode->addChild(g_terrainNode);
 
     /*
