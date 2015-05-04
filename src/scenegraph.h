@@ -9,6 +9,7 @@
 // Arbitrary limit
 #define MAX_CHILDREN 30
 #define MAX_LAYER 10
+#define MAX_OBJECTS_ONSCREEN 50
 
 static bool g_debugString = false;
 
@@ -197,7 +198,7 @@ public:
         viewRbt = rbt;
     }
 
-    bool pushRbt(RigTForm& rbt)
+    bool pushRbt(RigTForm rbt)
     {
         if(rbtCount == MAX_LAYER)
         {
@@ -222,6 +223,11 @@ public:
             return false;
         }else
             rbtCount--;
+    }
+
+    void resetCode()
+    {
+        code = 0;
     }
 
     void visitNode(TransformNode *tn)
@@ -287,11 +293,17 @@ public:
                 {
                     modelViewRbt = viewRbt * gn->getRbt() * rbtStack[rbtCount-1];
                 }
-                overrideMat->sendUniform1i("uCode", ++code);
+                // The corresponding geoNodes index for a node is code - 1
+                // NOTE: Not sure if casting changes the pointer
+                geoNodes[code] = static_cast<GeometryNode*>(tn);
+                overrideMat->sendUniform1i("uCode", ++code);                
                 gn->overrideMatDraw(overrideMat, modelViewRbt);
             }else
             {
                 // TODO: render the object with background color or something like that
+                // The back ground color is black. Setting uCode to 0 makes the color black
+                overrideMat->sendUniform1i("uCode", 0);
+                gn->overrideMatDraw(overrideMat, modelView);
             }
             if(g_debugString == true)
                 printf("Exiting geometry node.\n");
@@ -302,6 +314,8 @@ protected:
     RigTForm rbtStack[MAX_LAYER];
     RigTForm viewRbt;
     int rbtCount;
+
+    GeometryNode *geoNodes[MAX_OBJECTS_ONSCREEN];
     GLint code;
 };
 

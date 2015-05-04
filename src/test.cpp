@@ -49,6 +49,11 @@ static double timeBetweenFrames = 1.0 / framesPerSec;
 static double distancePerFrame = distancePerSec / framesPerSec;
 static Vec3 movementDir(0.0f, 0.0f, 0.0f);
 
+enum InputMode{FPS_MODE, PICKING_MODE};
+// When g_inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
+static InputMode g_inputMode = FPS_MODE;
+static InputMode g_previousInputMode;
+
 
 //////////////// Shaders
 //////// Vertex Shaders
@@ -330,8 +335,8 @@ void draw_scene()
 
     // Draw objects
     Visitor visitor(g_view);
-    //visitor.visitNode(g_worldNode);
-    visitor.visitPickNode(g_worldNode, pickMaterial);
+    visitor.visitNode(g_worldNode);
+    //visitor.visitPickNode(g_worldNode, pickMaterial);
 
 
     /* Floor and walls
@@ -358,18 +363,55 @@ void draw_scene()
     glfwSwapBuffers(window);
 }
 
+void drawPickableObj()
+{    
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    Visitor visitor(g_view);
+    visitor.visitPickNode(g_worldNode, pickMaterial);
+    visitor.resetCode();
+    
+    // TODO: Get rid of this later when the object picking works
+    glfwSwapBuffers(window);
+
+    // NOTE: Would this work?
+    // Determine what the picked object is in this function to avoid having a global Visitor?
+    /*
+    while(g_inputMode == PICKING_MODE)
+    {
+        glfwWaitEvents();
+        //glfwPollEvents();
+    }
+
+    // Determine which object is picked
+    */
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button != GLFW_MOUSE_BUTTON_LEFT)
         return;
 
-    if (action == GLFW_PRESS)
+    if(g_inputMode == FPS_MODE)
     {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        glfwGetCursorPos(window, &cursorX, &cursorY);
+        if (action == GLFW_PRESS)
+        {
+        
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwGetCursorPos(window, &cursorX, &cursorY);
+        }
+        else
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }else if(g_inputMode == PICKING_MODE)
+    {
+        if(action == GLFW_RELEASE)
+        {
+            // TODO: Get the mouse coordinate, and determine which object the user selected.
+            
+            g_inputMode = FPS_MODE;
+        }
     }
-    else
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     /*
     if(button == GLFW_MOUSE_BUTTON_LEFT)
@@ -423,6 +465,100 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
     }
 }
 
+// TODO: Add verticle motion and sort out how holding down three keys would work
+void FPSModeKeyInput(int key, int action)
+{
+       if(action == GLFW_PRESS)
+        {
+            int i = -1;
+            float component = 0;
+            switch(key)
+            {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GL_TRUE);
+                break;
+            case GLFW_KEY_A: // left
+                i = 0;
+                component = 1.0f;
+                break;
+            case GLFW_KEY_D: // right
+                i = 0;
+                component = -1.0f;
+                break;
+            case GLFW_KEY_W: // forward
+                i = 2;
+                component = 1.0f;
+                break;
+            case GLFW_KEY_S: // backward
+                i = 2;
+                component = -1.0f;
+                break;
+                /*
+                  case GLFW_KEY_Q:
+                  i = 1;
+                  component = -1.0f;
+                  break;
+                  case GLFW_KEY_E:
+                  i = 1;
+                  component = 1.0f;
+                  break;
+                */
+            default:
+                break;
+            }
+        
+            if(i != -1)
+            {
+                if(movementDir[i] == 0.0f)
+                    movementDir[i] = component;
+                else if(abs(component - movementDir[i]) > abs(component))
+                    movementDir[i] = 0.0f;
+            }
+
+            if(norm2(movementDir) != 0.0f)
+                movementDir = normalize(movementDir);
+        
+        }else if(action == GLFW_RELEASE)
+        {
+            // This is a reverse of the above code in if(action == GLFW_PRESS)
+            // with component taking the opposite value in each case
+            // I treat directioanl key release as pressing a key of the opposite direction
+            int i = -1;
+            float component = 0.0f;
+            switch(key)
+            {
+            case GLFW_KEY_A: // left
+                i = 0;
+                component = -1.0f;
+                break;
+            case GLFW_KEY_D: // right
+                i = 0;
+                component = 1.0f;
+                break;
+            case GLFW_KEY_W: // forward
+                i = 2;
+                component = -1.0f;
+                break;
+            case GLFW_KEY_S: // backward
+                i = 2;
+                component = 1.0f;
+                break;
+            default:
+                break;
+            }
+
+            if(i != -1)
+            {
+                if(movementDir[i] == 0.0f)
+                    movementDir[i] = component;
+                else if(abs(component - movementDir[i]) > abs(component))
+                    movementDir[i] = 0.0f;
+            }
+
+            if(norm2(movementDir) != 0.0f)
+                movementDir = normalize(movementDir);
+        }
+}
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -430,86 +566,24 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
     */
-    // TODO: behavior of key release when more than one key is pressed down needs to be sorted out
-    if(action == GLFW_PRESS)
+
+    if(key == GLFW_KEY_P && action == GLFW_PRESS)
     {
-        int i = -1;
-        float component = 0;
-        switch(key)
+        // TODO: Render the pickable objects to the back buffer.
+        if(g_inputMode != PICKING_MODE)
         {
-        case GLFW_KEY_ESCAPE:
-            glfwSetWindowShouldClose(window, GL_TRUE);
-            break;
-        case GLFW_KEY_A: // left
-            i = 0;
-            component = 1.0f;
-            break;
-        case GLFW_KEY_D: // right
-            i = 0;
-            component = -1.0f;
-            break;
-        case GLFW_KEY_W: // forward
-            i = 2;
-            component = 1.0f;
-            break;
-        case GLFW_KEY_S: // backward
-            i = 2;
-            component = -1.0f;
-            break;
-        default:
-            break;
-        }
-        
-        if(i != -1)
-        {
-            if(movementDir[i] == 0.0f)
-                movementDir[i] = component;
-            else if(abs(component - movementDir[i]) > abs(component))
-                movementDir[i] = 0.0f;
-        }
+            drawPickableObj();
+            
+            g_previousInputMode = g_inputMode;
+            g_inputMode = PICKING_MODE;
 
-        if(norm2(movementDir) != 0.0f)
-            movementDir = normalize(movementDir);
-        
-    }else if(action == GLFW_RELEASE)
+        }else
+            g_inputMode = g_previousInputMode;
+    }
+
+    if(g_inputMode == FPS_MODE)
     {
-        // This is a reverse of the above code in if(action == GLFW_PRESS)
-        // with component taking the opposite value in each case
-        // I treat directioanl key release as pressing a key of the opposite direction
-        int i = -1;
-        float component = 0.0f;
-        switch(key)
-        {
-        case GLFW_KEY_A: // left
-            i = 0;
-            component = -1.0f;
-            break;
-        case GLFW_KEY_D: // right
-            i = 0;
-            component = 1.0f;
-            break;
-        case GLFW_KEY_W: // forward
-            i = 2;
-            component = -1.0f;
-            break;
-        case GLFW_KEY_S: // backward
-            i = 2;
-            component = 1.0f;
-            break;
-        default:
-            break;
-        }
-
-        if(i != -1)
-        {
-            if(movementDir[i] == 0.0f)
-                movementDir[i] = component;
-            else if(abs(component - movementDir[i]) > abs(component))
-                movementDir[i] = 0.0f;
-        }
-
-        if(norm2(movementDir) != 0.0f)
-            movementDir = normalize(movementDir);
+        FPSModeKeyInput(key, action);
     }
 
 }
@@ -856,18 +930,18 @@ int main()
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
     {
-
-        // Apply a rotation        
-        // Swap buffers and poll window events
-
-        currentTime = glfwGetTime();
-        if((currentTime - timeLastRender) >= timeBetweenFrames)
+        // When g_inputMode == PICKING_MODE, the framebuffer isn't refreshed.
+        if(g_inputMode != PICKING_MODE)
         {
-            timeLastRender = currentTime;
-            draw_scene();
+            currentTime = glfwGetTime();
+            if((currentTime - timeLastRender) >= timeBetweenFrames)
+            {
+                timeLastRender = currentTime;
+                draw_scene();
+            }
         }
- 
-        //draw_scene();
+
+        // Poll window events
         glfwPollEvents();
     }
 
