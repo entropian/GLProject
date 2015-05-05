@@ -77,7 +77,6 @@ public:
                 return true;
             }
         }
-
         fprintf(stderr, "No such child.\n");
         return false;
     }
@@ -162,7 +161,6 @@ public:
         m->draw(geometry, modelViewRbt);
     }
 
-
     void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
     {
         overrideMat->draw(geometry, modelViewRbt);
@@ -170,8 +168,8 @@ public:
 
 protected:
     Geometry *geometry;
-    Material *m;
-    bool clickable;
+    Material *m;    
+    bool clickable;  // Indicates whether the node can be selected by clicking
 };
 
 class Visitor
@@ -283,16 +281,16 @@ public:
             if(g_debugString == true)
             printf("Visiting geometry node.\n");
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
+            
+            RigTForm modelViewRbt;            
+            if(rbtCount == 0)
+                modelViewRbt = viewRbt * gn->getRbt();
+            else
+                modelViewRbt = viewRbt * gn->getRbt() * rbtStack[rbtCount-1];
+
             if(gn->getClickable() == true)
             {
-                RigTForm modelViewRbt;
-                if(rbtCount == 0)
-                {
-                    modelViewRbt = viewRbt * gn->getRbt();
-                }else
-                {
-                    modelViewRbt = viewRbt * gn->getRbt() * rbtStack[rbtCount-1];
-                }
+
                 // The corresponding geoNodes index for a node is code - 1
                 // NOTE: Not sure if casting changes the pointer
                 geoNodes[code] = static_cast<GeometryNode*>(tn);
@@ -303,11 +301,21 @@ public:
                 // TODO: render the object with background color or something like that
                 // The back ground color is black. Setting uCode to 0 makes the color black
                 overrideMat->sendUniform1i("uCode", 0);
-                gn->overrideMatDraw(overrideMat, modelView);
+                gn->overrideMatDraw(overrideMat, modelViewRbt);
             }
             if(g_debugString == true)
                 printf("Exiting geometry node.\n");
         }
+    }
+
+    GeometryNode* getClickedNode(unsigned char c)
+    {
+        if(c > code)
+        {
+            fprintf(stderr, "Invalid code.\n");
+            return NULL;
+        }
+        return geoNodes[c];
     }
 
 protected:

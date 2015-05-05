@@ -26,6 +26,9 @@ GLint uniView1, uniView2;
 static double cursorX;
 static double cursorY;
 
+static int g_windowWidth = 800;
+static int g_windowHeight = 600;
+
 // some of the shader uniforms
 static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
@@ -53,6 +56,8 @@ enum InputMode{FPS_MODE, PICKING_MODE};
 // When g_inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
 static InputMode g_inputMode = FPS_MODE;
 static InputMode g_previousInputMode;
+static bool g_pickModeClicked;
+static GeometryNode *g_pickedObj;
 
 
 //////////////// Shaders
@@ -363,29 +368,46 @@ void draw_scene()
     glfwSwapBuffers(window);
 }
 
-void drawPickableObj()
+void calcPickedObj()
 {    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     Visitor visitor(g_view);
     visitor.visitPickNode(g_worldNode, pickMaterial);
-    visitor.resetCode();
     
-    // TODO: Get rid of this later when the object picking works
-    glfwSwapBuffers(window);
+    // glReadPixels() actually reads from the back buffer
+    // so don't bother swapping the buffer
+    //glfwSwapBuffers(window);
 
     // NOTE: Would this work?
     // Determine what the picked object is in this function to avoid having a global Visitor?
-    /*
-    while(g_inputMode == PICKING_MODE)
+    // Thread safety?
+
+    // Waits for a mouse click or the p key being pressed
+    g_pickModeClicked = false;
+    assert(g_pickModeClicked == false && g_inputMode == PICKING_MODE);
+    while(g_pickModeClicked == false && g_inputMode == PICKING_MODE)
     {
         glfwWaitEvents();
         //glfwPollEvents();
     }
 
-    // Determine which object is picked
-    */
+    // TODO: Determine which object is picked
+    if(g_inputMode == PICKING_MODE)
+    {
+        unsigned char pixel[3];
+        glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
+        printf("pixel[0] == %d\n", pixel[0]);
+
+        g_pickedObj = visitor.getClickedNode(pixel[0] - 1);
+
+        // The  rendering loop resumes
+        g_inputMode = g_previousInputMode;
+    }else
+    {
+
+    }
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -405,11 +427,15 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }else if(g_inputMode == PICKING_MODE)
     {
-        if(action == GLFW_RELEASE)
+        if(action == GLFW_PRESS)
+        {
+            glfwGetCursorPos(window, &cursorX, &cursorY);
+        }
+        else if(action == GLFW_RELEASE)
         {
             // TODO: Get the mouse coordinate, and determine which object the user selected.
             
-            g_inputMode = FPS_MODE;
+            g_pickModeClicked = true;
         }
     }
 
@@ -460,9 +486,11 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
         std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
         */
         
-        cursorX = x;
-        cursorY = y;
+
     }
+    
+    cursorX = x;
+    cursorY = y;
 }
 
 // TODO: Add verticle motion and sort out how holding down three keys would work
@@ -572,16 +600,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         // TODO: Render the pickable objects to the back buffer.
         if(g_inputMode != PICKING_MODE)
         {
-            drawPickableObj();
-            
+            printf("Switching to picking mode\n");
             g_previousInputMode = g_inputMode;
-            g_inputMode = PICKING_MODE;
+            g_inputMode = PICKING_MODE;   // Stops the rendering loop
 
+            calcPickedObj();
         }else
             g_inputMode = g_previousInputMode;
-    }
-
-    if(g_inputMode == FPS_MODE)
+    }else if(g_inputMode == FPS_MODE)
     {
         FPSModeKeyInput(key, action);
     }
@@ -897,7 +923,8 @@ int main()
 
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
+    //window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
+    window = glfwCreateWindow(g_windowWidth, g_windowHeight, "OpenGL", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     // Init GLEW
