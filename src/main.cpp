@@ -62,27 +62,6 @@ static GeometryNode *g_pickedObj;
 
 //////////////// Shaders
 //////// Vertex Shaders
-static const char* vertexSource = GLSL(
-    uniform mat4 uModelView;
-    uniform mat4 uproj;
-    uniform vec3 color;
-
-    in vec3 position;
-    in vec3 normal;
-    in vec2 texcoord;
-
-    out vec3 Color;
-    out vec2 Texcoord;
-    out vec3 Position;
-        
-    void main() {
-        Color = color;
-        Texcoord = texcoord;
-        Position = position;
-        gl_Position = proj * view * trans * vec4(position, 1.0);
-    }
-);
-
 static const char* basicVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
@@ -292,24 +271,6 @@ static const char* specularFragSrc = GLSL(
         outColor = vec4((dot(reflectDir, eyeDir) * uColor), 1.0);
     }
 );
- 
-// Create and compile the fragment shader
-static const char* floorFragSrc = GLSL(
-    uniform sampler2D texKitten;
-    uniform sampler2D texPuppy;
-
-    in vec3 vColor;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-        
-    void main() {
-        //outColor = vec4(Color, 1.0);
-        outColor = mix(texture(texKitten, vTexcoord), texture(texPuppy, vTexcoord), 0.5) * vec4(vColor, 1.0);     
-    }
-);
-
-
 
 void draw_scene()
 {

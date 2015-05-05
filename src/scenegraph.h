@@ -24,8 +24,8 @@ public:
         nt = transformnode;
     }
 
-    TransformNode(TransformNode *p, RigTForm& rbt)
-        :parent(p), childrenCount(0)
+    TransformNode(RigTForm& rbt)
+        :parent(NULL), childrenCount(0)
     {
         // TODO: figure out copy constructor
         parentToLocal = rbt;
@@ -36,6 +36,11 @@ public:
         return childrenCount;
     }
 
+    void setParent(TransformNode *p)
+    {
+        parent = p;
+    }
+    
     bool addChild(TransformNode *tn)
     {
         if(childrenCount == 20)
@@ -44,6 +49,7 @@ public:
             return false;
         }
         children[childrenCount++] = tn;
+        tn->setParent(this);
         return true;
     }
 
@@ -90,11 +96,6 @@ public:
     {
         return parent;
     }
-    
-    void setParent(TransformNode *p)
-    {
-        parent = p;
-    }
 
     TransformNode* getChild(int i)
     {
@@ -121,8 +122,8 @@ class GeometryNode : public TransformNode
 {
     
 public:
-    GeometryNode(TransformNode *p, RigTForm& rbt, Geometry *g,  Material *material, bool c)
-        :TransformNode(p, rbt), geometry(g), m(material), clickable(c)
+    GeometryNode(RigTForm& rbt, Geometry *g,  Material *material, bool c)
+        :TransformNode(rbt), geometry(g), m(material), clickable(c)
     {
         nt = geometrynode;
     }
