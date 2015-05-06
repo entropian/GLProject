@@ -1,5 +1,11 @@
 #include <GL/glew.h>
-#include <GL/glfw3.h>
+
+#if __GNUG__
+#   include <GLFW/glfw3.h>
+#else
+#   include <GL/glfw3.h>
+#endif
+
 #include "SOIL.h"
 #include <iostream>
 #include <stdlib.h>
