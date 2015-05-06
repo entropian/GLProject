@@ -34,13 +34,14 @@ static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_arrow;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode, *g_cubeArray[4];
+static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_arrowYNode, *g_arrowXNode, *g_arrowZNode;
 
 //test
-static Material *material, *pickMaterial;
+static Material *shipMaterial1, *pickMaterial, *cubeMaterial;
+static Material *arrowYMat, *arrowZMat, *arrowXMat;
 
 GLint uniTrans1, uniTrans2;
 GLuint textures[2];
@@ -52,7 +53,11 @@ static double timeBetweenFrames = 1.0 / framesPerSec;
 static double distancePerFrame = distancePerSec / framesPerSec;
 static Vec3 movementDir(0.0f, 0.0f, 0.0f);
 
-enum InputMode{FPS_MODE, PICKING_MODE};
+enum InputMode{
+    FPS_MODE,               // Move around the scene with FPS control
+    PICKING_MODE,           // Let's the user select a selectable object
+    OBJECT_MODE             // Let's the user move a selected object around 
+};
 // When g_inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
 static InputMode g_inputMode = FPS_MODE;
 static InputMode g_previousInputMode;
@@ -297,35 +302,16 @@ void draw_scene()
     // like g_lightE
     // Update some uniforms    
     g_lightE = g_view * g_lightW;
-    material->sendUniform3v("uLight", g_lightE);
+    shipMaterial1->sendUniform3v("uLight", g_lightE);
+    cubeMaterial->sendUniform3v("uLight", g_lightE);
+    arrowYMat->sendUniform3v("uLight", g_lightE);
+    arrowXMat->sendUniform3v("uLight", g_lightE);
+    arrowZMat->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
     Visitor visitor(g_view);
     visitor.visitNode(g_worldNode);
-    //visitor.visitPickNode(g_worldNode, pickMaterial);
 
-
-    /* Floor and walls
-    glUseProgram(texturedShader->shaderProgram);
-    texturedShader->draw(g_floor);
-
-    texturedShader->draw(g_wall);
-
-    trans = Mat4::makeTranslation(Vec3(-1.0f, 0.0f, 20.0f));
-    trans = transpose(trans);
-    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
-    texturedShader->draw(g_wall);
-
-    trans = Mat4::makeTranslation(Vec3(-1, 0, 0)) * Mat4::makeYRotation(90.0f);
-    trans = transpose(trans);
-    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
-    texturedShader->draw(g_wall);
-
-    trans = Mat4::makeTranslation(Vec3(19, 0, 0)) * Mat4::makeYRotation(90.0f);
-    trans = transpose(trans);
-    glUniformMatrix4fv(texturedShader->h_uTrans, 1, GL_FALSE, &(trans[0]));
-    texturedShader->draw(g_wall);
-    */
     glfwSwapBuffers(window);
 }
 
@@ -341,10 +327,8 @@ void calcPickedObj()
     // so don't bother swapping the buffer
     //glfwSwapBuffers(window);
 
-    // NOTE: Would this work?
-    // Determine what the picked object is in this function to avoid having a global Visitor?
-    // Thread safety?
 
+    // Thread safety?
     // Waits for a mouse click or the p key being pressed
     g_pickModeClicked = false;
     assert(g_pickModeClicked == false && g_inputMode == PICKING_MODE);
@@ -353,18 +337,19 @@ void calcPickedObj()
         glfwWaitEvents();
         //glfwPollEvents();
     }
-
-    // TODO: Determine which object is picked
+    
     if(g_inputMode == PICKING_MODE)
     {
+        // Determine which object is picked
         unsigned char pixel[3];
         glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
         printf("pixel[0] == %d\n", pixel[0]);
 
         g_pickedObj = visitor.getClickedNode(pixel[0] - 1);
 
-        // The  rendering loop resumes
-        g_inputMode = g_previousInputMode;
+        // The rendering loop resumes
+        // OBJECT_MODE can only be entered through here
+        g_inputMode = OBJECT_MODE;
     }else
     {
 
@@ -549,6 +534,43 @@ void FPSModeKeyInput(int key, int action)
         }
 }
 
+void ObjModeKeyInput(int key, int action)
+{
+    Vec3 tmp;
+    switch(key)
+    {
+    case GLFW_KEY_A:
+        tmp[0] = -0.1f;
+        break;
+
+    case GLFW_KEY_D:
+        tmp[0] = 0.1f;
+        break;
+
+    case GLFW_KEY_W:
+        tmp[2] = -0.1f;
+        break;
+
+    case GLFW_KEY_S:
+        tmp[2] = 0.1f;
+        break;
+
+    case GLFW_KEY_Q:
+        tmp[1] = 0.1f;
+        break;
+
+    case GLFW_KEY_E:
+        tmp[1] = -0.1f;
+        break;
+    default:
+        break;
+    }
+
+    // TODO: convert world space transformation into object space
+    RigTForm trans(tmp);
+    g_pickedObj->setRbt(trans * g_pickedObj->getRbt());
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     /*
@@ -568,9 +590,15 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             calcPickedObj();
         }else
             g_inputMode = g_previousInputMode;
+    }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
+    {
+        g_inputMode = FPS_MODE;
     }else if(g_inputMode == FPS_MODE)
     {
         FPSModeKeyInput(key, action);
+    }else if(g_inputMode == OBJECT_MODE)
+    {
+        ObjModeKeyInput(key, action);
     }
 
 }
@@ -647,14 +675,17 @@ void initGeometry()
         0, 2, 3
     };
 
-    GLfloat *mesh_verts;
+    GLfloat *mesh_verts, *arrow_verts;
     int numVertices;
 
     mesh_verts = readFromObj("Ship.obj", &numVertices);
-
+    g_mesh = new Geometry(mesh_verts, numVertices);
+    
+    arrow_verts = readFromObj("arrow.obj", &numVertices);
+    g_arrow = new Geometry(arrow_verts, numVertices);
     
     g_cube = new Geometry(vertices, 36);
-    g_mesh = new Geometry(mesh_verts, numVertices);
+
 
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
@@ -771,6 +802,7 @@ void initGeometry()
 
     g_terrain = new Geometry(terrain_verts, index/8);
     free(mesh_verts);
+    free(arrow_verts);
 }
 
 void initTexture()
@@ -828,13 +860,29 @@ void initMaterial()
 
     // Material
     //material = new Material(basicVertSrc, diffuseFragSrc);
-    material = new Material(basicVertSrc, basicFragSrc);
+    shipMaterial1 = new Material(basicVertSrc, basicFragSrc);
     //Vec3 color(0.1f, 0.6f, 0.6f);
     Vec3 color(1.0f, 1.0f, 1.0f);
-    material->sendUniform3v("uColor", color);
-    material->sendUniformMat4("uProjMat", proj);
-    material->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+    shipMaterial1->sendUniform3v("uColor", color);
+    shipMaterial1->sendUniformMat4("uProjMat", proj);
+    shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     //material->sendUniform3v("uLight", g_lightE);
+
+    cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
+    cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
+    cubeMaterial->sendUniformMat4("uProjMat", proj);
+
+    arrowYMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
+    arrowYMat->sendUniformMat4("uProjMat", proj);
+
+    arrowZMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
+    arrowZMat->sendUniformMat4("uProjMat", proj);
+
+    arrowXMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
+    arrowXMat->sendUniformMat4("uProjMat", proj);
 
     pickMaterial = new Material(pickVertSrc, pickFragSrc);
     pickMaterial->sendUniformMat4("uProjMat", proj);
@@ -842,13 +890,31 @@ void initMaterial()
 
 void initScene()
 {
-    RigTForm modelRbt(g_lightW);
-    modelRbt = RigTForm(Vec3(0, 0, 0));
-    
     g_worldNode = new TransformNode();
-    //g_terrainNode = new GeometryNode(NULL, modelRbt, g_terrain, flatShader);
-    g_terrainNode = new GeometryNode(NULL, modelRbt, g_mesh, material, true);
+
+    RigTForm modelRbt;
+    modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
+    g_terrainNode = new GeometryNode(modelRbt, g_mesh, shipMaterial1, true);
+    
+    modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
+    g_cubeNode = new GeometryNode(modelRbt, g_cube, cubeMaterial, true);
+
+    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
+    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, arrowYMat, true);
+
+    modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
+    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, arrowXMat, true);
+
+    modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
+    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, arrowZMat, true);
+
+    
     g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_cubeNode);
+    g_worldNode->addChild(g_arrowYNode);
+    g_worldNode->addChild(g_arrowZNode);
+    g_worldNode->addChild(g_arrowXNode);
+
 
     /*
     for(int i = 0; i < 2; i++)
@@ -950,7 +1016,8 @@ int main()
 
     //free(flatShader);
     //free(texturedShader);
-    free(material);
+    free(shipMaterial1);
+    free(cubeMaterial);
     free(g_cube);
     free(g_mesh);
     free(g_floor);
