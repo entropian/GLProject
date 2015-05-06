@@ -235,6 +235,21 @@ static const char* diffuseFragSrc = GLSL(
     }
 );
 
+static const char* flatFragSrc = GLSL(
+    uniform vec3 uColor;
+      
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        outColor = vec4(uColor, 1.0);
+    }
+);
+
 static const char* basicFragSrc = GLSL(
     uniform vec3 uLight;
     uniform vec3 uColor;
@@ -277,6 +292,7 @@ static const char* specularFragSrc = GLSL(
     }
 );
 
+
 void draw_scene()
 {
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
@@ -304,9 +320,6 @@ void draw_scene()
     g_lightE = g_view * g_lightW;
     shipMaterial1->sendUniform3v("uLight", g_lightE);
     cubeMaterial->sendUniform3v("uLight", g_lightE);
-    arrowYMat->sendUniform3v("uLight", g_lightE);
-    arrowXMat->sendUniform3v("uLight", g_lightE);
-    arrowZMat->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
     Visitor visitor(g_view);
@@ -315,12 +328,28 @@ void draw_scene()
     glfwSwapBuffers(window);
 }
 
+void putArrowsOn(GeometryNode *gn)
+{
+    gn->addChild(g_arrowYNode);
+    gn->addChild(g_arrowZNode);
+    gn->addChild(g_arrowXNode);
+}
+
+void removeArrows(GeometryNode *gn)
+{
+    gn->removeChild(g_arrowYNode);
+    gn->removeChild(g_arrowZNode);
+    gn->removeChild(g_arrowXNode);
+}
+
+
 void calcPickedObj()
 {    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     Visitor visitor(g_view);
+    // Waits for a mouse click or the p key being pressed
     visitor.visitPickNode(g_worldNode, pickMaterial);
     
     // glReadPixels() actually reads from the back buffer
@@ -350,6 +379,7 @@ void calcPickedObj()
         // The rendering loop resumes
         // OBJECT_MODE can only be entered through here
         g_inputMode = OBJECT_MODE;
+        putArrowsOn(g_pickedObj);
     }else
     {
 
@@ -589,9 +619,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             calcPickedObj();
         }else
+        {
+            removeArrows(g_pickedObj);
+            g_pickedObj = NULL;
             g_inputMode = g_previousInputMode;
+        }
     }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
     {
+        if(g_inputMode == OBJECT_MODE)
+            removeArrows(g_pickedObj);
+        g_pickedObj = NULL;
         g_inputMode = FPS_MODE;
     }else if(g_inputMode == FPS_MODE)
     {
@@ -872,15 +909,15 @@ void initMaterial()
     cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     cubeMaterial->sendUniformMat4("uProjMat", proj);
 
-    arrowYMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowYMat = new Material(basicVertSrc, flatFragSrc);
     arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
     arrowYMat->sendUniformMat4("uProjMat", proj);
 
-    arrowZMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowZMat = new Material(basicVertSrc, flatFragSrc);
     arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
     arrowZMat->sendUniformMat4("uProjMat", proj);
 
-    arrowXMat = new Material(basicVertSrc, diffuseFragSrc);
+    arrowXMat = new Material(basicVertSrc, flatFragSrc);
     arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
     arrowXMat->sendUniformMat4("uProjMat", proj);
 
@@ -900,21 +937,19 @@ void initScene()
     g_cubeNode = new GeometryNode(modelRbt, g_cube, cubeMaterial, true);
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, arrowYMat, true);
+    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, arrowYMat, false);
+    g_arrowYNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
-    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, arrowXMat, true);
+    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, arrowXMat, false);
+    g_arrowXNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
-    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, arrowZMat, true);
-
+    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, arrowZMat, false);
+    g_arrowZNode->setDepthTest(false);
     
     g_worldNode->addChild(g_terrainNode);
     g_worldNode->addChild(g_cubeNode);
-    g_worldNode->addChild(g_arrowYNode);
-    g_worldNode->addChild(g_arrowZNode);
-    g_worldNode->addChild(g_arrowXNode);
-
 
     /*
     for(int i = 0; i < 2; i++)

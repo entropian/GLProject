@@ -74,10 +74,11 @@ public:
         {
             if(children[i] == tn)
             {
+                children[i]->setParent(NULL);
                 int j;
                 for(j = i; j < childrenCount - 1; j++)
                     children[j] = children[j+1];
-
+                
                 children[j] = NULL;
                 childrenCount--;
                 return true;
@@ -123,7 +124,7 @@ class GeometryNode : public TransformNode
     
 public:
     GeometryNode(RigTForm& rbt, Geometry *g,  Material *material, bool c)
-        :TransformNode(rbt), geometry(g), m(material), clickable(c)
+        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true)
     {
         nt = geometrynode;
     }
@@ -157,9 +158,23 @@ public:
         clickable = c;
     }
 
+    bool getDepthTest()
+    {
+        return depthTest;
+    }
+
+    void setDepthTest(bool b)
+    {
+        depthTest = b;
+    }
+
     void draw(RigTForm modelViewRbt)
     {
+        if(depthTest == false)
+            glDisable(GL_DEPTH_TEST);
         m->draw(geometry, modelViewRbt);
+        if(depthTest == false)
+            glEnable(GL_DEPTH_TEST);
     }
 
     void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
@@ -171,6 +186,7 @@ protected:
     Geometry *geometry;
     Material *m;    
     bool clickable;  // Indicates whether the node can be selected by clicking
+    bool depthTest;  // Indicates whether the node can be covered by other object
 };
 
 class Visitor
@@ -208,7 +224,7 @@ public:
             rbtStack[rbtCount++] = rbt;
         }else
         {
-            rbtStack[rbtCount] = rbt * rbtStack[rbtCount-1];
+            rbtStack[rbtCount] = rbtStack[rbtCount-1] * rbt;
             rbtCount++;
         }
         return true;
@@ -231,16 +247,17 @@ public:
 
     void visitNode(TransformNode *tn)
     {
+        pushRbt(tn->getRbt());            
         if(tn->getNodeType() == transformnode)
         {
             if(g_debugString == true)
                 printf("Visiting transform node.\n");
-            pushRbt(tn->getRbt());            
+
             for(int i = 0; i < tn->getNumChildren(); i++)
             {
                 this->visitNode(tn->getChild(i));
             }
-            popRbt();
+
             if(g_debugString == true)
                 printf("Exiting transform node.\n");
         }else if(tn->getNodeType() == geometrynode)
@@ -250,31 +267,39 @@ public:
             RigTForm modelViewRbt;
             if(rbtCount == 0)
             {
-                modelViewRbt = viewRbt * tn->getRbt();
+                modelViewRbt = viewRbt;
             }else
             {
-                modelViewRbt = viewRbt * tn->getRbt() * rbtStack[rbtCount-1];
+                modelViewRbt = viewRbt * rbtStack[rbtCount-1];
             }
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
             gn->draw(modelViewRbt);
+
+            for(int i = 0; i < gn->getNumChildren(); i++)
+            {
+                this->visitNode(gn->getChild(i));
+            }
             if(g_debugString == true)
                 printf("Exiting geometry node.\n");
         }
+        popRbt();
     }
 
    
     void visitPickNode(TransformNode *tn, Material *overrideMat)
     {
+        pushRbt(tn->getRbt());            
+                    
         if(tn->getNodeType() == transformnode)
         {
             if(g_debugString == true)
                 printf("Visiting transform node.\n");
-            pushRbt(tn->getRbt());            
+            
             for(int i = 0; i < tn->getNumChildren(); i++)
             {
                 this->visitPickNode(tn->getChild(i), overrideMat);
             }
-            popRbt();
+
             if(g_debugString == true)
                 printf("Exiting transform node.\n");
         }else if(tn->getNodeType() == geometrynode)
@@ -285,9 +310,9 @@ public:
             
             RigTForm modelViewRbt;            
             if(rbtCount == 0)
-                modelViewRbt = viewRbt * gn->getRbt();
+                modelViewRbt = viewRbt;
             else
-                modelViewRbt = viewRbt * gn->getRbt() * rbtStack[rbtCount-1];
+                modelViewRbt = viewRbt * rbtStack[rbtCount-1];
 
             if(gn->getClickable() == true)
             {
@@ -304,9 +329,15 @@ public:
                 overrideMat->sendUniform1i("uCode", 0);
                 gn->overrideMatDraw(overrideMat, modelViewRbt);
             }
+
+            for(int i = 0; i < gn->getNumChildren(); i++)
+            {
+                this->visitPickNode(gn->getChild(i), overrideMat);
+            }
             if(g_debugString == true)
                 printf("Exiting geometry node.\n");
         }
+        popRbt();
     }
 
     GeometryNode* getClickedNode(unsigned char c)
