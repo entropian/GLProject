@@ -43,7 +43,7 @@ public:
     
     bool addChild(TransformNode *tn)
     {
-        if(childrenCount == 20)
+        if(childrenCount == MAX_CHILDREN)
         {
             fprintf(stderr, "Children full.\n");
             return false;
@@ -179,7 +179,11 @@ public:
 
     void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
     {
+        if(depthTest == false)
+            glDisable(GL_DEPTH_TEST);
         overrideMat->draw(geometry, modelViewRbt);
+        if(depthTest == false)
+            glEnable(GL_DEPTH_TEST);
     }
 
 protected:

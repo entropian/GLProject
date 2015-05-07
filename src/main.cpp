@@ -68,7 +68,9 @@ enum InputMode{
 static InputMode g_inputMode = FPS_MODE;
 static InputMode g_previousInputMode;
 static bool g_pickModeClicked;
-static GeometryNode *g_pickedObj;
+static GeometryNode *g_pickedObj = NULL, *g_pickedArrow = NULL;
+static double g_clickX;
+static double g_clickY;
 
 
 //////////////// Shaders
@@ -348,6 +350,25 @@ void removeArrows(GeometryNode *gn)
     gn->removeChild(g_arrowXNode);
 }
 
+void setArrowsClickable()
+{
+    g_arrowYNode->setClickable(true);
+    g_arrowXNode->setClickable(true);
+    g_arrowZNode->setClickable(true);
+}
+
+void setArrowsUnclickable()
+{
+    g_arrowYNode->setClickable(false);
+    g_arrowXNode->setClickable(false);
+    g_arrowZNode->setClickable(false);
+}
+
+void setClickCoordinate(double x, double y)
+{
+    g_clickX = x;
+    g_clickY = y;
+}
 
 void calcPickedObj()
 {    
@@ -384,12 +405,45 @@ void calcPickedObj()
 
         // The rendering loop resumes
         // OBJECT_MODE can only be entered through here
-        g_inputMode = OBJECT_MODE;
-        putArrowsOn(g_pickedObj);
+        if(g_pickedObj != NULL)
+        {
+            g_inputMode = OBJECT_MODE;
+            putArrowsOn(g_pickedObj);
+        }else
+            g_inputMode = g_previousInputMode;
     }else
     {
 
     }
+}
+
+void calcPickedArrow()
+{
+    printf("picking arrow\n");
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    Visitor visitor(g_view);
+    // Draws the picking frame to the backbuffer
+    visitor.visitPickNode(g_worldNode, pickMaterial);
+
+    // Determine which object is picked
+    unsigned char pixel[3];
+    glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
+    printf("pixel[0] == %d\n", pixel[0]);
+
+    g_pickedArrow = visitor.getClickedNode(pixel[0] - 1);
+
+    if((g_pickedArrow == g_arrowYNode || g_pickedArrow == g_arrowZNode) || g_pickedArrow == g_arrowXNode)
+        setClickCoordinate(cursorX, cursorY);
+    else
+        g_pickedArrow = NULL;
+
+}
+
+void dragArrow(double startX, double startY, double currentX, double currentY)
+{
+    
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -419,6 +473,41 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
             
             g_pickModeClicked = true;
         }
+    }else if(g_inputMode == OBJECT_MODE)
+    {
+
+        if(action == GLFW_PRESS)
+        {
+            // TODO: draw a frame to backbuffer for picking
+            if(g_pickedArrow == NULL)
+            {
+
+                setArrowsClickable();
+                calcPickedArrow();
+
+                if(g_pickedArrow == g_arrowYNode)
+                    printf("Y arrow.\n");
+                else if(g_pickedArrow == g_arrowXNode)
+                    printf("X arrow.\n");
+                else if(g_pickedArrow == g_arrowZNode)
+                    printf("Z arrow.\n");
+
+            }else
+            {
+                glfwGetCursorPos(window, &cursorX, &cursorY);
+                //dragArrow(g_clickX, g_clickY, cursorX, cursorY);
+            }
+
+        }else if(action == GLFW_RELEASE)
+        {
+            // TODO: use mouse release coordinate to determine
+            // if one of the arrows was clicked
+            if(g_pickedArrow != NULL)
+            {
+                setArrowsUnclickable();
+                g_pickedArrow = NULL;
+            }
+        }
     }
 
     /*
@@ -435,6 +524,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 void cursorPosCallback(GLFWwindow* window, double x, double y)
 {
+    
     if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
     {
         float dx = (float)(x - cursorX);
@@ -613,9 +703,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(action != GLFW_PRESS && action != GLFW_REPEAT)
         return;
     */
-
+    /*
+      BUG: program crashes when pressing P after picking at background
+    */
     if(key == GLFW_KEY_P && action == GLFW_PRESS)
     {
+        if(g_inputMode == OBJECT_MODE)
+            removeArrows(g_pickedObj);
         // TODO: Render the pickable objects to the back buffer.
         if(g_inputMode != PICKING_MODE)
         {
@@ -626,8 +720,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             calcPickedObj();
         }else
         {
-            removeArrows(g_pickedObj);
-            g_pickedObj = NULL;
             g_inputMode = g_previousInputMode;
         }
     }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
@@ -936,7 +1028,8 @@ void initScene()
     g_worldNode = new TransformNode();
 
     RigTForm modelRbt;
-    modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
+    //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
+    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     g_terrainNode = new GeometryNode(modelRbt, g_mesh, shipMaterial1, true);
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
