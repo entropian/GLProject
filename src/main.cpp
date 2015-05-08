@@ -310,7 +310,7 @@ void draw_scene()
     // Update cube positions
     /*
     for(int i = 0; i < 2; i++)
-        g_cubeArray[i]->setRbt(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
+        g_cubeArray[i]->setRigidBodyTransform(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
     */
 
     // Setup additional uniforms
@@ -694,7 +694,7 @@ void ObjModeKeyInput(int key, int action)
 
     // TODO: convert world space transformation into object space
     RigTForm trans(tmp);
-    g_pickedObj->setRbt(trans * g_pickedObj->getRbt());
+    g_pickedObj->setRigidBodyTransform(trans * g_pickedObj->getRigidBodyTransform());
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -721,7 +721,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         }else
         {
             g_inputMode = g_previousInputMode;
-        }
+        } 
     }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
     {
         if(g_inputMode == OBJECT_MODE)

@@ -53,12 +53,12 @@ public:
         return true;
     }
 
-    RigTForm getRbt()
+    RigTForm getRigidBodyTransform()
     {
         return parentToLocal;
     }
 
-    void setRbt(RigTForm& rbt)
+    void setRigidBodyTransform(RigTForm& rbt)
     {
         parentToLocal = rbt;
     }
@@ -112,6 +112,8 @@ public:
 
 protected:
     NodeType nt;
+
+private:
     RigTForm parentToLocal;
     // TODO: is parent needed?
     TransformNode *children[MAX_CHILDREN], *parent;;
@@ -186,7 +188,7 @@ public:
             glEnable(GL_DEPTH_TEST);
     }
 
-protected:
+private:
     Geometry *geometry;
     Material *m;    
     bool clickable;  // Indicates whether the node can be selected by clicking
@@ -207,51 +209,19 @@ public:
         viewRbt = rbt;
     }
 
-    RigTForm getRbt()
+    RigTForm getViewTransform()
     {
         return viewRbt;
     }
 
-    void setRbt(RigTForm& rbt)
+    void setViewTransform(RigTForm& rbt)
     {
         viewRbt = rbt;
     }
 
-    bool pushRbt(RigTForm rbt)
-    {
-        if(rbtCount == MAX_LAYER)
-        {
-            fprintf(stderr, "Too many RigTForm in rbtStack.\n");
-            return false;
-        }else if(rbtCount == 0)
-        {
-            rbtStack[rbtCount++] = rbt;
-        }else
-        {
-            rbtStack[rbtCount] = rbtStack[rbtCount-1] * rbt;
-            rbtCount++;
-        }
-        return true;
-    }
-
-    bool popRbt()
-    {
-        if(rbtCount == 0)
-        {
-            fprintf(stderr, "No RigTForm on rbtStack.\n");
-            return false;
-        }else
-            rbtCount--;
-    }
-
-    void resetCode()
-    {
-        code = 0;
-    }
-
     void visitNode(TransformNode *tn)
     {
-        pushRbt(tn->getRbt());            
+        pushRbt(tn->getRigidBodyTransform());            
         if(tn->getNodeType() == transformnode)
         {
             if(g_debugString == true)
@@ -292,7 +262,7 @@ public:
    
     void visitPickNode(TransformNode *tn, Material *overrideMat)
     {
-        pushRbt(tn->getRbt());            
+        pushRbt(tn->getRigidBodyTransform());            
                     
         if(tn->getNodeType() == transformnode)
         {
@@ -354,7 +324,42 @@ public:
         return geoNodes[c];
     }
 
-protected:
+
+    
+private:
+    bool pushRbt(RigTForm rbt)
+    {
+        if(rbtCount == MAX_LAYER)
+        {
+            fprintf(stderr, "Too many RigTForm in rbtStack.\n");
+            return false;
+        }else if(rbtCount == 0)
+        {
+            rbtStack[rbtCount++] = rbt;
+        }else
+        {
+            rbtStack[rbtCount] = rbtStack[rbtCount-1] * rbt;
+            rbtCount++;
+        }
+        return true;
+    }
+
+    bool popRbt()
+    {
+        if(rbtCount == 0)
+        {
+            fprintf(stderr, "No RigTForm on rbtStack.\n");
+            return false;
+        }else
+            rbtCount--;
+    }
+
+    void resetCode()
+    {
+        code = 0;
+    }
+
+
     RigTForm rbtStack[MAX_LAYER];
     RigTForm viewRbt;
     int rbtCount;
