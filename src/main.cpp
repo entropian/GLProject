@@ -6,18 +6,14 @@
 #   include <GL/glfw3.h>
 #endif
 
-#include "SOIL.h"
 #include <iostream>
 #include <stdlib.h>
 #include <time.h>
 
-#include "vec.h"
-#include "mat.h"
-#include "quat.h"
-#include "rigtform.h"
-#include "geometry.h"
-#include "material.h"
-#include "scenegraph.h"
+#include "fileIO.h"
+
+//#include "scenegraph.h"
+#include "input.h"
 
 /*
 #include "glm/glm.hpp"
@@ -57,20 +53,12 @@ static double framesPerSec = 60.0f;
 static double distancePerSec = 2.0f;
 static double timeBetweenFrames = 1.0 / framesPerSec;
 static double distancePerFrame = distancePerSec / framesPerSec;
-static Vec3 movementDir(0.0f, 0.0f, 0.0f);
 
-enum InputMode{
-    FPS_MODE,               // Move around the scene with FPS control
-    PICKING_MODE,           // Let's the user select a selectable object
-    OBJECT_MODE             // Let's the user move a selected object around 
-};
-// When g_inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
-static InputMode g_inputMode = FPS_MODE;
-static InputMode g_previousInputMode;
-static bool g_pickModeClicked;
-static GeometryNode *g_pickedObj = NULL, *g_pickedArrow = NULL;
-static double g_clickX;
-static double g_clickY;
+
+
+
+// New: InputHanlder
+InputHandler inputHandler;
 
 
 //////////////// Shaders
@@ -319,35 +307,21 @@ void draw_scene()
     //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
     // Calculate camera movement
-    RigTForm trans(movementDir * distancePerFrame);
-    g_view = trans * g_view;
+    RigTForm trans(inputHandler.getMovementDir() * distancePerFrame);
+    inputHandler.setViewTransformation(trans * inputHandler.getViewTransformation());
 
     // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
     // Update some uniforms    
-    g_lightE = g_view * g_lightW;
+    g_lightE = inputHandler.getViewTransformation() * g_lightW;
     shipMaterial1->sendUniform3v("uLight", g_lightE);
     cubeMaterial->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
-    Visitor visitor(g_view);
-    visitor.visitNode(g_worldNode);
+    Visitor visitor(inputHandler.getViewTransformation());
+    visitor.visitNode(inputHandler.getWorldNode());
 
     glfwSwapBuffers(window);
-}
-
-void putArrowsOn(GeometryNode *gn)
-{
-    gn->addChild(g_arrowYNode);
-    gn->addChild(g_arrowZNode);
-    gn->addChild(g_arrowXNode);
-}
-
-void removeArrows(GeometryNode *gn)
-{
-    gn->removeChild(g_arrowYNode);
-    gn->removeChild(g_arrowZNode);
-    gn->removeChild(g_arrowXNode);
 }
 
 void setArrowsClickable()
@@ -366,55 +340,8 @@ void setArrowsUnclickable()
 
 void setClickCoordinate(double x, double y)
 {
-    g_clickX = x;
-    g_clickY = y;
-}
-
-void calcPickedObj()
-{    
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    Visitor visitor(g_view);
-    // Waits for a mouse click or the p key being pressed
-    visitor.visitPickNode(g_worldNode, pickMaterial);
-    
-    // glReadPixels() actually reads from the back buffer
-    // so don't bother swapping the buffer
-    //glfwSwapBuffers(window);
-
-
-    // Thread safety?
-    // Waits for a mouse click or the p key being pressed
-    g_pickModeClicked = false;
-    assert(g_pickModeClicked == false && g_inputMode == PICKING_MODE);
-    while(g_pickModeClicked == false && g_inputMode == PICKING_MODE)
-    {
-        glfwWaitEvents();
-        //glfwPollEvents();
-    }
-    
-    if(g_inputMode == PICKING_MODE)
-    {
-        // Determine which object is picked
-        unsigned char pixel[3];
-        glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
-        printf("pixel[0] == %d\n", pixel[0]);
-
-        g_pickedObj = visitor.getClickedNode(pixel[0] - 1);
-
-        // The rendering loop resumes
-        // OBJECT_MODE can only be entered through here
-        if(g_pickedObj != NULL)
-        {
-            g_inputMode = OBJECT_MODE;
-            putArrowsOn(g_pickedObj);
-        }else
-            g_inputMode = g_previousInputMode;
-    }else
-    {
-
-    }
+    inputHandler.setClickX(x);
+    inputHandler.setClickY(y);
 }
 
 void calcPickedArrow()
@@ -423,7 +350,7 @@ void calcPickedArrow()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Visitor visitor(g_view);
+    Visitor visitor(inputHandler.getViewTransformation());
     // Draws the picking frame to the backbuffer
     visitor.visitPickNode(g_worldNode, pickMaterial);
 
@@ -432,18 +359,14 @@ void calcPickedArrow()
     glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
     printf("pixel[0] == %d\n", pixel[0]);
 
-    g_pickedArrow = visitor.getClickedNode(pixel[0] - 1);
+    inputHandler.setPickedArrow(visitor.getClickedNode(pixel[0] - 1));
 
-    if((g_pickedArrow == g_arrowYNode || g_pickedArrow == g_arrowZNode) || g_pickedArrow == g_arrowXNode)
+    if((inputHandler.getPickedArrow() == g_arrowYNode || inputHandler.getPickedArrow() == g_arrowZNode) ||
+       inputHandler.getPickedArrow() == g_arrowXNode)
         setClickCoordinate(cursorX, cursorY);
     else
-        g_pickedArrow = NULL;
+        inputHandler.setPickedArrow(NULL);
 
-}
-
-void dragArrow(double startX, double startY, double currentX, double currentY)
-{
-    
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -451,7 +374,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     if (button != GLFW_MOUSE_BUTTON_LEFT)
         return;
 
-    if(g_inputMode == FPS_MODE)
+    if(inputHandler.getInputMode() == FPS_MODE)
     {
         if (action == GLFW_PRESS)
         {
@@ -461,7 +384,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         }
         else
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }else if(g_inputMode == PICKING_MODE)
+    }else if(inputHandler.getInputMode() == PICKING_MODE)
     {
         if(action == GLFW_PRESS)
         {
@@ -470,26 +393,25 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         else if(action == GLFW_RELEASE)
         {
             // TODO: Get the mouse coordinate, and determine which object the user selected.
-            
-            g_pickModeClicked = true;
+            inputHandler.setPickModeClicked(true);
         }
-    }else if(g_inputMode == OBJECT_MODE)
+    }else if(inputHandler.getInputMode() == OBJECT_MODE)
     {
 
         if(action == GLFW_PRESS)
         {
             // TODO: draw a frame to backbuffer for picking
-            if(g_pickedArrow == NULL)
+            if(inputHandler.getPickedArrow() == NULL)
             {
 
                 setArrowsClickable();
                 calcPickedArrow();
 
-                if(g_pickedArrow == g_arrowYNode)
+                if(inputHandler.getPickedArrow() == g_arrowYNode)
                     printf("Y arrow.\n");
-                else if(g_pickedArrow == g_arrowXNode)
+                else if(inputHandler.getPickedArrow() == g_arrowXNode)
                     printf("X arrow.\n");
-                else if(g_pickedArrow == g_arrowZNode)
+                else if(inputHandler.getPickedArrow() == g_arrowZNode)
                     printf("Z arrow.\n");
 
             }else
@@ -502,10 +424,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         {
             // TODO: use mouse release coordinate to determine
             // if one of the arrows was clicked
-            if(g_pickedArrow != NULL)
+            if(inputHandler.getPickedArrow() != NULL)
             {
                 setArrowsUnclickable();
-                g_pickedArrow = NULL;
+                inputHandler.setPickedArrow(NULL);
             }
         }
     }
@@ -532,11 +454,11 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
 
 
         RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.5f)) * RigTForm(Quat::makeXRotation(dy * 0.5f));
-        g_view = tform * g_view;
+        inputHandler.setViewTransformation(tform * inputHandler.getViewTransformation());
         // Keep the camera upright
         // Rotate the camera around its z axis so that its y axis is
         // in the plane defined by its z axis and world y axis.
-        Vec3 newUp = g_view.getRotation() * Vec3(0, 1, 0);
+        Vec3 newUp = inputHandler.getViewTransformation().getRotation() * Vec3(0, 1, 0);
         Vec3 newX;
         if(abs(dot(newUp, Vec3(0.0f, 0.0f, -1.0f))) > 0.999f)
             newX = Vec3(0.0f, 0.0f, -1.0f);
@@ -549,7 +471,7 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
             sign = -1;
         Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
         tform = RigTForm(Vec3(0, 0, 0), q);
-        g_view = tform * g_view;
+        inputHandler.setViewTransformation(tform * inputHandler.getViewTransformation());
 
         // Report camera position in world space
         /*
@@ -565,138 +487,6 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
     cursorY = y;
 }
 
-// TODO: Add verticle motion and sort out how holding down three keys would work
-void FPSModeKeyInput(int key, int action)
-{
-       if(action == GLFW_PRESS)
-        {
-            int i = -1;
-            float component = 0;
-            switch(key)
-            {
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(window, GL_TRUE);
-                break;
-            case GLFW_KEY_A: // left
-                i = 0;
-                component = 1.0f;
-                break;
-            case GLFW_KEY_D: // right
-                i = 0;
-                component = -1.0f;
-                break;
-            case GLFW_KEY_W: // forward
-                i = 2;
-                component = 1.0f;
-                break;
-            case GLFW_KEY_S: // backward
-                i = 2;
-                component = -1.0f;
-                break;
-                /*
-                  case GLFW_KEY_Q:
-                  i = 1;
-                  component = -1.0f;
-                  break;
-                  case GLFW_KEY_E:
-                  i = 1;
-                  component = 1.0f;
-                  break;
-                */
-            default:
-                break;
-            }
-        
-            if(i != -1)
-            {
-                if(movementDir[i] == 0.0f)
-                    movementDir[i] = component;
-                else if(abs(component - movementDir[i]) > abs(component))
-                    movementDir[i] = 0.0f;
-            }
-
-            if(norm2(movementDir) != 0.0f)
-                movementDir = normalize(movementDir);
-        
-        }else if(action == GLFW_RELEASE)
-        {
-            // This is a reverse of the above code in if(action == GLFW_PRESS)
-            // with component taking the opposite value in each case
-            // I treat directioanl key release as pressing a key of the opposite direction
-            int i = -1;
-            float component = 0.0f;
-            switch(key)
-            {
-            case GLFW_KEY_A: // left
-                i = 0;
-                component = -1.0f;
-                break;
-            case GLFW_KEY_D: // right
-                i = 0;
-                component = 1.0f;
-                break;
-            case GLFW_KEY_W: // forward
-                i = 2;
-                component = -1.0f;
-                break;
-            case GLFW_KEY_S: // backward
-                i = 2;
-                component = 1.0f;
-                break;
-            default:
-                break;
-            }
-
-            if(i != -1)
-            {
-                if(movementDir[i] == 0.0f)
-                    movementDir[i] = component;
-                else if(abs(component - movementDir[i]) > abs(component))
-                    movementDir[i] = 0.0f;
-            }
-
-            if(norm2(movementDir) != 0.0f)
-                movementDir = normalize(movementDir);
-        }
-}
-
-void ObjModeKeyInput(int key, int action)
-{
-    Vec3 tmp;
-    switch(key)
-    {
-    case GLFW_KEY_A:
-        tmp[0] = -0.1f;
-        break;
-
-    case GLFW_KEY_D:
-        tmp[0] = 0.1f;
-        break;
-
-    case GLFW_KEY_W:
-        tmp[2] = -0.1f;
-        break;
-
-    case GLFW_KEY_S:
-        tmp[2] = 0.1f;
-        break;
-
-    case GLFW_KEY_Q:
-        tmp[1] = 0.1f;
-        break;
-
-    case GLFW_KEY_E:
-        tmp[1] = -0.1f;
-        break;
-    default:
-        break;
-    }
-
-    // TODO: convert world space transformation into object space
-    RigTForm trans(tmp);
-    g_pickedObj->setRigidBodyTransform(trans * g_pickedObj->getRigidBodyTransform());
-}
-
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     /*
@@ -706,36 +496,38 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     /*
       BUG: program crashes when pressing P after picking at background
     */
+    /*
     if(key == GLFW_KEY_P && action == GLFW_PRESS)
     {
-        if(g_inputMode == OBJECT_MODE)
-            removeArrows(g_pickedObj);
+        if(inputHandler.getInputMode() == OBJECT_MODE)
+            removeArrows(inputHandler.getPickedObj());
         // TODO: Render the pickable objects to the back buffer.
-        if(g_inputMode != PICKING_MODE)
+        if(inputHandler.getInputMode() != PICKING_MODE)
         {
             printf("Switching to picking mode\n");
-            g_previousInputMode = g_inputMode;
-            g_inputMode = PICKING_MODE;   // Stops the rendering loop
+            inputHandler.setPrevInputMode(inputHandler.getInputMode());
+            inputHandler.setInputMode(PICKING_MODE);  // Stops the rendering loop
 
             calcPickedObj();
         }else
         {
-            g_inputMode = g_previousInputMode;
+            inputHandler.setInputMode(inputHandler.getPrevInputMode());
         } 
     }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
     {
-        if(g_inputMode == OBJECT_MODE)
-            removeArrows(g_pickedObj);
-        g_pickedObj = NULL;
-        g_inputMode = FPS_MODE;
-    }else if(g_inputMode == FPS_MODE)
+        if(inputHandler.getInputMode() == OBJECT_MODE)
+            removeArrows(inputHandler.getPickedObj());
+        inputHandler.setPickedObj(NULL);
+        inputHandler.setInputMode(FPS_MODE);
+    }else if(inputHandler.getInputMode() == FPS_MODE)
     {
         FPSModeKeyInput(key, action);
-    }else if(g_inputMode == OBJECT_MODE)
+    }else if(inputHandler.getInputMode() == OBJECT_MODE)
     {
         ObjModeKeyInput(key, action);
     }
-
+    */
+    inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
 
@@ -987,11 +779,11 @@ void initMaterial()
     //texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
-    g_view = RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0));
+    inputHandler.setViewTransformation(RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
-    g_lightE = g_view * g_lightW;
+    g_lightE = inputHandler.getViewTransformation() * g_lightW;
 
     // Material
     //material = new Material(basicVertSrc, diffuseFragSrc);
@@ -1021,11 +813,15 @@ void initMaterial()
 
     pickMaterial = new Material(pickVertSrc, pickFragSrc);
     pickMaterial->sendUniformMat4("uProjMat", proj);
+    // Remove this
+    inputHandler.setPickMaterial(pickMaterial);
 }
 
 void initScene()
 {
     g_worldNode = new TransformNode();
+    // Remove this
+    inputHandler.setWorldNode(g_worldNode);
 
     RigTForm modelRbt;
     //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
@@ -1049,6 +845,9 @@ void initScene()
     
     g_worldNode->addChild(g_terrainNode);
     g_worldNode->addChild(g_cubeNode);
+
+    // Really bad temporary crap
+    inputHandler.setArrows(g_arrowYNode, g_arrowXNode, g_arrowZNode);
 
     /*
     for(int i = 0; i < 2; i++)
@@ -1119,7 +918,7 @@ int main()
     while(!glfwWindowShouldClose(window))
     {
         // When g_inputMode == PICKING_MODE, the framebuffer isn't refreshed.
-        if(g_inputMode != PICKING_MODE)
+        if(inputHandler.getInputMode() != PICKING_MODE)
         {
             currentTime = glfwGetTime();
             if((currentTime - timeLastRender) >= timeBetweenFrames)
