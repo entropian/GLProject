@@ -42,17 +42,16 @@ static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_arrowYNode, *g_arrowXNode, *g_arrowZNode;
 
 //test
-static Material *shipMaterial1, *pickMaterial, *cubeMaterial;
-static Material *arrowYMat, *arrowZMat, *arrowXMat;
+static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial;
+static Material *g_arrowYMat, *g_arrowZMat, *g_arrowXMat;
 
-GLint uniTrans1, uniTrans2;
 GLuint textures[2];
 GLFWwindow* window;
 
-static double framesPerSec = 60.0f;
-static double distancePerSec = 2.0f;
-static double timeBetweenFrames = 1.0 / framesPerSec;
-static double distancePerFrame = distancePerSec / framesPerSec;
+static double g_framesPerSec = 60.0f;
+static double g_distancePerSec = 2.0f;
+static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
+static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
 
 
@@ -307,15 +306,15 @@ void draw_scene()
     //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
 
     // Calculate camera movement
-    RigTForm trans(inputHandler.getMovementDir() * distancePerFrame);
+    RigTForm trans(inputHandler.getMovementDir() * g_distancePerFrame);
     inputHandler.setViewTransformation(trans * inputHandler.getViewTransformation());
 
     // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
     // Update some uniforms    
     g_lightE = inputHandler.getViewTransformation() * g_lightW;
-    shipMaterial1->sendUniform3v("uLight", g_lightE);
-    cubeMaterial->sendUniform3v("uLight", g_lightE);
+    g_shipMaterial1->sendUniform3v("uLight", g_lightE);
+    g_cubeMaterial->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
     Visitor visitor(inputHandler.getViewTransformation());
@@ -324,209 +323,18 @@ void draw_scene()
     glfwSwapBuffers(window);
 }
 
-void setArrowsClickable()
-{
-    g_arrowYNode->setClickable(true);
-    g_arrowXNode->setClickable(true);
-    g_arrowZNode->setClickable(true);
-}
-
-void setArrowsUnclickable()
-{
-    g_arrowYNode->setClickable(false);
-    g_arrowXNode->setClickable(false);
-    g_arrowZNode->setClickable(false);
-}
-
-void setClickCoordinate(double x, double y)
-{
-    inputHandler.setClickX(x);
-    inputHandler.setClickY(y);
-}
-
-void calcPickedArrow()
-{
-    printf("picking arrow\n");
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    Visitor visitor(inputHandler.getViewTransformation());
-    // Draws the picking frame to the backbuffer
-    visitor.visitPickNode(g_worldNode, pickMaterial);
-
-    // Determine which object is picked
-    unsigned char pixel[3];
-    glReadPixels(cursorX, g_windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
-    printf("pixel[0] == %d\n", pixel[0]);
-
-    inputHandler.setPickedArrow(visitor.getClickedNode(pixel[0] - 1));
-
-    if((inputHandler.getPickedArrow() == g_arrowYNode || inputHandler.getPickedArrow() == g_arrowZNode) ||
-       inputHandler.getPickedArrow() == g_arrowXNode)
-        setClickCoordinate(cursorX, cursorY);
-    else
-        inputHandler.setPickedArrow(NULL);
-
-}
-
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (button != GLFW_MOUSE_BUTTON_LEFT)
-        return;
-
-    if(inputHandler.getInputMode() == FPS_MODE)
-    {
-        if (action == GLFW_PRESS)
-        {
-        
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            glfwGetCursorPos(window, &cursorX, &cursorY);
-        }
-        else
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }else if(inputHandler.getInputMode() == PICKING_MODE)
-    {
-        if(action == GLFW_PRESS)
-        {
-            glfwGetCursorPos(window, &cursorX, &cursorY);
-        }
-        else if(action == GLFW_RELEASE)
-        {
-            // TODO: Get the mouse coordinate, and determine which object the user selected.
-            inputHandler.setPickModeClicked(true);
-        }
-    }else if(inputHandler.getInputMode() == OBJECT_MODE)
-    {
-
-        if(action == GLFW_PRESS)
-        {
-            // TODO: draw a frame to backbuffer for picking
-            if(inputHandler.getPickedArrow() == NULL)
-            {
-
-                setArrowsClickable();
-                calcPickedArrow();
-
-                if(inputHandler.getPickedArrow() == g_arrowYNode)
-                    printf("Y arrow.\n");
-                else if(inputHandler.getPickedArrow() == g_arrowXNode)
-                    printf("X arrow.\n");
-                else if(inputHandler.getPickedArrow() == g_arrowZNode)
-                    printf("Z arrow.\n");
-
-            }else
-            {
-                glfwGetCursorPos(window, &cursorX, &cursorY);
-                //dragArrow(g_clickX, g_clickY, cursorX, cursorY);
-            }
-
-        }else if(action == GLFW_RELEASE)
-        {
-            // TODO: use mouse release coordinate to determine
-            // if one of the arrows was clicked
-            if(inputHandler.getPickedArrow() != NULL)
-            {
-                setArrowsUnclickable();
-                inputHandler.setPickedArrow(NULL);
-            }
-        }
-    }
-
-    /*
-    if(button == GLFW_MOUSE_BUTTON_LEFT)
-    {
-        g_view = RigTForm(Quat::makeYRotation(.1)) * g_view;
-        Mat4 view = rigTFormToMat(g_view);
-        view = transpose(view);
-
-        glUniformMatrix4fv(uniView, 1, GL_FALSE, &(view[0]));
-    }
-    */
+    inputHandler.handleMouseButton(window, button, action, mods);
 }
 
 void cursorPosCallback(GLFWwindow* window, double x, double y)
 {
-    
-    if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
-    {
-        float dx = (float)(x - cursorX);
-        float dy = (float)(y - cursorY);
-
-
-        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.5f)) * RigTForm(Quat::makeXRotation(dy * 0.5f));
-        inputHandler.setViewTransformation(tform * inputHandler.getViewTransformation());
-        // Keep the camera upright
-        // Rotate the camera around its z axis so that its y axis is
-        // in the plane defined by its z axis and world y axis.
-        Vec3 newUp = inputHandler.getViewTransformation().getRotation() * Vec3(0, 1, 0);
-        Vec3 newX;
-        if(abs(dot(newUp, Vec3(0.0f, 0.0f, -1.0f))) > 0.999f)
-            newX = Vec3(0.0f, 0.0f, -1.0f);
-        else
-            newX = normalize(cross(Vec3(0, 0, -1), newUp));
-        float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
-        float sign = 1;
-        // Not sure why this works
-        if(newUp[0] < 0.0f)
-            sign = -1;
-        Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
-        tform = RigTForm(Vec3(0, 0, 0), q);
-        inputHandler.setViewTransformation(tform * inputHandler.getViewTransformation());
-
-        // Report camera position in world space
-        /*
-        RigTForm invView = inv(g_view);
-        Vec3 trans = invView.getTranslation();        
-        std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
-        */
-        
-
-    }
-    
-    cursorX = x;
-    cursorY = y;
+    inputHandler.handleCursor(window, x, y);
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    /*
-    if(action != GLFW_PRESS && action != GLFW_REPEAT)
-        return;
-    */
-    /*
-      BUG: program crashes when pressing P after picking at background
-    */
-    /*
-    if(key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        if(inputHandler.getInputMode() == OBJECT_MODE)
-            removeArrows(inputHandler.getPickedObj());
-        // TODO: Render the pickable objects to the back buffer.
-        if(inputHandler.getInputMode() != PICKING_MODE)
-        {
-            printf("Switching to picking mode\n");
-            inputHandler.setPrevInputMode(inputHandler.getInputMode());
-            inputHandler.setInputMode(PICKING_MODE);  // Stops the rendering loop
-
-            calcPickedObj();
-        }else
-        {
-            inputHandler.setInputMode(inputHandler.getPrevInputMode());
-        } 
-    }else if(key == GLFW_KEY_L && action == GLFW_PRESS)
-    {
-        if(inputHandler.getInputMode() == OBJECT_MODE)
-            removeArrows(inputHandler.getPickedObj());
-        inputHandler.setPickedObj(NULL);
-        inputHandler.setInputMode(FPS_MODE);
-    }else if(inputHandler.getInputMode() == FPS_MODE)
-    {
-        FPSModeKeyInput(key, action);
-    }else if(inputHandler.getInputMode() == OBJECT_MODE)
-    {
-        ObjModeKeyInput(key, action);
-    }
-    */
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
@@ -787,34 +595,34 @@ void initMaterial()
 
     // Material
     //material = new Material(basicVertSrc, diffuseFragSrc);
-    shipMaterial1 = new Material(basicVertSrc, basicFragSrc);
+    g_shipMaterial1 = new Material(basicVertSrc, basicFragSrc);
     //Vec3 color(0.1f, 0.6f, 0.6f);
     Vec3 color(1.0f, 1.0f, 1.0f);
-    shipMaterial1->sendUniform3v("uColor", color);
-    shipMaterial1->sendUniformMat4("uProjMat", proj);
-    shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+    g_shipMaterial1->sendUniform3v("uColor", color);
+    g_shipMaterial1->sendUniformMat4("uProjMat", proj);
+    g_shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     //material->sendUniform3v("uLight", g_lightE);
 
-    cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
-    cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
-    cubeMaterial->sendUniformMat4("uProjMat", proj);
+    g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
+    g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
+    g_cubeMaterial->sendUniformMat4("uProjMat", proj);
 
-    arrowYMat = new Material(basicVertSrc, flatFragSrc);
-    arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
-    arrowYMat->sendUniformMat4("uProjMat", proj);
+    g_arrowYMat = new Material(basicVertSrc, flatFragSrc);
+    g_arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
+    g_arrowYMat->sendUniformMat4("uProjMat", proj);
 
-    arrowZMat = new Material(basicVertSrc, flatFragSrc);
-    arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
-    arrowZMat->sendUniformMat4("uProjMat", proj);
+    g_arrowZMat = new Material(basicVertSrc, flatFragSrc);
+    g_arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
+    g_arrowZMat->sendUniformMat4("uProjMat", proj);
 
-    arrowXMat = new Material(basicVertSrc, flatFragSrc);
-    arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
-    arrowXMat->sendUniformMat4("uProjMat", proj);
+    g_arrowXMat = new Material(basicVertSrc, flatFragSrc);
+    g_arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
+    g_arrowXMat->sendUniformMat4("uProjMat", proj);
 
-    pickMaterial = new Material(pickVertSrc, pickFragSrc);
-    pickMaterial->sendUniformMat4("uProjMat", proj);
+    g_pickMaterial = new Material(pickVertSrc, pickFragSrc);
+    g_pickMaterial->sendUniformMat4("uProjMat", proj);
     // Remove this
-    inputHandler.setPickMaterial(pickMaterial);
+    inputHandler.setPickMaterial(g_pickMaterial);
 }
 
 void initScene()
@@ -826,21 +634,21 @@ void initScene()
     RigTForm modelRbt;
     //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_terrainNode = new GeometryNode(modelRbt, g_mesh, shipMaterial1, true);
+    g_terrainNode = new GeometryNode(modelRbt, g_mesh, g_shipMaterial1, true);
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
-    g_cubeNode = new GeometryNode(modelRbt, g_cube, cubeMaterial, true);
+    g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, arrowYMat, false);
+    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, g_arrowYMat, false);
     g_arrowYNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
-    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, arrowXMat, false);
+    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, g_arrowXMat, false);
     g_arrowXNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
-    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, arrowZMat, false);
+    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, g_arrowZMat, false);
     g_arrowZNode->setDepthTest(false);
     
     g_worldNode->addChild(g_terrainNode);
@@ -921,7 +729,7 @@ int main()
         if(inputHandler.getInputMode() != PICKING_MODE)
         {
             currentTime = glfwGetTime();
-            if((currentTime - timeLastRender) >= timeBetweenFrames)
+            if((currentTime - timeLastRender) >= g_timeBetweenFrames)
             {
                 timeLastRender = currentTime;
                 draw_scene();
@@ -949,8 +757,8 @@ int main()
 
     //free(flatShader);
     //free(texturedShader);
-    free(shipMaterial1);
-    free(cubeMaterial);
+    free(g_shipMaterial1);
+    free(g_cubeMaterial);
     free(g_cube);
     free(g_mesh);
     free(g_floor);

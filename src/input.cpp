@@ -14,10 +14,24 @@ void InputHandler::removeArrows(GeometryNode *gn)
     gn->removeChild(arrowXNode);
 }
 
+void InputHandler::setArrowsClickable()
+{
+    arrowYNode->setClickable(true);
+    arrowZNode->setClickable(true);
+    arrowXNode->setClickable(true);    
+}
+
+void InputHandler::setArrowsUnclickable()
+{
+    arrowYNode->setClickable(false);
+    arrowZNode->setClickable(false);
+    arrowXNode->setClickable(false);    
+}
+
 void InputHandler::FPSModeKeyInput(GLFWwindow *window, int key, int action)
 {
        if(action == GLFW_PRESS)
-        {
+       {
             int i = -1;
             float component = 0;
             switch(key)
@@ -179,4 +193,31 @@ void InputHandler::ObjModeKeyInput(int key, int action)
     // TODO: convert world space transformation into object space
     RigTForm trans(tmp);
     pickedObj->setRigidBodyTransform(trans * pickedObj->getRigidBodyTransform());
+}
+
+void InputHandler::calcPickedArrow()
+{
+    printf("picking arrow\n");
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    Visitor visitor(viewRbt);
+    // Draws the picking frame to the backbuffer
+    visitor.visitPickNode(worldNode, pickMaterial);
+
+    // Determine which object is picked
+    unsigned char pixel[3];
+    glReadPixels(cursorX, windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
+    printf("pixel[0] == %d\n", pixel[0]);
+
+    pickedArrow = visitor.getClickedNode(pixel[0] - 1);
+
+    if((pickedArrow == arrowYNode || pickedArrow == arrowZNode) || pickedArrow == arrowXNode)
+    {
+        clickX = cursorX;
+        clickY = cursorY;
+    }
+    else
+        pickedArrow = NULL;
+
 }
