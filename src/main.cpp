@@ -24,12 +24,6 @@
 
 #define GLSL(src) "#version 150 core\n" #src
 
-
-GLint uniView1, uniView2;
-
-static double cursorX;
-static double cursorY;
-
 static int g_windowWidth = 800;
 static int g_windowHeight = 600;
 
@@ -38,14 +32,14 @@ static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_arrow;
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_arrowYNode, *g_arrowXNode, *g_arrowZNode;
+static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode;
 
 //test
 static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial;
-static Material *g_arrowYMat, *g_arrowZMat, *g_arrowXMat;
+
 
 GLuint textures[2];
 GLFWwindow* window;
@@ -55,14 +49,8 @@ static double g_distancePerSec = 2.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
-
-
-
 // New: InputHanlder
 InputHandler inputHandler;
-
-
-
 
 void draw_scene()
 {
@@ -399,24 +387,10 @@ void initScene()
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
     g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
-    /*
-    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_arrowYNode = new GeometryNode(modelRbt, g_arrow, g_arrowYMat, false);
-    g_arrowYNode->setDepthTest(false);
 
-    modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
-    g_arrowXNode = new GeometryNode(modelRbt, g_arrow, g_arrowXMat, false);
-    g_arrowXNode->setDepthTest(false);
-
-    modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
-    g_arrowZNode = new GeometryNode(modelRbt, g_arrow, g_arrowZMat, false);
-    g_arrowZNode->setDepthTest(false);
-    */
     g_worldNode->addChild(g_terrainNode);
     g_worldNode->addChild(g_cubeNode);
 
-    // Really bad temporary crap
-    //inputHandler.setArrows(g_arrowYNode, g_arrowXNode, g_arrowZNode);
 
     /*
     for(int i = 0; i < 2; i++)
