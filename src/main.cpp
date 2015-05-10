@@ -11,6 +11,7 @@
 #include <time.h>
 
 #include "fileIO.h"
+#include "shaders.h"
 
 //#include "scenegraph.h"
 #include "input.h"
@@ -22,6 +23,7 @@
 */
 
 #define GLSL(src) "#version 150 core\n" #src
+
 
 GLint uniView1, uniView2;
 
@@ -60,232 +62,6 @@ static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 InputHandler inputHandler;
 
 
-//////////////// Shaders
-//////// Vertex Shaders
-static const char* basicVertSrc = GLSL(
-    uniform mat4 uModelViewMat;
-    uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
-
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
-
-    out vec3 vPosition;
-    out vec3 vNormal;
-    out vec2 vTexcoord;
-
-    void main()
-    {
-        vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
-        vTexcoord = aTexcoord;
-        gl_Position = uProjMat * vec4(vPosition, 1.0);
-    }
-);
-
-
-
-// TODO: why doesn't this work anymore?
-// the most primitive shader with lighting
-static const char* diffuseVertSrc = GLSL(
-    uniform mat4 uModelViewMat;
-    uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
-    uniform vec3 uColor;
-    // uLight is in eye space
-    uniform vec3 uLight;
-
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
-
-    out vec3 vColor;
-    out vec2 vTexcoord;
-        
-    void main() {
-        // in world space
-        /*
-        vec3 posW = (trans * vec4(position, 1.0)).xyz;
-        vec3 normW = (transpose(inverse(trans)) * vec4(normal, 1.0)).xyz;
-        vec3 lightDir = normalize(light - posW);
-        */
-
-        vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        //vec3 normE = (inverse(transpose(uModelViewMat)) * vec4(aNormal, 1.0)).xyz;
-        vec3 normE = (normalMat * vec4(aNormal, 1.0)).xyz;
-        vec3 lightDirE = normalize(uLight - posE);
-
-        if(dot(lightDirE, normE) > 0)
-        {
-            vColor = uColor * dot(lightDirE, normE);
-        }else
-        {
-            vColor = vec3(0, 0, 0);
-        }
-
-        vTexcoord = aTexcoord;
-
-        // old
-        // gl_position = proj * view * trans * vec4(position, 1.0);
-        // TODO: switch in vPosition to reduce the number of calculations
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
-    }
-);
-
-// slightly better shader with lighting that accounts for the camera position
-static const char* lightVertexSrc = GLSL(
-    uniform mat4 uModelViewMat;
-    uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
-    uniform vec3 uColor;
-    // uLight is in eye space
-    uniform vec3 uLight;
-
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
-
-    out vec3 vColor;
-    out vec2 vTexcoord;
-        
-    void main() {
-        // in eye space
-        vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vec3 normE = (uNormalMat * vec4(aNormal, 1.0)).xyz;
-        vec3 lightDirE = normalize(uLight - posE);
-        vec3 eyeDirE = normalize(-posE);
-        vec3 reflectDirE = 2.0*dot(lightDirE, normE)*normE - lightDirE;
-
-        if(dot(eyeDirE, reflectDirE) > 0)
-        {
-            vColor = uColor * dot(eyeDirE, reflectDirE);
-        }else
-        {
-            vColor = vec3(0, 0, 0);
-        }
-
-        vTexcoord = aTexcoord;
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
-    }
-);
-
-static const char *pickVertSrc = GLSL(
-    uniform mat4 uModelViewMat;
-    uniform mat4 uProjMat;
-
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
-
-    void main()
-    {
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
-    }
-);
-
-static const char *pickFragSrc = GLSL(
-    uniform int uCode;
-
-    out vec4 outColor;
-    
-    void main()
-    {
-        float color = uCode / 255.0;
-        //float color = 1.0;
-        outColor = vec4(color, color, color, 1.0);
-    }
-);
-
-//////// Fragment Shaders
-static const char* fragmentSource = GLSL(
-    uniform sampler2D texKitten;
-    uniform sampler2D texPuppy;
-
-    in vec3 vColor;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-        
-    void main() {
-        //outColor = mix(texture(texKitten, Texcoord), texture(texPuppy, Texcoord), 0.5) * vec4(Color, 1.0);
-        outColor = vec4(vColor, 1.0);
-    }
-);
-
-static const char* diffuseFragSrc = GLSL(
-    uniform vec3 uLight;
-    uniform vec3 uColor;
-    
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec3 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-        vec3 lightDir = normalize(uLight - vPosition);
-        outColor = vec4((dot(lightDir, vNormal) * uColor), 1.0);
-    }
-);
-
-static const char* flatFragSrc = GLSL(
-    uniform vec3 uColor;
-      
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-        outColor = vec4(uColor, 1.0);
-    }
-);
-
-static const char* basicFragSrc = GLSL(
-    uniform vec3 uLight;
-    uniform vec3 uColor;
-    uniform sampler2D uTex0;
-    
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-
-        vec3 lightDir = normalize(uLight - vPosition);
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
-        outColor = vec4((dot(lightDir, vNormal) * texColor.xyz), 1.0);
-
-        //outColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
-        //outColor = vec4(uColor, 1.0);
-    }
-);
-
-static const char* specularFragSrc = GLSL(
-    uniform vec3 uLight;
-    uniform vec3 uColor;
-    
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec3 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-        vec3 lightDir = normalize(uLight - vPosition);
-        vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
-        vec3 eyeDir = normalize(-vPosition);
-        outColor = vec4((dot(reflectDir, eyeDir) * uColor), 1.0);
-    }
-);
 
 
 void draw_scene()
@@ -307,17 +83,17 @@ void draw_scene()
 
     // Calculate camera movement
     RigTForm trans(inputHandler.getMovementDir() * g_distancePerFrame);
-    inputHandler.setViewTransformation(trans * inputHandler.getViewTransformation());
+    inputHandler.setViewTransform(trans * inputHandler.getViewTransform());
 
     // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
     // Update some uniforms    
-    g_lightE = inputHandler.getViewTransformation() * g_lightW;
+    g_lightE = inputHandler.getViewTransform() * g_lightW;
     g_shipMaterial1->sendUniform3v("uLight", g_lightE);
     g_cubeMaterial->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
-    Visitor visitor(inputHandler.getViewTransformation());
+    Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
     glfwSwapBuffers(window);
@@ -410,14 +186,11 @@ void initGeometry()
         0, 2, 3
     };
 
-    GLfloat *mesh_verts, *arrow_verts;
+    GLfloat *mesh_verts;
     int numVertices;
 
     mesh_verts = readFromObj("Ship.obj", &numVertices);
     g_mesh = new Geometry(mesh_verts, numVertices);
-    
-    arrow_verts = readFromObj("arrow.obj", &numVertices);
-    g_arrow = new Geometry(arrow_verts, numVertices);
     
     g_cube = new Geometry(vertices, 36);
 
@@ -537,7 +310,6 @@ void initGeometry()
 
     g_terrain = new Geometry(terrain_verts, index/8);
     free(mesh_verts);
-    free(arrow_verts);
 }
 
 void initTexture()
@@ -587,11 +359,11 @@ void initMaterial()
     //texturedShader = new ShaderState(vertexSource, floorFragSrc);
     //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
 
-    inputHandler.setViewTransformation(RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
+    inputHandler.setViewTransform(RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
     g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
-    g_lightE = inputHandler.getViewTransformation() * g_lightW;
+    g_lightE = inputHandler.getViewTransform() * g_lightW;
 
     // Material
     //material = new Material(basicVertSrc, diffuseFragSrc);
@@ -607,22 +379,11 @@ void initMaterial()
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
 
-    g_arrowYMat = new Material(basicVertSrc, flatFragSrc);
-    g_arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
-    g_arrowYMat->sendUniformMat4("uProjMat", proj);
 
-    g_arrowZMat = new Material(basicVertSrc, flatFragSrc);
-    g_arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
-    g_arrowZMat->sendUniformMat4("uProjMat", proj);
-
-    g_arrowXMat = new Material(basicVertSrc, flatFragSrc);
-    g_arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
-    g_arrowXMat->sendUniformMat4("uProjMat", proj);
-
-    g_pickMaterial = new Material(pickVertSrc, pickFragSrc);
-    g_pickMaterial->sendUniformMat4("uProjMat", proj);
+    //g_pickMaterial = new Material(pickVertSrc, pickFragSrc);
+    //g_pickMaterial->sendUniformMat4("uProjMat", proj);
     // Remove this
-    inputHandler.setPickMaterial(g_pickMaterial);
+    //inputHandler.setPickMaterial(g_pickMaterial);
 }
 
 void initScene()
@@ -638,7 +399,7 @@ void initScene()
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
     g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
-
+    /*
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     g_arrowYNode = new GeometryNode(modelRbt, g_arrow, g_arrowYMat, false);
     g_arrowYNode->setDepthTest(false);
@@ -650,12 +411,12 @@ void initScene()
     modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
     g_arrowZNode = new GeometryNode(modelRbt, g_arrow, g_arrowZMat, false);
     g_arrowZNode->setDepthTest(false);
-    
+    */
     g_worldNode->addChild(g_terrainNode);
     g_worldNode->addChild(g_cubeNode);
 
     // Really bad temporary crap
-    inputHandler.setArrows(g_arrowYNode, g_arrowXNode, g_arrowZNode);
+    //inputHandler.setArrows(g_arrowYNode, g_arrowXNode, g_arrowZNode);
 
     /*
     for(int i = 0; i < 2; i++)
@@ -708,6 +469,8 @@ int main()
 
     // ----------------------------- RESOURCES ----------------------------- //
 
+    inputHandler.initialize();
+    
     initGeometry();
     initTexture();
     initMaterial();

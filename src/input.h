@@ -5,15 +5,14 @@
 #include <stdio.h>
 #include "material.h"
 
+
+
 #include <GL/glew.h>
 #if __GNUG__
 #   include <GLFW/glfw3.h>
 #else
 #   include <GL/glfw3.h>
 #endif
-
-
-
 
 
 enum InputMode
@@ -23,6 +22,11 @@ enum InputMode
     OBJECT_MODE             // Let's the user move a selected object around     
 };
 
+extern const char* basicVertSrc;
+extern const char* flatFragSrc;
+extern const char* pickVertSrc;
+extern const char* pickFragSrc;
+extern GLfloat* readFromObj(const char* fileName, int *numVertices);
 
 /*
   Accepts a mouse button or key press, makes changes to its members,
@@ -34,7 +38,48 @@ class InputHandler
 public:
     InputHandler()
         :inputMode(FPS_MODE), pickModeClicked(false), pickedObj(NULL), pickedArrow(NULL)
-    {}
+    {
+    }
+
+    void initialize()
+    {
+                int numVertices;
+        GLfloat *arrow_verts = readFromObj("arrow.obj", &numVertices);
+        arrow = new Geometry(arrow_verts, numVertices);
+        free(arrow_verts);
+
+        Mat4 proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
+        proj = transpose(proj);
+
+        arrowYMat = new Material(basicVertSrc, flatFragSrc);
+        arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
+        arrowYMat->sendUniformMat4("uProjMat", proj);
+
+        arrowZMat = new Material(basicVertSrc, flatFragSrc);
+        arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
+        arrowZMat->sendUniformMat4("uProjMat", proj);
+
+        arrowXMat = new Material(basicVertSrc, flatFragSrc);
+        arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
+        arrowXMat->sendUniformMat4("uProjMat", proj);
+
+
+        pickMaterial = new Material(pickVertSrc, pickFragSrc);
+        pickMaterial->sendUniformMat4("uProjMat", proj);
+
+        RigTForm modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
+        arrowYNode = new GeometryNode(modelRbt, arrow, arrowYMat, false);
+        arrowYNode->setDepthTest(false);
+
+        modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
+        arrowXNode = new GeometryNode(modelRbt, arrow, arrowXMat, false);
+        arrowXNode->setDepthTest(false);
+
+        modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
+        arrowZNode = new GeometryNode(modelRbt, arrow, arrowZMat, false);
+        arrowZNode->setDepthTest(false);
+
+    }
 
     Vec3 getMovementDir()
     {
@@ -61,6 +106,16 @@ public:
         pickModeClicked = b;
     }
 
+    RigTForm getViewTransform()
+    {
+        return viewRbt;
+    }
+
+    void setViewTransform(RigTForm rbt)
+    {
+        viewRbt = rbt;
+    }
+    
     GeometryNode* getPickedObj()
     {
         return pickedObj;
@@ -102,16 +157,6 @@ public:
         clickY = d;
     }
         
-    void setViewTransformation(RigTForm rbt)
-    {
-        viewRbt = rbt;
-    }
-
-    RigTForm getViewTransformation()
-    {
-        return viewRbt;
-    }
-
     void setPickMaterial(Material *m)
     {
         pickMaterial = m;
@@ -346,7 +391,9 @@ private:
     double cursorX, cursorY;
 
     // WTF is this shit?
+    Geometry *arrow;
     GeometryNode *arrowYNode, *arrowZNode, *arrowXNode;
+    Material *arrowYMat, *arrowZMat, *arrowXMat;
 
     // More temporary BS
     TransformNode *worldNode;
