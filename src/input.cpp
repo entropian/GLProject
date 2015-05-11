@@ -5,10 +5,30 @@ void InputHandler::putArrowsOn(GeometryNode *gn)
     // TODO: sometimes the x arrow isn't visible, but you can still click on it
     // the red arrow isn't invisible, it's just way out there somewhere
     // try switching the order
-    //RigTForm rbtArray[MAX_LAYER];
+ 
     gn->addChild(arrowYNode);
     gn->addChild(arrowZNode);
     gn->addChild(arrowXNode);
+
+}
+
+void InputHandler::updateArrowOrientation()
+{
+    RigTForm counterRotation;
+    TransformNode *tn = pickedObj;
+    
+    while(tn != worldNode)
+    {
+        //counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
+        counterRotation = inv(linFact(tn->getRigidBodyTransform())) * counterRotation;
+        tn = tn->getParent();
+    }
+
+
+    arrowYNode->setRigidBodyTransform(arrowYNode->getRigidBodyTransform() * counterRotation);
+    arrowZNode->setRigidBodyTransform(arrowZNode->getRigidBodyTransform() * counterRotation);
+    arrowXNode->setRigidBodyTransform(arrowXNode->getRigidBodyTransform() * counterRotation);
+
 }
 
 void InputHandler::removeArrows(GeometryNode *gn)
@@ -34,6 +54,7 @@ void InputHandler::setArrowsUnclickable()
 
 void InputHandler::initialize()
 {
+    // Loads the arrow model
     int numVertices;
     GLfloat *arrow_verts = readFromObj("arrow.obj", &numVertices);
     arrow = new Geometry(arrow_verts, numVertices);
@@ -42,6 +63,7 @@ void InputHandler::initialize()
     Mat4 proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     proj = transpose(proj);
 
+    // Initialize arrow materials and picking material
     arrowYMat = new Material(basicVertSrc, flatFragSrc);
     arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
     arrowYMat->sendUniformMat4("uProjMat", proj);
@@ -54,10 +76,10 @@ void InputHandler::initialize()
     arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
     arrowXMat->sendUniformMat4("uProjMat", proj);
 
-
     pickMaterial = new Material(pickVertSrc, pickFragSrc);
     pickMaterial->sendUniformMat4("uProjMat", proj);
 
+    // Initialize arrow GeometryNodes
     RigTForm modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     arrowYNode = new GeometryNode(modelRbt, arrow, arrowYMat, false);
     arrowYNode->setDepthTest(false);
@@ -204,11 +226,13 @@ void InputHandler::calcPickedObj()
 }
 void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+    /*
     Vec3 tmp;
     switch(key)
     {
     case GLFW_KEY_A:
         tmp[0] = -0.1f;
+        rig
         break;
 
     case GLFW_KEY_D:
@@ -233,10 +257,26 @@ void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, in
     default:
         break;
     }
-
+    */
+    RigTForm rbt;
+    switch(key)
+    {
+    case GLFW_KEY_A:
+        rbt = RigTForm(Quat::makeYRotation(-5.0f));
+        break;
+    case GLFW_KEY_D:
+        rbt = RigTForm(Quat::makeYRotation(5.0f));
+        break;
+    case GLFW_KEY_W:
+        rbt = RigTForm(Quat::makeXRotation(-5.0f));
+        break;
+    case GLFW_KEY_S:
+        rbt = RigTForm(Quat::makeXRotation(5.0f));
+        break;        
+    }    
     // TODO: convert world space transformation into object space
-    RigTForm trans(tmp);
-    pickedObj->setRigidBodyTransform(trans * pickedObj->getRigidBodyTransform());
+    pickedObj->setRigidBodyTransform(pickedObj->getRigidBodyTransform() * rbt);
+    updateArrowOrientation();
 }
 
 void InputHandler::calcPickedArrow()

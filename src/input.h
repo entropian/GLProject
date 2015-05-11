@@ -22,6 +22,7 @@ enum InputMode
     OBJECT_MODE             // Let's the user move a selected object around     
 };
 
+// TODO: fix this ugly stuff below
 extern const char* basicVertSrc;
 extern const char* flatFragSrc;
 extern const char* pickVertSrc;
@@ -37,9 +38,10 @@ class InputHandler
 {
 public:
     InputHandler()
-        :inputMode(FPS_MODE), pickModeClicked(false), pickedObj(NULL), pickedArrow(NULL)
-    {
-    }
+        :inputMode(FPS_MODE), pickModeClicked(false), pickedObj(NULL), pickedArrow(NULL),
+        clickX(0.0), clickY(0.0), windowWidth(800), windowHeight(600), arrow(NULL),
+        arrowYMat(NULL), arrowZMat(NULL), arrowXMat(NULL), worldNode(NULL), pickMaterial(NULL)
+    {}
 
     void initialize();
     void handleKey(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -77,15 +79,25 @@ public:
     }           
 
 private:
+    void putArrowsOn(GeometryNode *gn);
+    void removeArrows(GeometryNode *gn);
+    void setArrowsClickable();
+    void setArrowsUnclickable();
+    void FPSModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods);
+    void ObjModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods);
+    void calcPickedObj();
+    void calcPickedArrow();
+    void updateArrowOrientation();
+    
     Vec3 movementDir;
-    // When g_inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
+    // When inputMode == PICKING_MODE, nothing in the scene should be updated and re-rendered.
     InputMode inputMode;
     InputMode prevInputMode;
     bool pickModeClicked;
     double clickX, clickY;
     GeometryNode *pickedObj, *pickedArrow;
     RigTForm viewRbt;
-    int windowWidth = 800, windowHeight = 600;
+    int windowWidth, windowHeight;
 
     double cursorX, cursorY;
 
@@ -95,6 +107,7 @@ private:
     Material *arrowYMat, *arrowZMat, *arrowXMat;
     TransformNode *worldNode;
     Material *pickMaterial;
+    RigTForm clickRbt;
     
 };
 

@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <assert.h>
+#include <algorithm>
 
 // TODO: figure out this stuff
 static const double PI = 3.14159265358979323846264338327950288;
@@ -22,21 +23,20 @@ public:
 			f_[i] = 0;
 	}
 
-	// tested
 	Vec(float t)
 	{
 		for (int i = 0; i < n; i++)
 			f_[i] = t;
 	}
 
-	// tested
+
 	Vec(float a, float b)
 	{
 		assert(n == 2);
 		f_[0] = a;
 		f_[1] = b;
 	}
-	// tested
+
 	Vec(float a, float b, float c)
 	{
 		assert(n == 3);
@@ -44,7 +44,7 @@ public:
 		f_[1] = b;
 		f_[2] = c;
 	}
-	// tested
+
 	Vec(float a, float b, float c, float d)
 	{
 		assert(n == 4);
@@ -58,10 +58,10 @@ public:
 	template<int m>
 	explicit Vec(const Vec<m>& a, const float extendValue = 0.0)
 	{
-		for (int i = 0; i < min(m, n); i++)
+		for (int i = 0; i < std::min(m, n); i++)
 			f_[i] = a[i];
 
-		for (int i = min(m, n); i < n; i++)
+		for (int i = std::min(m, n); i < n; i++)
 			f_[i] = extendValue;
 	}
 
@@ -74,33 +74,33 @@ public:
 	{
 		return f_[i];
 	}
-	//tested
+
 	Vec operator - () const
 	{
 		return Vec(*this) *= -1;
 	}
-	//tested
+
 	Vec& operator +=(const Vec& v)
 	{
 		for (int i = 0; i < n; i++)
 			f_[i] += v[i];
 		return *this;
 	}
-	//tested
+
 	Vec& operator -=(const Vec& v)
 	{
 		for (int i = 0; i < n; i++)
 			f_[i] -= v[i];
 		return *this;
 	}
-	//tested
+
 	Vec& operator *=(const float a)
 	{
 		for (int i = 0; i < n; i++)
 			f_[i] *= a;
 		return *this;
 	}
-	//tested
+
 	Vec& operator /=(const float a)
 	{
 		const float inva = 1 / a;
@@ -108,27 +108,27 @@ public:
 			f_[i] *= inva;
 		return *this;
 	}
-	//tested
+
 	Vec operator +(const Vec& v) const
 	{
 		return Vec(*this) += v;
 	}
-	//tested
+
 	Vec operator -(const Vec& v) const
 	{
 		return Vec(*this) -= v;
 	}
-	//tested
+
 	Vec operator *(const float a) const
 	{
 		return Vec(*this) *= a;
 	}
-	//tested
+
 	Vec operator /(const float a) const
 	{
 		return Vec(*this) /= a;
 	}
-	//tested
+
 	Vec& normalize()
 	{
 		assert(dot(*this, *this) > EPS2);
@@ -140,20 +140,12 @@ typedef Vec<2> Vec2;
 typedef Vec<3> Vec3;
 typedef Vec<4> Vec4;
 
-//tested
+
 inline Vec3 cross(const Vec3& a, const Vec3& b)
 {
 	return Vec3((a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0]));
 }
-/*
-inline Vec3 cross(const Vec3& a, const Vec3& b)
-{
-return Vec<3 > r;
-//return Vec3(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]);
-}
-*/
 
-//tested
 template<int n>
 inline float dot(const Vec<n>& a, const Vec<n>& b)
 {
