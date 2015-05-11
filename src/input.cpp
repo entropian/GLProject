@@ -2,6 +2,10 @@
 
 void InputHandler::putArrowsOn(GeometryNode *gn)
 {
+    // TODO: sometimes the x arrow isn't visible, but you can still click on it
+    // the red arrow isn't invisible, it's just way out there somewhere
+    // try switching the order
+    //RigTForm rbtArray[MAX_LAYER];
     gn->addChild(arrowYNode);
     gn->addChild(arrowZNode);
     gn->addChild(arrowXNode);
@@ -295,6 +299,13 @@ void InputHandler::handleKey(GLFWwindow *window, int key, int scancode, int acti
             inputMode = FPS_MODE;
         }
         break;
+    case GLFW_KEY_ESCAPE:
+        if(pickedArrow != NULL && inputMode == OBJECT_MODE)
+        {
+            pickedArrow = NULL;
+            pickedObj->setRigidBodyTransform(clickRbt);           
+        }
+        break;
     default:
         switch(inputMode)
         {
@@ -339,6 +350,14 @@ void InputHandler::handleMouseButton(GLFWwindow *window, int button, int action,
             setArrowsClickable();
             pickedArrow = NULL;
             calcPickedArrow();
+
+            if(pickedArrow != NULL)
+            {
+                clickX = cursorX;
+                clickY = cursorY;
+                // clickRbt is only set here
+                clickRbt = pickedObj->getRigidBodyTransform();
+            }
 
             if(pickedArrow == arrowYNode)
                 printf("Y arrow.\n");
@@ -394,7 +413,27 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
 
     }else if(pickedArrow != NULL && inputMode == OBJECT_MODE)
     {
-        // TODO: object dragging code
+        Vec4 axis;
+        if(pickedArrow == arrowYNode)
+        {
+            axis = Vec4(0.0f, 1.0f, 0.0f, 0.0f);
+        }else if(pickedArrow == arrowZNode)
+        {
+            axis = Vec4(0.0f, 0.0f, -1.0f, 0.0f);
+        }else if(pickedArrow == arrowXNode)
+        {
+            axis = Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        }
+
+        Mat4 projMat = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
+        Mat4 viewMat = rigTFormToMat(viewRbt);
+        Vec4 clipAxis = projMat * viewMat * axis;
+        Vec3 clipVec = normalize(Vec3(clipAxis[0], clipAxis[1], 0.0f));
+        float distance = dot(clipVec, Vec3(x - cursorX, cursorY - y, 0.0f));
+
+        // TODO: make 80.0f into a class member
+        RigTForm newRbt(Vec3(axis[0], axis[1], axis[2]) * (distance / 80.0f));
+        pickedObj->setRigidBodyTransform(newRbt * pickedObj->getRigidBodyTransform());
     }
     cursorX = x;
     cursorY = y;
