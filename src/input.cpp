@@ -10,11 +10,12 @@ void InputHandler::putArrowsOn(GeometryNode *gn)
 
 void InputHandler::updateArrowOrientation()
 {
+    // TODO: this is wrong
     RigTForm counterRotation;
     TransformNode *tn = pickedObj;
     while(tn != worldNode)
     {
-        counterRotation = counterRotation * linFact(tn->getRigidBodyTransform());
+        counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
         tn = tn->getParent();
     }
     counterRotation = inv(counterRotation);
@@ -288,7 +289,9 @@ void InputHandler::handleKey(GLFWwindow *window, int key, int scancode, int acti
                 prevInputMode = inputMode;
                 inputMode = PICKING_MODE;
                 calcPickedObj();
-                updateArrowOrientation();
+                // can't put arrows on nothing
+                if(pickedObj != NULL)
+                    updateArrowOrientation();
             }else
             {
                 inputMode = prevInputMode;
@@ -438,9 +441,24 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         Vec3 clipVec = normalize(Vec3(clipAxis[0], clipAxis[1], 0.0f));
         float distance = dot(clipVec, Vec3(x - cursorX, cursorY - y, 0.0f));
 
+        
+
         // TODO: make 80.0f into a class member
-        RigTForm newRbt(Vec3(axis[0], axis[1], axis[2]) * (distance / 80.0f));
-        pickedObj->setRigidBodyTransform(newRbt * pickedObj->getRigidBodyTransform());
+        Vec3 translation = Vec3(axis[0], axis[1], axis[2]) * (distance / 80.0f);
+        //RigTForm newRbt(Vec3(axis[0], axis[1], axis[2]) * (distance / 80.0f));
+        // Ensures that movement is always along world axes.
+        RigTForm counterRotation;
+        TransformNode *tn = pickedObj;
+        while(tn != worldNode)
+        {
+            counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
+            tn = tn->getParent();
+        }
+        counterRotation = inv(counterRotation);
+        translation = counterRotation * translation;
+        RigTForm newRbt(translation);
+        pickedObj->setRigidBodyTransform(pickedObj->getRigidBodyTransform() * newRbt);
+        updateArrowOrientation();
     }
     
     cursorX = x;
