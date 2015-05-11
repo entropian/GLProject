@@ -2,40 +2,37 @@
 
 void InputHandler::putArrowsOn(GeometryNode *gn)
 {
-    // TODO: sometimes the x arrow isn't visible, but you can still click on it
-    // the red arrow isn't invisible, it's just way out there somewhere
-    // try switching the order
- 
+
     gn->addChild(arrowYNode);
     gn->addChild(arrowZNode);
     gn->addChild(arrowXNode);
-
 }
 
 void InputHandler::updateArrowOrientation()
 {
     RigTForm counterRotation;
     TransformNode *tn = pickedObj;
-    
     while(tn != worldNode)
     {
-        //counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
-        counterRotation = inv(linFact(tn->getRigidBodyTransform())) * counterRotation;
+        counterRotation = counterRotation * linFact(tn->getRigidBodyTransform());
         tn = tn->getParent();
     }
-
-
-    arrowYNode->setRigidBodyTransform(arrowYNode->getRigidBodyTransform() * counterRotation);
-    arrowZNode->setRigidBodyTransform(arrowZNode->getRigidBodyTransform() * counterRotation);
-    arrowXNode->setRigidBodyTransform(arrowXNode->getRigidBodyTransform() * counterRotation);
-
+    counterRotation = inv(counterRotation);
+    arrowYNode->setRigidBodyTransform(counterRotation);
+    arrowZNode->setRigidBodyTransform(counterRotation * RigTForm(Quat::makeXRotation(-90.0f)));
+    arrowXNode->setRigidBodyTransform(counterRotation * RigTForm(Quat::makeZRotation(-90.0f)));    
 }
 
 void InputHandler::removeArrows(GeometryNode *gn)
 {
-    gn->removeChild(arrowYNode);
+    gn->removeChild(arrowYNode);    
     gn->removeChild(arrowZNode);
     gn->removeChild(arrowXNode);
+    
+    // Restore the arrows' default orientation
+    arrowYNode->setRigidBodyTransform(RigTForm());
+    arrowZNode->setRigidBodyTransform(RigTForm(Quat::makeXRotation(-90.0f)));
+    arrowXNode->setRigidBodyTransform(RigTForm(Quat::makeZRotation(-90.0f)));    
 }
 
 void InputHandler::setArrowsClickable()
@@ -226,38 +223,7 @@ void InputHandler::calcPickedObj()
 }
 void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    /*
-    Vec3 tmp;
-    switch(key)
-    {
-    case GLFW_KEY_A:
-        tmp[0] = -0.1f;
-        rig
-        break;
-
-    case GLFW_KEY_D:
-        tmp[0] = 0.1f;
-        break;
-
-    case GLFW_KEY_W:
-        tmp[2] = -0.1f;
-        break;
-
-    case GLFW_KEY_S:
-        tmp[2] = 0.1f;
-        break;
-
-    case GLFW_KEY_Q:
-        tmp[1] = 0.1f;
-        break;
-
-    case GLFW_KEY_E:
-        tmp[1] = -0.1f;
-        break;
-    default:
-        break;
-    }
-    */
+    // TODO: change this to upright space rotation instead of object space rotation
     RigTForm rbt;
     switch(key)
     {
@@ -274,7 +240,7 @@ void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, in
         rbt = RigTForm(Quat::makeXRotation(5.0f));
         break;        
     }    
-    // TODO: convert world space transformation into object space
+
     pickedObj->setRigidBodyTransform(pickedObj->getRigidBodyTransform() * rbt);
     updateArrowOrientation();
 }
@@ -322,6 +288,7 @@ void InputHandler::handleKey(GLFWwindow *window, int key, int scancode, int acti
                 prevInputMode = inputMode;
                 inputMode = PICKING_MODE;
                 calcPickedObj();
+                updateArrowOrientation();
             }else
             {
                 inputMode = prevInputMode;
@@ -475,6 +442,7 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         RigTForm newRbt(Vec3(axis[0], axis[1], axis[2]) * (distance / 80.0f));
         pickedObj->setRigidBodyTransform(newRbt * pickedObj->getRigidBodyTransform());
     }
+    
     cursorX = x;
     cursorY = y;
 }
