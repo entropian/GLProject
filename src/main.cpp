@@ -382,14 +382,14 @@ void initScene()
 
     RigTForm modelRbt;
     //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
-    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
+    modelRbt = RigTForm(Vec3(-1.0f, 0.0f, -1.0f));
     g_terrainNode = new GeometryNode(modelRbt, g_mesh, g_shipMaterial1, true);
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
     g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
 
     g_worldNode->addChild(g_terrainNode);
-    g_worldNode->addChild(g_cubeNode);
+    g_terrainNode->addChild(g_cubeNode);
 
 
     /*

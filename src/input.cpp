@@ -224,7 +224,6 @@ void InputHandler::calcPickedObj()
 }
 void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    // TODO: change this to upright space rotation instead of object space rotation
     RigTForm rbt;
     switch(key)
     {
@@ -242,7 +241,18 @@ void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, in
         break;        
     }    
 
-    pickedObj->setRigidBodyTransform(pickedObj->getRigidBodyTransform() * rbt);
+    RigTForm rotation, counterRotation; 
+    TransformNode *tn = pickedObj;
+    while(tn != worldNode)
+    {
+        rotation = linFact(tn->getRigidBodyTransform()) * rotation;
+        tn = tn->getParent();
+    }
+    counterRotation = inv(rotation);
+    // TODO: investigate how the quaternion stops being a unit quaternion
+    RigTForm newRbt = pickedObj->getRigidBodyTransform() * counterRotation * rbt * rotation;
+    newRbt.setRotation(normalize(newRbt.getRotation()));
+    pickedObj->setRigidBodyTransform(newRbt);
     updateArrowOrientation();
 }
 
@@ -368,7 +378,7 @@ void InputHandler::handleMouseButton(GLFWwindow *window, int button, int action,
                 // clickRbt is only set here
                 clickRbt = pickedObj->getRigidBodyTransform();
             }
-
+ 
             if(pickedArrow == arrowYNode)
                 printf("Y arrow.\n");
             else if(pickedArrow == arrowXNode)
