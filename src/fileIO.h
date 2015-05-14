@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "mesh.h"
 // returns the index of the character immediately after the substring.
 // returns -1 if no new substring
 static int subStringAlpha(const char* fileContent, char buffer[], int fileSize, int index)
@@ -211,14 +212,27 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     printf("normCount = %d\n", normCount);
     printf("texcoordCount = %d\n", texcoordCount);
     printf("faceCount = %d\n", faceCount);
+
+    unsigned int posArraySize = posCount * 3;
+    //posArray = (GLfloat*)malloc(sizeof(GLfloat)*posCount*3);
+    posArray = (GLfloat*)malloc(sizeof(GLfloat) * posArraySize);
     
-    posArray = (GLfloat*)malloc(sizeof(GLfloat)*posCount*3);
-    normArray = (GLfloat*)malloc(sizeof(GLfloat)*normCount*3);
-    texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
-    faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
+    unsigned int normArraySize = normCount * 3;
+    //normArray = (GLfloat*)malloc(sizeof(GLfloat)*normCount*3);
+    normArray = (GLfloat*)malloc(sizeof(GLfloat) * normArraySize);
+
+    unsigned int texcoordArraySize = texcoordCount * 2;
+    //texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
+    texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordArraySize);
+
+    // Not sure how many faces there will be after making sure thay are all triangles
+    // so I quadrupled the size of the faceArray
+    unsigned int faceArraySize = faceCount * 3 * 3 * 4;
+    //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
+    faceArray = (int*)malloc(sizeof(int)*faceArraySize);
 
     // Iterate through fileContent and put data into the appropriate array
-    int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
+    unsigned int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
     index = 0;
     while(index != -1)
     {
@@ -267,250 +281,55 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
                 {
                     tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
                     if(j < 3 || j > (2 + i*3))
-                        faceArray[faceIndex++] = atoi(buffer);
-                }
-            }
-
-            /*
-            for(int i = 0; i < 9; i++)
-            {
-                tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                faceArray[faceIndex++] = atoi(buffer);
-            }
-
-            // If the face is at least a quad
-            if(slashCount >= 8)
-            {
-                tmpIndex = index;
-                for(int i = 0; i < 12; i++)
-                {
-                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                    if(i < 3 || i > 5)
-                        faceArray[faceIndex++] = atoi(buffer);
-                }
-            }
-
-            // If the face is at least a pentagon
-            if(slashCount >= 10)
-            {
-                tmpIndex = index;
-                for(int i = 0; i < 15; i++)
-                {
-                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                    if(i < 3 || i > 8)
-                        faceArray[faceIndex++] = atoi(buffer);
-                }
-            }
-            */
-        } 
-    }
-
-    // Construct the output array
-    vertexCount  = int((float)faceIndex*(2.0f + 2.0f/3.0f));
-    vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
-
-    int vertexIndex = 0;
-    for(int i = 0; i < faceIndex; i+=3)
-    {
-        // NOTE: what's with all the reversal?
-        // the z component of position and normal are both reversed
-        // normal used to be untouched, and the object was lit on the wrong side
-        // Position
-        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3];
-        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 1];
-        vertexArray[vertexIndex++] = -posArray[(faceArray[i]-1)*3 + 2];
-        // Normal
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3];
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 1];
-        vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2]-1)*3 + 2];
-        // Texcoord
-        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2];
-        // also reversed the v component of texcoord
-        vertexArray[vertexIndex++] = 1.0f - texcoordArray[(faceArray[i + 1]-1)*2 + 1];
-    }
-
-    *numVertices = vertexIndex / 8;
-    
-    free(posArray);
-    free(normArray);
-    free(texcoordArray);
-    free(faceArray);
-    free(fileContent);
-    return vertexArray;
-}
-
-
-/*
-  GLfloat* readFromObj(const char* fileName, int *numVertices)
-{
-    int posCount, normCount, texcoordCount, faceCount, vertexCount, fileSize, readResult, index;
-    char *fileContent, buffer[50];;
-    GLfloat *posArray, *normArray, *texcoordArray; 
-    int *faceArray;
-    GLfloat *vertexArray;
-
-    // Read the file into the string fileContent
-    FILE *fp = fopen(fileName, "rb");
-    if(fp == NULL)
-    {
-        fprintf(stderr, "Cannot open file.");
-        exit(0);
-    }
-    
-    fseek(fp, 0L, SEEK_END);
-    fileSize = ftell(fp);
-    fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
-    rewind(fp);
-    printf("File size = %d\n", fileSize);
-
-    readResult = fread((void*)fileContent, 1, fileSize, fp);
-    
-    if(readResult != fileSize)
-    {
-        fprintf(stderr, "Reading error.\n");
-        exit(1);
-    }
-    fclose(fp);
-
-    fileContent[readResult] = '\0';
-
-    // Count the number of positions, normals, texcoords, and faces in the file
-    // and allocate an array for each of them.
-    posCount = normCount = texcoordCount  = faceCount = 0;
-    index = 0;
-    while(index != -1)
-    {
-        index = subStringAlpha(fileContent, buffer, readResult, index);
-        if(strcmp(buffer, "v") == 0)
-            posCount++;
-        else if(strcmp(buffer, "vt") == 0)
-            texcoordCount++;
-        else if(strcmp(buffer, "vn") == 0)            
-            normCount++;
-        else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
-        {
-            faceCount++;
-            int slashCount = 0;
-        }
-    }
-
-    printf("posCount = %d\n", posCount);
-    printf("normCount = %d\n", normCount);
-    printf("texcoordCount = %d\n", texcoordCount);
-    printf("faceCount = %d\n", faceCount);
-    
-    posArray = (GLfloat*)malloc(sizeof(GLfloat)*posCount*3);
-    normArray = (GLfloat*)malloc(sizeof(GLfloat)*normCount*3);
-    texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordCount*2);
-    faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2);
-
-    // Iterate through fileContent and put data into the appropriate array
-    int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
-    index = 0;
-    while(index != -1)
-    {
-        index = subStringAlpha(fileContent, buffer, readResult, index);
-        if(strcmp(buffer, "v") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            posArray[posIndex++] = (GLfloat)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            posArray[posIndex++] = (GLfloat)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            posArray[posIndex++] = (GLfloat)atof(buffer);
-        }else if(strcmp(buffer, "vt") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
-        }else if(strcmp(buffer, "vn") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            normArray[normIndex++] = (GLfloat)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            normArray[normIndex++] = (GLfloat)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            normArray[normIndex++] = (GLfloat)atof(buffer);
-        }else if(strcmp(buffer, "f") == 0)
-        {
-            // If a face is a quad, it's split into two triangles.
-            // If it's a pentagon, it's split into three triangles.
-            int slashCount = 0;
-
-            // Count the number of slashes in the line to determine what polygon the face is.
-            for(int i = index; fileContent[i] != '\n'; i++)
-            {
-                if(fileContent[i] == '/')
-                    slashCount++;
-            }
-            
-            int tmpIndex = index;
-            for(int i = 0; i < 9; i++)
-            {
-                tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                faceArray[faceIndex++] = atoi(buffer);
-            }
-
-            // If the face is at least a quad
-            if(slashCount >= 8)
-            {
-                tmpIndex = index;
-                for(int i = 0; i < 12; i++)
-                {
-                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                    if(i < 3 || i > 5)
-                        faceArray[faceIndex++] = atoi(buffer);
-                }
-            }
-
-            // If the face is at least a pentagon
-            if(slashCount >= 10)
-            {
-                tmpIndex = index;
-                for(int i = 0; i < 15; i++)
-                {
-                    tmpIndex = subStringNum(fileContent, buffer, readResult, tmpIndex);
-                    if(i < 3 || i > 8)
-                        faceArray[faceIndex++] = atoi(buffer);
+                        faceArray[faceIndex++] = atoi(buffer) - 1;
                 }
             }
         } 
     }
 
-    // Construct the output array
-    vertexCount  = int((float)faceIndex*(2.0f + 2.0f/3.0f));
-    vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
+    Mesh mesh;
+    mesh.initalize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
 
+    // Construct the output array
+    // (2.0f + 2.0f/3.0f) = 8/3
+    //vertexCount = int((float)faceIndex*(2.0f + 2.0f/3.0f));
+    //vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
+    /*
     int vertexIndex = 0;
-    for(int i = 0; i < faceIndex; i+=3)
+    for(unsigned int i = 0; i < faceIndex; i+=3)
     {
         // NOTE: what's with all the reversal?
         // the z component of position and normal are both reversed
         // normal used to be untouched, and the object was lit on the wrong side
         // Position
-        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3];
-        vertexArray[vertexIndex++] = posArray[(faceArray[i]-1)*3 + 1];
-        vertexArray[vertexIndex++] = -posArray[(faceArray[i]-1)*3 + 2];
+        vertexArray[vertexIndex++] = posArray[(faceArray[i])*3];
+        vertexArray[vertexIndex++] = posArray[(faceArray[i])*3 + 1];
+        vertexArray[vertexIndex++] = -posArray[(faceArray[i])*3 + 2];
         // Normal
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3];
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2]-1)*3 + 1];
-        vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2]-1)*3 + 2];
+        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2])*3];
+        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2])*3 + 1];
+        vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2])*3 + 2];
         // Texcoord
-        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1]-1)*2];
+        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1])*2];
         // also reversed the v component of texcoord
-        vertexArray[vertexIndex++] = 1.0f - texcoordArray[(faceArray[i + 1]-1)*2 + 1];
+        vertexArray[vertexIndex++] = 1.0f - texcoordArray[(faceArray[i + 1])*2 + 1];
     }
 
     *numVertices = vertexIndex / 8;
-    
+    */
+
+    /*
+      NOTE: used to cause heap corruption.
+     */
+    vertexArray = mesh.vertexArray(numVertices);
+
     free(posArray);
     free(normArray);
     free(texcoordArray);
     free(faceArray);
     free(fileContent);
+
     return vertexArray;
 }
-*/
 
 #endif
