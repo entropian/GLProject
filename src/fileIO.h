@@ -290,34 +290,6 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     Mesh mesh;
     mesh.initalize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
 
-    // Construct the output array
-    // (2.0f + 2.0f/3.0f) = 8/3
-    //vertexCount = int((float)faceIndex*(2.0f + 2.0f/3.0f));
-    //vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
-    /*
-    int vertexIndex = 0;
-    for(unsigned int i = 0; i < faceIndex; i+=3)
-    {
-        // NOTE: what's with all the reversal?
-        // the z component of position and normal are both reversed
-        // normal used to be untouched, and the object was lit on the wrong side
-        // Position
-        vertexArray[vertexIndex++] = posArray[(faceArray[i])*3];
-        vertexArray[vertexIndex++] = posArray[(faceArray[i])*3 + 1];
-        vertexArray[vertexIndex++] = -posArray[(faceArray[i])*3 + 2];
-        // Normal
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2])*3];
-        vertexArray[vertexIndex++] = normArray[(faceArray[i + 2])*3 + 1];
-        vertexArray[vertexIndex++] = -normArray[(faceArray[i + 2])*3 + 2];
-        // Texcoord
-        vertexArray[vertexIndex++] = texcoordArray[(faceArray[i + 1])*2];
-        // also reversed the v component of texcoord
-        vertexArray[vertexIndex++] = 1.0f - texcoordArray[(faceArray[i + 1])*2 + 1];
-    }
-
-    *numVertices = vertexIndex / 8;
-    */
-
     /*
       NOTE: used to cause heap corruption.
      */
