@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "SOIL.h"
 #include "fileIO.h"
 #include "shaders.h"
 
