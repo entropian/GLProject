@@ -1,4 +1,5 @@
 #include "mesh.h"
+
 // TODO: temporary
 // returns the index of the character immediately after the substring.
 // returns -1 if no new substring
@@ -330,7 +331,6 @@ void Mesh::readFromObj(const char* fileName)
         initialize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
     }else
     {
-        printf("normCount == 0!\n");
         unsigned int faceIndex = extractObjData(fileContent, readResult, posArray, texcoordArray, faceArray);
         initialize(posArray, texcoordArray, faceArray, posArraySize, texcoordArraySize, faceIndex);
     }
@@ -347,29 +347,43 @@ void Mesh::readFromObj(const char* fileName)
 void Mesh::computeNormals()
 {
     std::vector<Vec3> faceNorms;
-    unsigned int faceSize = faces.size();
-    for(unsigned int i = 0; i < faceSize; i++)
+    for(unsigned int i = 0; i < faces.size(); i++)
     {
         // TODO: compute face normal
+        Vec3 normXAxis = positions[faces[i][1].posIndex] - positions[faces[i][0].posIndex];
+        Vec3 tmpVec = positions[faces[i][2].posIndex] - positions[faces[i][0].posIndex];
+        Vec3 normZAxis = normalize(cross(normXAxis, tmpVec));
+        faceNorms.push_back(normZAxis);
     }
 
-    std::vector<float> normTimes(positions.size(), 0.0);
-    unsigned int faceNormSize = faceSize;
-    for(unsigned int i = 0; i < faceNormSize; i++)
+    
+    std::vector<float> normTimes(positions.size(), 0.0);    
+    normals.clear();
+    for(unsigned int i = 0; i < positions.size(); i++)
+        normals.push_back(Vec3(0.0f, 0.0f, 0.0f));
+    
+    for(unsigned int i = 0; i < faces.size(); i++)
     {
         // TODO: for each face, cycle through all three face verts, and add the corresponding
         // face normal to normals at the same index as the posIndex
         // increment normTimes[posIndex]
+        for(int j = 0; j < 3; j++)
+        {
+            normals[faces[i][j].posIndex] += faceNorms[i];
+            normTimes[faces[i][j].posIndex] += 1.0f;
+        }
     }
 
-    unsigned normSize = normals.size();
-    for(unsigned int i = 0; i < normSize; i++)
+    for(unsigned int i = 0; i < normals.size(); i++)
     {
         // TODO: divide each element in normals by the corresponding element in normTimes
+        normals[i] /= normTimes[i];
     }
 
-    for(unsigned int i = 0; i < faceSize; i++)
+    for(unsigned int i = 0; i < faces.size(); i++)
     {
         // TODO: copy posIndex to normIndex
+        for(int j = 0; j < 3; j++)
+            faces[i][j].normIndex = faces[i][j].posIndex;
     }
 }

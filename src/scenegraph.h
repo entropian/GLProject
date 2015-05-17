@@ -129,6 +129,7 @@ public:
         :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true)
     {
         nt = geometrynode;
+        scaleFactor = Vec3(1.0f, 1.0f, 1.0f);
     }
     Geometry* getGeometry()
     {
@@ -138,6 +139,16 @@ public:
     void setGeometry(Geometry *g)
     {
         geometry = g;
+    }
+
+    Vec3 getScaleFactor()
+    {
+        return scaleFactor;
+    }
+
+    void setScaleFactor(Vec3 v)
+    {
+        scaleFactor = v;
     }
 
     Material* getMaterial()
@@ -174,7 +185,7 @@ public:
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        m->draw(geometry, modelViewRbt);
+        m->draw(geometry, modelViewRbt, scaleFactor);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }
@@ -183,14 +194,15 @@ public:
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        overrideMat->draw(geometry, modelViewRbt);
+        overrideMat->draw(geometry, modelViewRbt, scaleFactor);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }
 
 private:
     Geometry *geometry;
-    Material *m;    
+    Material *m;
+    Vec3 scaleFactor;
     bool clickable;  // Indicates whether the node can be selected by clicking
     bool depthTest;  // Indicates whether the node can be covered by other object
 };

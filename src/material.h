@@ -195,15 +195,22 @@ public:
         return true;
     }
 
-    void draw(Geometry *geometry, RigTForm& modelViewRbt)
+    void draw(Geometry *geometry, RigTForm& modelViewRbt, Vec3& scaleFactor)
     {
         glBindVertexArray(geometry->vao);
         glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
-        Mat4 modelViewMat = rigTFormToMat(modelViewRbt);
+        Mat4 scaleMat;
+        scaleMat[0] = scaleFactor[0];
+        scaleMat[5] = scaleFactor[1];
+        scaleMat[10] = scaleFactor[2];
+
+        Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
         modelViewMat = transpose(modelViewMat);
         
         Mat4 normalMat = inv(transpose(modelViewMat));
+        // TODO: sort this out
+        modelViewMat = scaleMat * modelViewMat;
         
         glUseProgram(shaderProgram);
         /*

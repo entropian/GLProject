@@ -41,10 +41,10 @@ static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode;
 
 //test
-static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial;
+static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
 
 
-GLuint textures[2];
+GLuint textures[3];
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
@@ -82,6 +82,7 @@ void draw_scene()
     g_lightE = inputHandler.getViewTransform() * g_lightW;
     g_shipMaterial1->sendUniform3v("uLight", g_lightE);
     g_cubeMaterial->sendUniform3v("uLight", g_lightE);
+    g_teapotMaterial->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
     Visitor visitor(inputHandler.getViewTransform());
@@ -192,7 +193,8 @@ void initGeometry()
 
     Mesh teapotMesh;
     teapotMesh.readFromObj("teapot.obj");
-
+    teapotMesh.computeNormals();
+    g_teapot = teapotMesh.produceGeometryPtr();
 
     g_floor = new Geometry(floor_verts, elements, 4, 6);
     g_wall = new Geometry(wall_verts, elements, 4, 6);
@@ -314,7 +316,7 @@ void initGeometry()
 void initTexture()
 {
     // Create 2 textures and load images to them    
-    glGenTextures(2, textures);
+    glGenTextures(3, textures);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
@@ -335,6 +337,21 @@ void initTexture()
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, textures[1]);
     image = SOIL_load_image("Ship_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, textures[2]);
+    image = SOIL_load_image("default.png", &width, &height, 0, SOIL_LOAD_RGB);
     if(image == NULL)
         fprintf(stderr, "NULL pointer.\n");
 
@@ -374,6 +391,11 @@ void initMaterial()
     g_shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     //material->sendUniform3v("uLight", g_lightE);
 
+    g_teapotMaterial = new Material(basicVertSrc, basicFragSrc);
+    g_teapotMaterial->sendUniform3v("uColor", color);
+    g_teapotMaterial->sendUniformMat4("uProjMat", proj);
+    g_teapotMaterial->sendUniformTexture("uTex0", textures[2], GL_TEXTURE2, 2);
+
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
@@ -399,8 +421,13 @@ void initScene()
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
     g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
 
+    modelRbt = RigTForm(Vec3(8.0f, 0.0f, 0.0f));
+    g_teapotNode = new GeometryNode(modelRbt, g_teapot, g_teapotMaterial, true);
+    g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
+
     g_worldNode->addChild(g_terrainNode);
-    g_terrainNode->addChild(g_cubeNode);
+    g_worldNode->addChild(g_cubeNode);
+    g_worldNode->addChild(g_teapotNode);
 
 
     /*
