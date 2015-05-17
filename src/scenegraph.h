@@ -58,7 +58,7 @@ public:
         return parentToLocal;
     }
 
-    void setRigidBodyTransform(RigTForm& rbt)
+    void setRigidBodyTransform(RigTForm rbt)
     {
         parentToLocal = rbt;
     }
@@ -203,7 +203,7 @@ public:
         :rbtCount(0), code(0)
     {}
     
-    Visitor(RigTForm& rbt)
+    Visitor(RigTForm rbt)
         :rbtCount(0), code(0)
     {
         viewRbt = rbt;
