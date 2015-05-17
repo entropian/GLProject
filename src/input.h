@@ -4,6 +4,7 @@
 #include "scenegraph.h"
 #include <stdio.h>
 #include "material.h"
+#include "mesh.h"
 
 
 

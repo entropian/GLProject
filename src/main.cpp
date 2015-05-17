@@ -16,6 +16,7 @@
 
 //#include "scenegraph.h"
 #include "input.h"
+#include "mesh.h"
 
 /*
 #include "glm/glm.hpp"
@@ -33,10 +34,11 @@ static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain;
+// Geometries
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_teapot;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode;
+static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode;
 
 //test
 static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial;
@@ -176,15 +178,20 @@ void initGeometry()
         0, 2, 3
     };
 
-    GLfloat *mesh_verts, *cube_verts;
-    int numVertices;
+    //mesh_verts = readFromObj("Ship.obj", &numVertices);
+    Mesh shipMesh;
+    shipMesh.readFromObj("Ship.obj");
+    // Move this into Mesh class
+    g_mesh = shipMesh.produceGeometryPtr();
 
-    mesh_verts = readFromObj("Ship.obj", &numVertices);
-    g_mesh = new Geometry(mesh_verts, numVertices);
-
-    cube_verts = readFromObj("cube.obj", &numVertices);
+    //cube_verts = readFromObj("cube.obj", &numVertices);
+    Mesh cubeMesh;
+    cubeMesh.readFromObj("cube.obj");
     //g_cube = new Geometry(vertices, 36);
-    g_cube = new Geometry(cube_verts, numVertices);
+    g_cube = cubeMesh.produceGeometryPtr();
+
+    Mesh teapotMesh;
+    teapotMesh.readFromObj("teapot.obj");
 
 
     g_floor = new Geometry(floor_verts, elements, 4, 6);
@@ -301,7 +308,7 @@ void initGeometry()
     }
 
     g_terrain = new Geometry(terrain_verts, index/8);
-    free(mesh_verts);
+    //free(mesh_verts);
 }
 
 void initTexture()

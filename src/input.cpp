@@ -53,10 +53,9 @@ void InputHandler::setArrowsUnclickable()
 void InputHandler::initialize()
 {
     // Loads the arrow model
-    int numVertices;
-    GLfloat *arrow_verts = readFromObj("arrow.obj", &numVertices);
-    arrow = new Geometry(arrow_verts, numVertices);
-    free(arrow_verts);
+    Mesh arrowMesh;
+    arrowMesh.readFromObj("arrow.obj");
+    arrow = arrowMesh.produceGeometryPtr();
 
     Mat4 proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
     proj = transpose(proj);

@@ -191,6 +191,8 @@ public:
         glBindTexture(GL_TEXTURE_2D, uniform);
         glUniform1i(uniformDesc[i].handle, texUnit);
         glUseProgram(0);
+
+        return true;
     }
 
     void draw(Geometry *geometry, RigTForm& modelViewRbt)

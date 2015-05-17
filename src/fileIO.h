@@ -155,7 +155,21 @@ GLfloat* readFromCollada(const char* fileName, int *numVertices)
 // [pos.x, pos.y, pos.z, normal.x, normal.x, normal,y, normal.z, texcoord.x, texcoord.y,
 //  pos.x, pos.y, pos.z, normal.x, normal.x, normal,y, normal.z, texcoord.x, texcoord.y,
 //  ...]
+/*
 GLfloat* readFromObj(const char* fileName, int *numVertices)
+{
+    Mesh mesh;
+    mesh.readFromObj(fileName);
+
+    //NOTE: used to cause heap corruption.
+    GLfloat *vertexArray = mesh.vertexArray(numVertices);
+
+    return vertexArray;
+}
+*/
+
+/*
+  GLfloat* readFromObj(const char* fileName, int *numVertices)
 {
     // Read the file into the string fileContent
     FILE *fp = fopen(fileName, "rb");
@@ -283,9 +297,6 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
     Mesh mesh;
     mesh.initialize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
 
-    /*
-      NOTE: used to cause heap corruption.
-     */
     GLfloat *vertexArray = mesh.vertexArray(numVertices);
 
     free(posArray);
@@ -296,6 +307,7 @@ GLfloat* readFromObj(const char* fileName, int *numVertices)
 
     return vertexArray;
 }
+*/
 
 /*
 GLfloat* readFromObj(const char* fileName, int *numVertices)

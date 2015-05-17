@@ -122,19 +122,19 @@ void Mesh::initialize(const GLfloat *posArray, const GLfloat *texcoordArray, con
         texcoords.push_back(Vec2(texcoordArray[i], texcoordArray[i+1]));
     assert(texcoordArraySize == texcoords.size() * 2);
 
-    assert((faceArraySize % 9) == 0);
-    for(unsigned int i = 0; i < faceArraySize; i += 9)
+    assert((faceArraySize % 6) == 0);
+    for(unsigned int i = 0; i < faceArraySize; i += 6)
     {
         Face face;
         face[0] = FaceVertex(faceArray[i], -1, faceArray[i+1]);
-        face[1] = FaceVertex(faceArray[i+3], -1, faceArray[i+4]);
-        face[2] = FaceVertex(faceArray[i+6], -1, faceArray[i+7]);
+        face[1] = FaceVertex(faceArray[i+2], -1, faceArray[i+3]);
+        face[2] = FaceVertex(faceArray[i+4], -1, faceArray[i+5]);
         faces.push_back(face);
     }
-    assert(faceArraySize == (faces.size() * 3 * 3));
+    assert(faceArraySize == (faces.size() * 3 * 2));
 }
 
-int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *normArray, GLfloat *texcoordArray, int *faceArray)
+unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *normArray, GLfloat *texcoordArray, int *faceArray)
 {
     // Iterate through fileContent and put data into the appropriate array
     char buffer[20];
@@ -196,7 +196,7 @@ int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *p
 }
 
 // returns the number of elements in faceArray
-int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *texcoordArray, int *faceArray)
+unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *texcoordArray, int *faceArray)
 {
     // Iterate through fileContent and put data into the appropriate array
     char buffer[20];
@@ -254,7 +254,7 @@ int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *p
 }
 
 // returns the number of elements in faceArray
-void Mesh::readFromObj(const char* fileName, int *numVertices)
+void Mesh::readFromObj(const char* fileName)
 {
     // Read the file into the string fileContent
     FILE *fp = fopen(fileName, "rb");
@@ -326,11 +326,12 @@ void Mesh::readFromObj(const char* fileName, int *numVertices)
 
     if(normCount > 0)
     {
-        int faceIndex = extractObjData(fileContent, readResult, posArray, normArray, texcoordArray, faceArray);
+        unsigned int faceIndex = extractObjData(fileContent, readResult, posArray, normArray, texcoordArray, faceArray);
         initialize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
     }else
     {
-        int faceIndex = extractObjData(fileContent, readResult, posArray, texcoordArray, faceArray);
+        printf("normCount == 0!\n");
+        unsigned int faceIndex = extractObjData(fileContent, readResult, posArray, texcoordArray, faceArray);
         initialize(posArray, texcoordArray, faceArray, posArraySize, texcoordArraySize, faceIndex);
     }
     
