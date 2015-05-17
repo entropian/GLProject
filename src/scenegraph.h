@@ -352,6 +352,7 @@ private:
             return false;
         }else
             rbtCount--;
+        return true;
     }
 
     void resetCode()

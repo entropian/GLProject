@@ -105,6 +105,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void initGeometry()
 {
+    // TODO: normals aren't correct?
     GLfloat vertices[] = {
         // front
         -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
@@ -174,13 +175,15 @@ void initGeometry()
         0, 2, 3
     };
 
-    GLfloat *mesh_verts;
+    GLfloat *mesh_verts, *cube_verts;
     int numVertices;
 
     mesh_verts = readFromObj("Ship.obj", &numVertices);
     g_mesh = new Geometry(mesh_verts, numVertices);
-    
-    g_cube = new Geometry(vertices, 36);
+
+    cube_verts = readFromObj("cube.obj", &numVertices);
+    //g_cube = new Geometry(vertices, 36);
+    g_cube = new Geometry(cube_verts, numVertices);
 
 
     g_floor = new Geometry(floor_verts, elements, 4, 6);
