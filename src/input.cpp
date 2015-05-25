@@ -10,7 +10,7 @@ void InputHandler::putArrowsOn(GeometryNode *gn)
 
 void InputHandler::updateArrowOrientation()
 {
-    // TODO: this is wrong
+    // TODO: the arrows don't stay in the object's origin
     RigTForm counterRotation;
     TransformNode *tn = pickedObj;
     while(tn != worldNode)
@@ -55,10 +55,10 @@ void InputHandler::initialize()
     // Loads the arrow model
     Mesh arrowMesh;
     arrowMesh.readFromObj("arrow.obj");
-    arrow = arrowMesh.produceGeometryPtr();
+    arrow = arrowMesh.produceGeometryPNX();
 
-    Mat4 proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
-    proj = transpose(proj);
+    projMat = Mat4::makeProjection(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
+    Mat4 proj = transpose(projMat);
 
     // Initialize arrow materials and picking material
     arrowYMat = new Material(basicVertSrc, flatFragSrc);
@@ -176,7 +176,10 @@ void InputHandler::FPSModeKeyInput(GLFWwindow *window, int key, int scancode, in
 }
 
 void InputHandler::calcPickedObj()
-{    
+{
+    // TODO: Doesn't work well when objects are in the edge of the window
+    // or when I'm clicking near the edge of the object
+    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -401,38 +404,36 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         float dx = (float)(x - cursorX);
         float dy = (float)(y - cursorY);
 
-
-        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.5f)) * RigTForm(Quat::makeXRotation(dy * 0.5f));
+        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.2f)) * RigTForm(Quat::makeXRotation(dy * 0.2f));
         viewRbt = tform * viewRbt;
         // Keep the camera upright
         // Rotate the camera around its z axis so that its y axis is
         // in the plane defined by its z axis and world y axis.
         Vec3 newUp = viewRbt.getRotation() * Vec3(0, 1, 0);
         Vec3 newX;
-        if(abs(dot(newUp, Vec3(0.0f, 0.0f, -1.0f))) > 0.999f)
-            newX = Vec3(0.0f, 0.0f, -1.0f);
-        else
+        if(abs(dot(newUp, Vec3(0.0f, 0.0f, -1.0f))) < 0.999f)
+        {
             newX = normalize(cross(Vec3(0, 0, -1), newUp));
-        float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
-        float sign = 1;
-        // Not sure why this works
-        if(newUp[0] < 0.0f)
-            sign = -1;
-        Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
-        tform = RigTForm(Vec3(0, 0, 0), q);
-        viewRbt = tform * viewRbt;;
+            float halfAngle = (float)acos(dot(newX, Vec3(1, 0, 0))) / 2.0f;
+            float sign = 1;
+            // Not sure why this works
+            if(newUp[0] < 0.0f)
+                sign = -1;
+            Quat q(cos(halfAngle), 0, 0, sin(halfAngle)*sign);
+            tform = RigTForm(Vec3(0, 0, 0), q);
+            viewRbt = tform * viewRbt;;
+        }
 
         // Report camera position in world space
-        /*
-          RigTForm invView = inv(g_view);
-          Vec3 trans = invView.getTranslation();        
-          std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
-        */
+        //RigTForm invView = inv(g_view);
+        //Vec3 trans = invView.getTranslation();        
+        //std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
         
 
     }else if(pickedArrow != NULL && inputMode == OBJECT_MODE)
     {
         Vec4 axis;
+        // w is set to zero, since axis is a vector
         if(pickedArrow == arrowYNode)
         {
             axis = Vec4(0.0f, 1.0f, 0.0f, 0.0f);
@@ -444,7 +445,6 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
             axis = Vec4(1.0f, 0.0f, 0.0f, 0.0f);
         }
 
-        Mat4 projMat = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
         Mat4 viewMat = rigTFormToMat(viewRbt);
         Vec4 clipAxis = projMat * viewMat * axis;
         Vec3 clipVec = normalize(Vec3(clipAxis[0], clipAxis[1], 0.0f));

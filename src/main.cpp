@@ -26,8 +26,8 @@
 
 #define GLSL(src) "#version 150 core\n" #src
 
-static int g_windowWidth = 800;
-static int g_windowHeight = 600;
+static float g_windowWidth = 1280.0f;
+static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
@@ -35,16 +35,16 @@ static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
 // Geometries
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_teapot;
+static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_teapot, *g_sponza;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode;
+static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode;
 
 //test
 static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
 
 
-GLuint textures[3];
+GLuint textures[4];
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
@@ -66,12 +66,6 @@ void draw_scene()
     for(int i = 0; i < 2; i++)
         g_cubeArray[i]->setRigidBodyTransform(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
     */
-
-    // Setup additional uniforms
-
-    //flatShader->sendLightEyePos(g_lightE);
-    //flatShader->sendColor(Vec3(0.1f, 0.6f, 0.6f));
-
     // Calculate camera movement
     RigTForm trans(inputHandler.getMovementDir() * g_distancePerFrame);
     inputHandler.setViewTransform(trans * inputHandler.getViewTransform());
@@ -179,25 +173,29 @@ void initGeometry()
         0, 2, 3
     };
 
-    //mesh_verts = readFromObj("Ship.obj", &numVertices);
     Mesh shipMesh;
     shipMesh.readFromObj("Ship.obj");
-    // Move this into Mesh class
-    g_mesh = shipMesh.produceGeometryPtr();
+    shipMesh.computeVertexBasis();
+    g_mesh = shipMesh.produceGeometryPNX();
 
-    //cube_verts = readFromObj("cube.obj", &numVertices);
+    int vertSizePNX = 8;
+
     Mesh cubeMesh;
     cubeMesh.readFromObj("cube.obj");
-    //g_cube = new Geometry(vertices, 36);
-    g_cube = cubeMesh.produceGeometryPtr();
+    g_cube = cubeMesh.produceGeometryPNX();
 
     Mesh teapotMesh;
     teapotMesh.readFromObj("teapot.obj");
-    teapotMesh.computeNormals();
-    g_teapot = teapotMesh.produceGeometryPtr();
+    teapotMesh.computeVertexNormals();
+    g_teapot = teapotMesh.produceGeometryPNX();
 
-    g_floor = new Geometry(floor_verts, elements, 4, 6);
-    g_wall = new Geometry(wall_verts, elements, 4, 6);
+    Mesh sponzaMesh;
+    sponzaMesh.readFromObj("sponza.obj");
+    sponzaMesh.computeVertexNormals();
+    g_sponza = sponzaMesh.produceGeometryPNX();
+
+    g_floor = new Geometry(floor_verts, elements, 4, 6, vertSizePNX);
+    g_wall = new Geometry(wall_verts, elements, 4, 6, vertSizePNX);
 
     // Terrain
     struct vertex
@@ -309,14 +307,14 @@ void initGeometry()
         }
     }
 
-    g_terrain = new Geometry(terrain_verts, index/8);
+    g_terrain = new Geometry(terrain_verts, index/8, vertSizePNX);
     //free(mesh_verts);
 }
 
 void initTexture()
 {
     // Create 2 textures and load images to them    
-    glGenTextures(3, textures);
+    glGenTextures(4, textures);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
@@ -364,47 +362,48 @@ void initTexture()
 
     SOIL_free_image_data(image);
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, textures[3]);
+    image = SOIL_load_image("Ship_Normal.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
 }
 
 void initMaterial()
 {
-    //flatShader = new ShaderState(vertexSource, fragmentSource);
-    //flatShader = new ShaderState(diffuseVertSrc, fragmentSource);
-    //flatShader = new ShaderState(basicVertSrc, diffuseFragSrc);
-    //flatShader = new ShaderState(basicVertSrc, specularFragSrc);
-    //texturedShader = new ShaderState(vertexSource, floorFragSrc);
-    //texturedShader = new ShaderState(lightVertexSrc, floorFragSrc);
-
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(0.0f, 1.0f, 1.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
-    g_proj = Mat4::makeProjection(60.0f, 800.0f/600.0f, 0.1f, 30.0f);
+    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
     g_lightE = inputHandler.getViewTransform() * g_lightW;
 
     // Material
-    //material = new Material(basicVertSrc, diffuseFragSrc);
-    g_shipMaterial1 = new Material(basicVertSrc, basicFragSrc);
-    //Vec3 color(0.1f, 0.6f, 0.6f);
+    g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc);
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3v("uColor", color);
     g_shipMaterial1->sendUniformMat4("uProjMat", proj);
     g_shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
-    //material->sendUniform3v("uLight", g_lightE);
+    g_shipMaterial1->sendUniformTexture("uTex1", textures[3], GL_TEXTURE3, 3);
 
-    g_teapotMaterial = new Material(basicVertSrc, basicFragSrc);
+    g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc);
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[2], GL_TEXTURE2, 2);
 
+
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
-
-
-    //g_pickMaterial = new Material(pickVertSrc, pickFragSrc);
-    //g_pickMaterial->sendUniformMat4("uProjMat", proj);
-    // Remove this
-    //inputHandler.setPickMaterial(g_pickMaterial);
 }
 
 void initScene()
@@ -425,25 +424,14 @@ void initScene()
     g_teapotNode = new GeometryNode(modelRbt, g_teapot, g_teapotMaterial, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
+    modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
+    g_sponzaNode = new GeometryNode(modelRbt, g_sponza, g_cubeMaterial, false);
+    
+
     g_worldNode->addChild(g_terrainNode);
     g_worldNode->addChild(g_cubeNode);
     g_worldNode->addChild(g_teapotNode);
-
-
-    /*
-    for(int i = 0; i < 2; i++)
-    {
-        g_cubeArray[i] = new GeometryNode(NULL, RigTForm(), g_cube, flatShader);
-        g_worldNode->addChild(g_cubeArray[i]);
-    }
-    */
-    /*
-    modelRbt;
-    modelRbt = RigTForm(Vec3(2, 0, 0));
-    g_cubeArray[0]->setRbt(modelRbt);
-    modelRbt = RigTForm(Quat::makeXRotation(90.0f)) * RigTForm(Quat::makeYRotation(90.0f)) * RigTForm(Vec3(2, 0, 0));
-    g_cubeArray[1]->setRbt(modelRbt);
-    */
+    //g_worldNode->addChild(g_sponzaNode);
 }
 
 int main()
@@ -465,7 +453,7 @@ int main()
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     //window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
-    window = glfwCreateWindow(g_windowWidth, g_windowHeight, "OpenGL", NULL, NULL);
+    window = glfwCreateWindow((int)g_windowWidth, (int)g_windowHeight, "OpenGL", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     // Init GLEW

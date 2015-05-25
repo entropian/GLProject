@@ -40,7 +40,7 @@ class InputHandler
 public:
     InputHandler()
         :inputMode(FPS_MODE), pickModeClicked(false), pickedObj(NULL), pickedArrow(NULL),
-        clickX(0.0), clickY(0.0), windowWidth(800), windowHeight(600), arrow(NULL),
+        clickX(0.0), clickY(0.0), windowWidth(1280.0f), windowHeight(720.0f), arrow(NULL),
         arrowYMat(NULL), arrowZMat(NULL), arrowXMat(NULL), worldNode(NULL), pickMaterial(NULL)
     {}
 
@@ -98,7 +98,8 @@ private:
     double clickX, clickY;
     GeometryNode *pickedObj, *pickedArrow;
     RigTForm viewRbt;
-    int windowWidth, windowHeight;
+    Mat4 projMat;
+    float windowWidth, windowHeight;
 
     double cursorX, cursorY;
 

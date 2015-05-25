@@ -151,13 +151,15 @@ unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, G
             index = subStringNum(fileContent, buffer, fileSize, index);
             posArray[posIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
-            posArray[posIndex++] = (GLfloat)atof(buffer);
+            // Reversing Z
+            posArray[posIndex++] = -(GLfloat)atof(buffer);
         }else if(strcmp(buffer, "vt") == 0)
         {
             index = subStringNum(fileContent, buffer, fileSize, index);
             texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
-            texcoordArray[texcoordIndex++] = (GLfloat)atof(buffer);
+            // Reversing V
+            texcoordArray[texcoordIndex++] = 1.0f - (GLfloat)atof(buffer);
         }else if(strcmp(buffer, "vn") == 0)
         {
             index = subStringNum(fileContent, buffer, fileSize, index);
@@ -165,7 +167,7 @@ unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, G
             index = subStringNum(fileContent, buffer, fileSize, index);
             normArray[normIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
-            normArray[normIndex++] = (GLfloat)atof(buffer);
+            normArray[normIndex++] = -(GLfloat)atof(buffer);
         }else if(strcmp(buffer, "f") == 0)
         {
             // If a face is a quad, it's split into two triangles.
@@ -269,7 +271,7 @@ void Mesh::readFromObj(const char* fileName)
     int fileSize = ftell(fp);
     char *fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
     rewind(fp);
-    printf("File size = %d\n", fileSize);
+    //printf("File size = %d\n", fileSize);
 
     int readResult = fread((void*)fileContent, 1, fileSize, fp);    
     if(readResult != fileSize)
@@ -300,10 +302,12 @@ void Mesh::readFromObj(const char* fileName)
         }
     }
 
+    /*
     printf("posCount = %d\n", posCount);
     printf("normCount = %d\n", normCount);
     printf("texcoordCount = %d\n", texcoordCount);
     printf("faceCount = %d\n", faceCount);
+    */
 
     unsigned int posArraySize = posCount * 3;
     GLfloat *posArray = (GLfloat*)malloc(sizeof(GLfloat) * posArraySize);
@@ -344,15 +348,22 @@ void Mesh::readFromObj(const char* fileName)
     free(fileContent);
 }
 
-void Mesh::computeNormals()
+
+void Mesh::computeVertexNormals()
 {
     std::vector<Vec3> faceNorms;
     for(unsigned int i = 0; i < faces.size(); i++)
     {
-        // TODO: compute face normal
+        // compute face normal
+        Vec3 pos0 = positions[faces[i][0].posIndex];
+        Vec3 pos1 = positions[faces[i][1].posIndex];
+        Vec3 pos2 = positions[faces[i][2].posIndex];
+        Face f = faces[i];
         Vec3 normXAxis = positions[faces[i][1].posIndex] - positions[faces[i][0].posIndex];
         Vec3 tmpVec = positions[faces[i][2].posIndex] - positions[faces[i][0].posIndex];
-        Vec3 normZAxis = normalize(cross(normXAxis, tmpVec));
+        Vec3 normZAxis = cross(normXAxis, tmpVec);
+        if(norm2(normZAxis) != 0.0f)
+            normZAxis = normalize(normZAxis);
         faceNorms.push_back(normZAxis);
     }
 
@@ -364,7 +375,7 @@ void Mesh::computeNormals()
     
     for(unsigned int i = 0; i < faces.size(); i++)
     {
-        // TODO: for each face, cycle through all three face verts, and add the corresponding
+        // for each face, cycle through all three face verts, and add the corresponding
         // face normal to normals at the same index as the posIndex
         // increment normTimes[posIndex]
         for(int j = 0; j < 3; j++)
@@ -376,14 +387,180 @@ void Mesh::computeNormals()
 
     for(unsigned int i = 0; i < normals.size(); i++)
     {
-        // TODO: divide each element in normals by the corresponding element in normTimes
+        // Divide each element in normals by the corresponding element in normTimes
         normals[i] /= normTimes[i];
     }
 
     for(unsigned int i = 0; i < faces.size(); i++)
     {
-        // TODO: copy posIndex to normIndex
+        // Copy posIndex to normIndex
         for(int j = 0; j < 3; j++)
             faces[i][j].normIndex = faces[i][j].posIndex;
     }
+    normalsComputed = true;
+}
+
+/*
+  TODO: Only works if the normals are computed?
+  Reference: 3D Math Primer p435
+ */
+void Mesh::computeVertexBasis()
+{
+    tangents.clear();
+    binormals.clear();
+    determinants.clear();
+    for(unsigned int i = 0; i < normals.size(); i++)
+    {
+        tangents.push_back(Vec3(0.0f, 0.0f, 0.0f));
+        binormals.push_back(Vec3(0.0f, 0.0f, 0.0f));
+        determinants.push_back(0.0f);
+    }
+        
+    for(unsigned int i = 0; i < faces.size(); i++)
+    {
+        // for each face, calculate its tangent and binormal
+        // then add them to the corresponding entries in the tangents vector and binormals vector
+        // for each adjacent vertex.
+        Vec3 q1 = positions[faces[i][1].posIndex] - positions[faces[i][0].posIndex];
+        Vec3 q2 = positions[faces[i][2].posIndex] - positions[faces[i][0].posIndex];        
+
+        float s1 = (texcoords[faces[i][1].texcoordIndex])[0] - (texcoords[faces[i][0].texcoordIndex])[0];
+        float s2 = (texcoords[faces[i][2].texcoordIndex])[0] - (texcoords[faces[i][0].texcoordIndex])[0];
+        float t1 = (texcoords[faces[i][1].texcoordIndex])[1] - (texcoords[faces[i][0].texcoordIndex])[1];
+        float t2 = (texcoords[faces[i][2].texcoordIndex])[1] - (texcoords[faces[i][0].texcoordIndex])[1];
+
+        Vec3 faceTangent = q1*t2 - q2*t1;
+        Vec3 faceBinormal = q2*s1 - q1*s2;
+
+        for(int j = 0; j < 3; j++)
+        {
+            tangents[faces[i][j].normIndex] += faceTangent;
+            binormals[faces[i][j].normIndex] += faceBinormal;
+        }
+    }
+
+    for(unsigned int i = 0; i < normals.size(); i++)
+    {
+        // Make sure that the tangent and binormal vectors are perpendicular to the vertex normal
+        // then normalize them
+        tangents[i] = tangents[i] - normals[i] * dot(normals[i], tangents[i]);        
+        binormals[i] = binormals[i] - normals[i] * dot(normals[i], binormals[i]);
+        tangents[i] = normalize(tangents[i]);
+        binormals[i] = normalize(binormals[i]);
+
+        // Check if we're mirrored
+        if(dot(cross(normals[i], tangents[i]), binormals[i]) < 0.0f)
+            determinants[i] = -1.0f;   // mirrored
+        else
+            determinants[i] = 1.0f;    // not mirrored
+    }
+}
+
+void Mesh::vertexAttribPNX(GLfloat *vertexArray, int *vertexIndex, int i, int j)
+{
+    // NOTE: what's with all the reversal?
+    // the z component of position and normal are both reversed
+    // normal used to be untouched, and the object was lit on the wrong side
+
+    // Position
+    vertexArray[(*vertexIndex)++] = positions[faces[i][j].posIndex][0];
+    vertexArray[(*vertexIndex)++] = positions[faces[i][j].posIndex][1];
+    vertexArray[(*vertexIndex)++] = positions[faces[i][j].posIndex][2];
+    // Normal
+    vertexArray[(*vertexIndex)++] = normals[faces[i][j].normIndex][0];
+    vertexArray[(*vertexIndex)++] = normals[faces[i][j].normIndex][1];
+    vertexArray[(*vertexIndex)++] = normals[faces[i][j].normIndex][2];
+    // Texcoord
+    // also reversed the v component of texcoord
+    vertexArray[(*vertexIndex)++] = texcoords[faces[i][j].texcoordIndex][0];
+    vertexArray[(*vertexIndex)++] = texcoords[faces[i][j].texcoordIndex][1];
+}
+
+void Mesh::vertexAttribPNXTBD(GLfloat *vertexArray, int *vertexIndex, int i, int j)
+{
+    vertexAttribPNX(vertexArray, vertexIndex, i, j);
+    // Tangent
+    vertexArray[(*vertexIndex)++] = tangents[faces[i][j].normIndex][0];
+    vertexArray[(*vertexIndex)++] = tangents[faces[i][j].normIndex][1];
+    vertexArray[(*vertexIndex)++] = tangents[faces[i][j].normIndex][2];
+    // Binormal
+    vertexArray[(*vertexIndex)++] = binormals[faces[i][j].normIndex][0];
+    vertexArray[(*vertexIndex)++] = binormals[faces[i][j].normIndex][1];
+    vertexArray[(*vertexIndex)++] = binormals[faces[i][j].normIndex][2];
+    // Determinant
+    vertexArray[(*vertexIndex)++] = determinants[faces[i][j].normIndex];
+}
+
+/*
+  Returns a Geoemetry* with its VBO in the format of:
+  position, normal, texcoord
+ */
+Geometry* Mesh::produceGeometryPNX()
+{
+    if(((positions.size() == 0 || normals.size() == 0) || texcoords.size() == 0) || faces.size() == 0)
+    {
+        fprintf(stderr, "Mesh doesn't contain necessary data to produce a Geometry object.\n");
+        return NULL;
+    }
+
+    /*
+      NOTE: vertexCount used to be 1/3 of the correct number, so vertexArray was also 1/3 of the correct size.
+      However, in the for loop below, instead of i++, I had it as i+=3, so it all somehow fit?
+      What it caused, in addition to not having the correct geometry, is heap corruption (not sure how).
+      In the function that called this one, freeing unrelated memory would cause a heap corruption error.
+    */
+    unsigned int vertexCount = int((float)faces.size() * 3 * 3 * (2.0f + 2.0f/3.0f));
+    GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
+
+    int vertexIndex = 0;
+    for(unsigned int i = 0; i < faces.size(); i++)
+    {
+            
+        vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
+        vertexAttribPNX(vertexArray, &vertexIndex, i, 1);
+        vertexAttribPNX(vertexArray, &vertexIndex, i, 2);
+    }
+    assert((vertexIndex % 8) == 0);
+    int numVertices = vertexIndex / 8;
+    int vertSizePNX = 8;
+
+    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNX);
+    free(vertexArray);
+
+    return geometry;
+}
+
+/*
+  Returns a Geoemetry* with its VBO in the format of:
+  position, normal, texcoord, tangent, binormal, determinant
+ */
+Geometry* Mesh::produceGeometryPNXTBD()
+{
+    if(((positions.size() == 0 || normals.size() == 0) || texcoords.size() == 0) || faces.size() == 0)
+    {
+        fprintf(stderr, "Mesh doesn't contain necessary data to produce a Geometry object.\n");
+        return NULL;
+    }
+
+    //unsigned int vertexCount = int((float)faces.size() * 3 * 3 * (2.0f + 2.0f/3.0f));
+    // (3 + 3 + 2 + 3 + 3 + 1) = size per vertex
+    // position + normal + texcoord + tangent + binormal + determinant
+    unsigned int vertexCount = int((float)faces.size() * 3 * (3 + 3 + 2 + 3 + 3 + 1));
+    GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
+
+    int vertexIndex = 0;
+    for(unsigned int i = 0; i < faces.size(); i++)
+    {
+        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 0);
+        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 1);
+        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 2);            
+    }
+    assert((vertexIndex % 8) == 0);
+    int numVertices = vertexIndex / 8;
+    int vertSizePNX = 8;
+
+    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNX);
+    free(vertexArray);
+
+    return geometry;
 }

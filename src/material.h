@@ -3,11 +3,6 @@
 
 #include <GL/glew.h>
 
-#if __GNUG__
-#   include <GLFW/glfw3.h>
-#else
-#   include <GL/glfw3.h>
-#endif
 
 #include "SOIL.h"
 #include "rigtform.h"
@@ -15,12 +10,20 @@
 
 static bool g_debugUniformString = true;
 
-struct Uniform
+/*
+struct AttribDesc
 {
     char name[20];
-    Vec3 vec;
-    RigTForm rbt;
+    GLuint index;
     GLenum type;
+    GLuint handle;
+    GLsizei size;
+};
+*/
+
+enum VertexAttrib{
+    PNX,                      // position, normal, texcoord
+    PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
 };
 
 struct UniformDesc
@@ -86,10 +89,24 @@ public:
             uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
         }
 
-        // Retrieve handles to vertex attributes
+        // Retrieve handles to the basic vertex attributes
         h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
         h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
         h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
+
+        // Retrieve handles to optional vertex attributes
+        GLint numActiveAttrib;
+        glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
+        if(numActiveAttrib == 6)
+        {
+            printf("Optional attributes\n");
+            h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
+            h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
+            h_aDet = glGetAttribLocation(shaderProgram, "aDet");
+            vertexAttrib = PNXTBD;
+        }else
+            vertexAttrib = PNX;
+        
     }
 
     ~Material()
@@ -209,35 +226,59 @@ public:
         modelViewMat = transpose(modelViewMat);
         
         Mat4 normalMat = inv(transpose(modelViewMat));
-        // TODO: sort this out
+        /* NOTE: tacked scaleMat here, because if I do modelViewMat = rigTFormToMat(modelViewRbt) * scaleMat,
+           then Mat4 normalMat = inv(transpose(modelViewMat)), the teapot becomes really bright, and texture isn't really
+           visible anymore. So I assume something wrong happened to the normals when I do that. scaleMat doesn't need to be
+           transposed because it's a diagonal matrix.
+         */
         modelViewMat = scaleMat * modelViewMat;
-        
         glUseProgram(shaderProgram);
-        /*
-        glUniformMatrix4fv(h_uModelViewMat, 1, GL_FALSE, &(modelViewMat[0]));
-        glUniformMatrix4fv(h_uNormalMat, 1, GL_FALSE, &(normalMat[0]));
-        */
 
-        GLint i;
-        for(i = 0; i < numUniforms; i++)
+        for(GLint i = 0; i < numUniforms; i++)
+        {
             if(strcmp(uniformDesc[i].name, "uModelViewMat") == 0)
+            {
+                glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
                 break;
-        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
+            }
+        }
 
-        for(i = 0; i < numUniforms; i++)
+
+        for(GLint i = 0; i < numUniforms; i++)
+        {
             if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
+            {
+                glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));                
                 break;
-        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));
+            }
+        }
         
 
         if(geometry->shaderProgram != shaderProgram)
         {
+            GLint vertexSize; 
+            if(vertexAttrib == PNX)
+                vertexSize = 8;
+            else if(vertexAttrib == PNXTBD)
+                vertexSize = 15;
+            
             glEnableVertexAttribArray(h_aPosition);
-            glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+            glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), 0);
             glEnableVertexAttribArray(h_aNormal);
-            glVertexAttribPointer(h_aNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+            glVertexAttribPointer(h_aNormal, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
             glEnableVertexAttribArray(h_aTexcoord);
-            glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+            glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+
+            if(vertexAttrib == PNXTBD)
+            {
+                printf("vertexAttrib == PNXTBD\n");
+                glEnableVertexAttribArray(h_aTangent);
+                glVertexAttribPointer(h_aTangent, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(8 * sizeof(GLfloat)));
+                glEnableVertexAttribArray(h_aBinormal);
+                glVertexAttribPointer(h_aBinormal, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(11 * sizeof(GLfloat)));
+                glEnableVertexAttribArray(h_aDet);
+                glVertexAttribPointer(h_aDet, 1, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(14 * sizeof(GLfloat)));
+            }
             
             geometry->shaderProgram = shaderProgram;
         }
@@ -249,12 +290,13 @@ public:
 
         glUseProgram(0);
     }
-//private:
+private:
     GLuint shaderProgram;
-    //Uniform *uniforms;
+    VertexAttrib vertexAttrib;
     UniformDesc *uniformDesc;
     GLint numUniforms;
     GLuint h_aPosition, h_aNormal, h_aTexcoord;
+    GLuint h_aTangent, h_aBinormal, h_aDet;
 };
 
 #endif       
