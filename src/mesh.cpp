@@ -555,11 +555,11 @@ Geometry* Mesh::produceGeometryPNXTBD()
         vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 1);
         vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 2);            
     }
-    assert((vertexIndex % 8) == 0);
-    int numVertices = vertexIndex / 8;
-    int vertSizePNX = 8;
+    assert((vertexIndex % 15) == 0);
+    int numVertices = vertexIndex / 15;
+    int vertSizePNXTBD = 15;
 
-    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNX);
+    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNXTBD);
     free(vertexArray);
 
     return geometry;

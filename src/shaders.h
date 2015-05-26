@@ -50,26 +50,24 @@ const char* normalVertSrc = GLSL(
     
     void main()
     {
-        //vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         vTexcoord = aTexcoord;
         mat4 inverseMat = inverse(uModelViewMat);
-        vec3 lightM = (inverseMat * vec4(uLight, 1.0)).xyz;
+        vec3 lightM = (inverseMat * vec4(uLight, 1.0)).xyz - aPosition;
         vec3 eyeM = (inverseMat * vec4(0.0, 0.0, 0.0, 1.0)).xyz - aPosition;
-        //vec3 eyeE = -(uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        //vec3 eyeM = (inverseMat * vec4(eyeE, 1.0)).xyz;
 
+        lightM = normalize(lightM);
+        eyeM = normalize(eyeM);
 
         vEyeT.x = dot(eyeM, aTangent);
         vEyeT.y = dot(eyeM, aBinormal);
         vEyeT.z = dot(eyeM, aNormal);
-        vEyeT = eyeM;
+        vEyeT = vEyeT * aDet;
         
         vLightT.x = dot(lightM, aTangent);
         vLightT.y = dot(lightM, aBinormal);
         vLightT.z = dot(lightM, aNormal);
+        vLightT = vLightT * aDet;
 
-
-        //vEyeT = eyeM;
 
         gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
     }
@@ -77,7 +75,6 @@ const char* normalVertSrc = GLSL(
 
 const char* normalFragSrc = GLSL(
     uniform vec3 uColor;
-    //uniform vec3 uLight;
     uniform sampler2D uTex0;
     uniform sampler2D uTex1;   // normal map
     
@@ -102,10 +99,9 @@ const char* normalFragSrc = GLSL(
 
         vec3 eyeT = normalize(vEyeT);
         vec3 reflectDir = 2*dot(lightT, normal)*normal - lightT;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), 10.0) * texColor.xyz;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), 4.0) * texColor.xyz;
         
-        //outColor = vec4((intensity * texColor.xyz) + ambContrib, 1.0);
-        outColor = vec4(ambContrib + diffContrib, 1.0);
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 

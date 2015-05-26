@@ -97,6 +97,7 @@ public:
         // Retrieve handles to optional vertex attributes
         GLint numActiveAttrib;
         glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
+        printf("numActiveAttrib = %d\n", numActiveAttrib);
         if(numActiveAttrib == 6)
         {
             printf("Optional attributes\n");
@@ -105,7 +106,9 @@ public:
             h_aDet = glGetAttribLocation(shaderProgram, "aDet");
             vertexAttrib = PNXTBD;
         }else
-            vertexAttrib = PNX;
+        {
+            vertexAttrib = PNX;            
+        }
         
     }
 

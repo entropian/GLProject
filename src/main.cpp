@@ -176,7 +176,7 @@ void initGeometry()
     Mesh shipMesh;
     shipMesh.readFromObj("Ship.obj");
     shipMesh.computeVertexBasis();
-    g_mesh = shipMesh.produceGeometryPNX();
+    g_mesh = shipMesh.produceGeometryPNXTBD();
 
     int vertSizePNX = 8;
 
@@ -388,6 +388,7 @@ void initMaterial()
     g_lightE = inputHandler.getViewTransform() * g_lightW;
 
     // Material
+
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc);
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3v("uColor", color);
