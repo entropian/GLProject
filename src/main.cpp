@@ -35,16 +35,16 @@ static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
 static Mat4 g_proj;
 
 // Geometries
-static Geometry *g_cube, *g_floor, *g_wall, *g_mesh, *g_terrain, *g_teapot, *g_sponza;
+static Geometry *g_cube, *g_floor, *g_wall, *g_ship1, *g_ship2, *g_terrain, *g_teapot, *g_sponza;
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
-static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode;
+static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode, *g_ship2Node;
 
 //test
-static Material *g_shipMaterial1, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
+static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
 
 
-GLuint textures[4];
+GLuint textures[6];
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
@@ -173,12 +173,15 @@ void initGeometry()
         0, 2, 3
     };
 
-    Mesh shipMesh;
-    shipMesh.readFromObj("Ship.obj");
-    shipMesh.computeVertexBasis();
-    g_mesh = shipMesh.produceGeometryPNXTBD();
+    Mesh ship1Mesh;
+    ship1Mesh.readFromObj("Ship.obj");
+    ship1Mesh.computeVertexBasis();
+    g_ship1 = ship1Mesh.produceGeometryPNXTBD();
 
-    int vertSizePNX = 8;
+    Mesh ship2Mesh;
+    ship2Mesh.readFromObj("Ship2.obj");
+    ship2Mesh.computeVertexBasis();
+    g_ship2 = ship2Mesh.produceGeometryPNXTBD();
 
     Mesh cubeMesh;
     cubeMesh.readFromObj("cube.obj");
@@ -194,6 +197,7 @@ void initGeometry()
     sponzaMesh.computeVertexNormals();
     g_sponza = sponzaMesh.produceGeometryPNX();
 
+    int vertSizePNX = 8;
     g_floor = new Geometry(floor_verts, elements, 4, 6, vertSizePNX);
     g_wall = new Geometry(wall_verts, elements, 4, 6, vertSizePNX);
 
@@ -314,7 +318,7 @@ void initGeometry()
 void initTexture()
 {
     // Create 2 textures and load images to them    
-    glGenTextures(4, textures);
+    glGenTextures(5, textures);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
@@ -362,9 +366,39 @@ void initTexture()
 
     SOIL_free_image_data(image);
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, textures[3]);
     image = SOIL_load_image("Ship_Normal.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, textures[4]);
+    image = SOIL_load_image("Ship2_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
+    if(image == NULL)
+        fprintf(stderr, "NULL pointer.\n");
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    SOIL_free_image_data(image);
+
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, textures[5]);
+    image = SOIL_load_image("Ship2_Normal.png", &width, &height, 0, SOIL_LOAD_RGB);
     if(image == NULL)
         fprintf(stderr, "NULL pointer.\n");
 
@@ -396,6 +430,12 @@ void initMaterial()
     g_shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     g_shipMaterial1->sendUniformTexture("uTex1", textures[3], GL_TEXTURE3, 3);
 
+    g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc);
+    g_shipMaterial2->sendUniform3v("uColor", color);
+    g_shipMaterial2->sendUniformMat4("uProjMat", proj);
+    g_shipMaterial2->sendUniformTexture("uTex0", textures[4], GL_TEXTURE4, 4);
+    g_shipMaterial2->sendUniformTexture("uTex1", textures[5], GL_TEXTURE5, 5);
+
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc);
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
@@ -416,7 +456,10 @@ void initScene()
     RigTForm modelRbt;
     //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
     modelRbt = RigTForm(Vec3(-1.0f, 0.0f, -1.0f));
-    g_terrainNode = new GeometryNode(modelRbt, g_mesh, g_shipMaterial1, true);
+    g_terrainNode = new GeometryNode(modelRbt, g_ship1, g_shipMaterial1, true);
+
+    modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
+    g_ship2Node = new GeometryNode(modelRbt, g_ship2, g_shipMaterial2, true);
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
     g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
@@ -430,6 +473,7 @@ void initScene()
     
 
     g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_ship2Node);
     g_worldNode->addChild(g_cubeNode);
     g_worldNode->addChild(g_teapotNode);
     //g_worldNode->addChild(g_sponzaNode);
@@ -513,18 +557,23 @@ int main()
     glDeleteBuffers(1, &(g_cube->vbo));
     glDeleteBuffers(1, &(g_floor->vbo));
     glDeleteBuffers(1, &(g_wall->vbo));
-    glDeleteBuffers(1, &(g_mesh->vbo));
+    glDeleteBuffers(1, &(g_ship1->vbo));
+    glDeleteBuffers(1, &(g_ship2->vbo));
+    glDeleteBuffers(1, &(g_teapot->vbo));
     glDeleteVertexArrays(1, &(g_cube->vao));
     glDeleteVertexArrays(1, &(g_floor->vao));
     glDeleteVertexArrays(1, &(g_wall->vao));
-    glDeleteVertexArrays(1, &(g_mesh->vao));
+    glDeleteVertexArrays(1, &(g_ship1->vao));
+    glDeleteVertexArrays(1, &(g_ship2->vao));
+    glDeleteVertexArrays(1, &(g_teapot->vao));
 
     //free(flatShader);
     //free(texturedShader);
     free(g_shipMaterial1);
     free(g_cubeMaterial);
     free(g_cube);
-    free(g_mesh);
+    free(g_ship1);
+    free(g_ship2);
     free(g_floor);
     free(g_wall);
 

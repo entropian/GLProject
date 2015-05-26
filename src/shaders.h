@@ -105,8 +105,6 @@ const char* normalFragSrc = GLSL(
     }
 );
 
-// TODO: why doesn't this work anymore?
-// the most primitive shader with lighting
 const char* diffuseVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
@@ -135,19 +133,9 @@ const char* diffuseVertSrc = GLSL(
         vec3 normE = (normalMat * vec4(aNormal, 1.0)).xyz;
         vec3 lightDirE = normalize(uLight - posE);
 
-        if(dot(lightDirE, normE) > 0)
-        {
-            vColor = uColor * dot(lightDirE, normE);
-        }else
-        {
-            vColor = vec3(0, 0, 0);
-        }
+        vColor = uColor * max(dot(lightDirE, normE), 0.0);
 
         vTexcoord = aTexcoord;
-
-        // old
-        // gl_position = proj * view * trans * vec4(position, 1.0);
-        // TODO: switch in vPosition to reduce the number of calculations
         gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
     }
 );
@@ -176,14 +164,8 @@ const char* lightVertexSrc = GLSL(
         vec3 eyeDirE = normalize(-posE);
         vec3 reflectDirE = 2.0*dot(lightDirE, normE)*normE - lightDirE;
 
-        if(dot(eyeDirE, reflectDirE) > 0)
-        {
-            vColor = uColor * dot(eyeDirE, reflectDirE);
-        }else
-        {
-            vColor = vec3(0, 0, 0);
-        }
-
+        vColor = uColor * max(dot(eyeDirE, reflectDirE), 0.0);
+        
         vTexcoord = aTexcoord;
         gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
     }
