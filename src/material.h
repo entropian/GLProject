@@ -281,7 +281,8 @@ public:
                 glVertexAttribPointer(h_aBinormal, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(11 * sizeof(GLfloat)));
                 glEnableVertexAttribArray(h_aDet);
                 glVertexAttribPointer(h_aDet, 1, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(14 * sizeof(GLfloat)));
-            }
+            }else
+                printf("vertexAttrib == PNX\n");
             
             geometry->shaderProgram = shaderProgram;
         }

@@ -1,3 +1,5 @@
+#include <iostream>
+#include <string>
 #include "mesh.h"
 
 // TODO: temporary
@@ -15,6 +17,22 @@ static int subStringAlpha(const char* fileContent, char buffer[], int fileSize, 
     for(j = 0; (fileContent[j+i] >= 'A' && fileContent[j+i] <= 'Z') || (fileContent[j+i] >= 'a' && fileContent[j+i] <= 'z'); j++)
         buffer[j] = fileContent[j+i];
 
+    buffer[j] = '\0';
+
+    return j + i;
+}
+
+int getMaterialName(const char *fileContent, char buffer[], int fileSize, int index)
+{
+    int i, j;
+    for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
+    {
+        if(i >= fileSize)
+            return -1;
+    }
+
+    for(j = 0; fileContent[j+i] != '\n'; j++)
+        buffer[j] = fileContent[j+i];
     buffer[j] = '\0';
 
     return j + i;
@@ -40,106 +58,70 @@ static int subStringNum(const char* fileContent, char buffer[], int fileSize, in
 }
 
 void Mesh::initialize(const GLfloat *posArray, const GLfloat *normArray, const GLfloat *texcoordArray, const int *faceArray,
-                     unsigned int posArraySize, unsigned int normArraySize, unsigned int texcoordArraySize,
-                     unsigned int faceArraySize)
+                      const int *groupFaceIndexArray, char **mtlNameArray, const unsigned int posArraySize,
+                      const unsigned int normArraySize, const unsigned int texcoordArraySize, const unsigned int faceArraySize,
+                      const unsigned int numGroup)
 {
     assert((posArraySize % 3) == 0);
     for(unsigned int i = 0; i < posArraySize; i += 3)
         positions.push_back(Vec3(posArray[i], posArray[i+1], posArray[i + 2]));
     assert(posArraySize == positions.size() * 3);
 
-    assert((normArraySize % 3) == 0);
-    for(unsigned int i = 0; i < normArraySize; i += 3)
-        normals.push_back(Vec3(normArray[i], normArray[i+1], normArray[i + 2]));
-    assert(normArraySize == normals.size() * 3);
+    if(normArraySize > 0)
+    {
+        assert((normArraySize % 3) == 0);
+        for(unsigned int i = 0; i < normArraySize; i += 3)
+            normals.push_back(Vec3(normArray[i], normArray[i+1], normArray[i + 2]));
+        assert(normArraySize == normals.size() * 3);
+    }
 
     assert((texcoordArraySize % 2) == 0);
     for(unsigned int i = 0; i < texcoordArraySize; i += 2)
         texcoords.push_back(Vec2(texcoordArray[i], texcoordArray[i+1]));
     assert(texcoordArraySize == texcoords.size() * 2);
 
-    assert((faceArraySize % 9) == 0);
-    for(unsigned int i = 0; i < faceArraySize; i += 9)
+    if(normArraySize > 0)
     {
-        Face face;
-        face[0] = FaceVertex(faceArray[i], faceArray[i+2], faceArray[i+1]);
-        face[1] = FaceVertex(faceArray[i+3], faceArray[i+5], faceArray[i+4]);
-        face[2] = FaceVertex(faceArray[i+6], faceArray[i+8], faceArray[i+7]);
-        faces.push_back(face);
+        assert((faceArraySize % 9) == 0);
+        for(unsigned int i = 0; i < faceArraySize; i += 9)
+        {
+            Face face;
+            face[0] = FaceVertex(faceArray[i], faceArray[i+2], faceArray[i+1]);
+            face[1] = FaceVertex(faceArray[i+3], faceArray[i+5], faceArray[i+4]);
+            face[2] = FaceVertex(faceArray[i+6], faceArray[i+8], faceArray[i+7]);
+            faces.push_back(face);
+        }
+        assert(faceArraySize == (faces.size() * 3 * 3));
+    }else
+    {
+        assert((faceArraySize % 6) == 0);
+        for(unsigned int i = 0; i < faceArraySize; i += 6)
+        {
+            Face face;
+            face[0] = FaceVertex(faceArray[i], -1, faceArray[i+1]);
+            face[1] = FaceVertex(faceArray[i+2], -1, faceArray[i+3]);
+            face[2] = FaceVertex(faceArray[i+4], -1, faceArray[i+5]);
+            faces.push_back(face);
+        }
+        assert(faceArraySize == (faces.size() * 3 * 2));
     }
-    assert(faceArraySize == (faces.size() * 3 * 3));
 
-    /*
-      for(unsigned int i = 0; i < positions.size(); i++)
-      {
-      if((positions[i][0] != posArray[i*3] || positions[i][1] != posArray[i*3 + 1]) ||
-      positions[i][2] != posArray[i*3 + 2])
-      {
-      fprintf(stderr, "Positions vector incorrect.\n");
-      }
-      }
-
-      for(unsigned int i = 0; i < normals.size(); i++)
-      {
-      if((normals[i][0] != normArray[i*3] || normals[i][1] != normArray[i*3 + 1]) ||
-      normals[i][2] != normArray[i*3 + 2])
-      {
-      fprintf(stderr, "Normals vector incorrect.\n");
-      }
-      }
-
-      for(unsigned int i = 0; i < texcoords.size(); i++)
-      {
-      if((texcoords[i][0] != texcoordArray[i*2] || texcoords[i][1] != texcoordArray[i*2 + 1]))
-      {
-      fprintf(stderr, "Texcoords vector incorrect.\n");
-      }
-      }
-
-
-      for(unsigned int i = 0; i < faces.size(); i++)
-      {
-      if((faces[i][0] != faceArray[i*3] || faces[i][1] != faceArray[i*3 + 1]) ||
-      faces[i][2] != faceArray[i*3 + 2])
-      {
-      fprintf(stderr, "Faces vector incorrect.\n");
-      }
-      }
-    */
+    if(numGroup > 0)
+    {
+        for(unsigned int i = 0; i < numGroup; i++)
+        {
+            std::string str(mtlNameArray[i]);
+            groups.push_back(std::make_pair(groupFaceIndexArray[i], str));
+        }
+    }
 }
 
-// normalless version of initialize()
-void Mesh::initialize(const GLfloat *posArray, const GLfloat *texcoordArray, const int *faceArray,
-                     unsigned int posArraySize, unsigned int texcoordArraySize, unsigned int faceArraySize)
-{
-    assert((posArraySize % 3) == 0);
-    for(unsigned int i = 0; i < posArraySize; i += 3)
-        positions.push_back(Vec3(posArray[i], posArray[i+1], posArray[i + 2]));
-    assert(posArraySize == positions.size() * 3);
 
-
-    assert((texcoordArraySize % 2) == 0);
-    for(unsigned int i = 0; i < texcoordArraySize; i += 2)
-        texcoords.push_back(Vec2(texcoordArray[i], texcoordArray[i+1]));
-    assert(texcoordArraySize == texcoords.size() * 2);
-
-    assert((faceArraySize % 6) == 0);
-    for(unsigned int i = 0; i < faceArraySize; i += 6)
-    {
-        Face face;
-        face[0] = FaceVertex(faceArray[i], -1, faceArray[i+1]);
-        face[1] = FaceVertex(faceArray[i+2], -1, faceArray[i+3]);
-        face[2] = FaceVertex(faceArray[i+4], -1, faceArray[i+5]);
-        faces.push_back(face);
-    }
-    assert(faceArraySize == (faces.size() * 3 * 2));
-}
-
-unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *normArray, GLfloat *texcoordArray, int *faceArray)
+unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *normArray, GLfloat *texcoordArray, int *faceArray, int *groupFaceIndexArray, char **mtlNameArray)
 {
     // Iterate through fileContent and put data into the appropriate array
     char buffer[20];
-    unsigned int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0;
+    unsigned int posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0, groupIndex = 0;
     int index = 0;
     while(index != -1)
     {
@@ -193,17 +175,25 @@ unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, G
                         faceArray[faceIndex++] = atoi(buffer) - 1;
                 }
             }
-        } 
+        }else if(strcmp(buffer, "g") == 0)
+        {
+            groupFaceIndexArray[groupIndex] = faceIndex / (3 * 3); // 3 indices per vertex and 3 vertices per face
+            while(fileContent[index++] != '\n'); // Skip over group name
+            // Assuming "usemtl blah_material" is the next line
+            index = subStringAlpha(fileContent, buffer, fileSize, index); // Skip over "usemtl"
+            index = getMaterialName(fileContent, buffer, fileSize, index);
+            strcpy(mtlNameArray[groupIndex++], buffer);
+        }
     }
     return faceIndex;
 }
 
 // returns the number of elements in faceArray
-unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *texcoordArray, int *faceArray)
+unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, GLfloat *posArray, GLfloat *texcoordArray, int *faceArray, int *groupFaceIndexArray, char **mtlNameArray)
 {
     // Iterate through fileContent and put data into the appropriate array
     char buffer[20];
-    unsigned int posIndex = 0, texcoordIndex = 0, faceIndex = 0;
+    unsigned int posIndex = 0, texcoordIndex = 0, faceIndex = 0, groupIndex = 0;
     int index = 0;
     while(index != -1)
     {
@@ -251,6 +241,14 @@ unsigned int Mesh::extractObjData(const char *fileContent, const int fileSize, G
                         faceArray[faceIndex++] = atoi(buffer) - 1;
                 }
             }
+        }else if(strcmp(buffer, "g") == 0)
+        {
+            groupFaceIndexArray[groupIndex] = faceIndex / (2 * 3); // 2 indices per vertex and 3 vertices per face
+            while(fileContent[index++] != '\n'); // Skip over group name
+            // Assuming "usemtl blah_material" is the next line
+            index = subStringAlpha(fileContent, buffer, fileSize, index); // Skip over "usemtl"
+            index = getMaterialName(fileContent, buffer, fileSize, index); 
+            strcpy(mtlNameArray[groupIndex++], buffer);
         } 
     }
     return faceIndex;
@@ -282,10 +280,10 @@ void Mesh::readFromObj(const char* fileName)
     fclose(fp);
     fileContent[readResult] = '\0';
 
-    // Count the number of positions, normals, texcoords, and faces in the file
-    // and allocate an array for each of them.
+    // Count the number of positions, normals, texcoords, faces, and groups in the file
     char buffer[50];
     int posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0, index = 0;
+    int groupCount = 0;
     while(index != -1)
     {
         index = subStringAlpha(fileContent, buffer, readResult, index);
@@ -298,53 +296,75 @@ void Mesh::readFromObj(const char* fileName)
         else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
         {
             faceCount++;
-            int slashCount = 0;
+        }else if(strcmp(buffer, "g") == 0)
+        {
+            groupCount++;
         }
     }
 
-    /*
-    printf("posCount = %d\n", posCount);
-    printf("normCount = %d\n", normCount);
-    printf("texcoordCount = %d\n", texcoordCount);
-    printf("faceCount = %d\n", faceCount);
-    */
 
-    unsigned int posArraySize = posCount * 3;
-    GLfloat *posArray = (GLfloat*)malloc(sizeof(GLfloat) * posArraySize);
+    // TODO: do groups
+    // Allocate arrays for positions, normals, texcoords, faces, and groups
+    unsigned int posArraySize = 0, normArraySize = 0, texcoordArraySize = 0, faceArraySize = 0;
+    GLfloat *posArray, *normArray, *texcoordArray;
+    int *faceArray, *groupFaceIndexArray;
+    char **mtlNameArray;
 
-    GLfloat *normArray;
-    unsigned int normArraySize;
-    if(normCount > 0)
+    // Initialize the variables above
     {
-        normArraySize = normCount * 3;
-        normArray = (GLfloat*)malloc(sizeof(GLfloat) * normArraySize);
+        posArraySize = posCount * 3;
+        posArray = (GLfloat*)malloc(sizeof(GLfloat) * posArraySize);
+
+        if(normCount > 0)
+        {
+            normArraySize = normCount * 3;
+            normArray = (GLfloat*)malloc(sizeof(GLfloat) * normArraySize);
+        }
+
+        texcoordArraySize = texcoordCount * 2;
+        texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordArraySize);
+
+        // Not sure how many faces there will be after making sure thay are all triangles
+        // so I quadrupled the size of the faceArray
+        faceArraySize = faceCount * 3 * 3 * 4;
+        //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
+        faceArray = (int*)malloc(sizeof(int)*faceArraySize);
+
+        if(groupCount > 0)
+        {
+            groupFaceIndexArray = (int*)malloc(sizeof(int)*groupCount);
+            mtlNameArray = (char**)malloc(sizeof(char*)*groupCount);
+            for(int i = 0; i < groupCount; i++)
+                mtlNameArray[i] = (char*)malloc(sizeof(char*)*20);
+        }
     }
 
-    unsigned int texcoordArraySize = texcoordCount * 2;
-    GLfloat *texcoordArray = (GLfloat*)malloc(sizeof(GLfloat)*texcoordArraySize);
 
-    // Not sure how many faces there will be after making sure thay are all triangles
-    // so I quadrupled the size of the faceArray
-    unsigned int faceArraySize = faceCount * 3 * 3 * 4;
-    //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
-    int *faceArray = (int*)malloc(sizeof(int)*faceArraySize);
-
+    unsigned int faceIndex;
     if(normCount > 0)
-    {
-        unsigned int faceIndex = extractObjData(fileContent, readResult, posArray, normArray, texcoordArray, faceArray);
-        initialize(posArray, normArray, texcoordArray, faceArray, posArraySize, normArraySize, texcoordArraySize, faceIndex);
-    }else
-    {
-        unsigned int faceIndex = extractObjData(fileContent, readResult, posArray, texcoordArray, faceArray);
-        initialize(posArray, texcoordArray, faceArray, posArraySize, texcoordArraySize, faceIndex);
-    }
-    
+        faceIndex = extractObjData(fileContent, readResult, posArray, normArray, texcoordArray, faceArray, groupFaceIndexArray,
+                                   mtlNameArray);
+    else
+        faceIndex = extractObjData(fileContent, readResult, posArray, texcoordArray, faceArray, groupFaceIndexArray, mtlNameArray);
 
+    // if normArray is empty, normals vector will also be empty
+    // the normal index in the faces entries will be a place holder
+    initialize(posArray, normArray, texcoordArray, faceArray, groupFaceIndexArray, mtlNameArray, posArraySize, normArraySize,
+               texcoordArraySize, faceIndex, groupCount);
+
+    // Clean up
     free(posArray);
     if(normCount > 0)
         free(normArray);
     free(texcoordArray);
     free(faceArray);
+    if(groupCount > 0)
+    {
+        free(groupFaceIndexArray);
+        for(int i = 0; i < groupCount; i++)
+            free(mtlNameArray[i]);
+        free(mtlNameArray);
+    }
     free(fileContent);
 }
 
@@ -456,7 +476,7 @@ void Mesh::computeVertexBasis()
     }
 }
 
-void Mesh::vertexAttribPNX(GLfloat *vertexArray, int *vertexIndex, int i, int j)
+void Mesh::vertexAttribPNX(GLfloat *vertexArray, int *vertexIndex, const int i, const int j)
 {
     // NOTE: what's with all the reversal?
     // the z component of position and normal are both reversed
@@ -476,7 +496,7 @@ void Mesh::vertexAttribPNX(GLfloat *vertexArray, int *vertexIndex, int i, int j)
     vertexArray[(*vertexIndex)++] = texcoords[faces[i][j].texcoordIndex][1];
 }
 
-void Mesh::vertexAttribPNXTBD(GLfloat *vertexArray, int *vertexIndex, int i, int j)
+void Mesh::vertexAttribPNXTBD(GLfloat *vertexArray, int *vertexIndex, const int i, const int j)
 {
     vertexAttribPNX(vertexArray, vertexIndex, i, j);
     // Tangent

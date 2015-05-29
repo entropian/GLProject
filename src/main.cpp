@@ -75,10 +75,15 @@ void draw_scene()
     // Update some uniforms    
     g_lightE = inputHandler.getViewTransform() * g_lightW;
     g_shipMaterial1->sendUniform3v("uLight", g_lightE);
+    g_shipMaterial2->sendUniform3v("uLight", g_lightE);    
     g_cubeMaterial->sendUniform3v("uLight", g_lightE);
     g_teapotMaterial->sendUniform3v("uLight", g_lightE);
+    Vec3 lightTargetW(0.0f, 0.0f, 0.0f);
+    Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
+    g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
 
     // Draw objects
+    printf("drawing\n");
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
@@ -436,7 +441,7 @@ void initMaterial()
     g_shipMaterial2->sendUniformTexture("uTex0", textures[4], GL_TEXTURE4, 4);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[5], GL_TEXTURE5, 5);
 
-    g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc);
+    g_teapotMaterial = new Material(basicVertSrc, ADSSpotFragSrc);
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[2], GL_TEXTURE2, 2);
@@ -522,9 +527,7 @@ int main()
     initScene();
 
 
-    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
-
-    
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
     // ---------------------------- RENDERING ------------------------------ //
     
@@ -533,7 +536,6 @@ int main()
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
     {
-        // When g_inputMode == PICKING_MODE, the framebuffer isn't refreshed.
         if(inputHandler.getInputMode() != PICKING_MODE)
         {
             currentTime = glfwGetTime();
@@ -546,6 +548,7 @@ int main()
 
         // Poll window events
         glfwPollEvents();
+
     }
 
     // ---------------------------- Clearing ------------------------------ //

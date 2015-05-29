@@ -89,19 +89,20 @@ public:
     void computeVertexBasis();
     Geometry* produceGeometryPNX();
     Geometry* produceGeometryPNXTBD();
-    void initialize(const GLfloat*, const GLfloat*, const int*, unsigned int, unsigned int, unsigned int);
-    void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const int*, unsigned int, unsigned int, unsigned int, unsigned int);
+    void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const int*, const int*, char**, const unsigned int,
+                    const unsigned int, const unsigned int, const unsigned int, const unsigned int);
 
 private:
-    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat *, GLfloat*, int*);
-    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat*, int*);
-    void vertexAttribPNX(GLfloat*, int*, int, int);
-    void vertexAttribPNXTBD(GLfloat*, int*, int, int);
+    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat *, GLfloat*, int*, int*, char**);
+    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat*, int*, int*, char**);
+    void vertexAttribPNX(GLfloat*, int*, const int, const int);
+    void vertexAttribPNXTBD(GLfloat*, int*, const int, const int);
     
     std::vector<Vec3> positions, normals;
     std::vector<Vec3> tangents, binormals;
     std::vector<Vec2> texcoords;
     std::vector<Face> faces;
+    std::vector<std::pair<unsigned int, std::string> > groups;
     std::vector<float> determinants;
     bool normalsComputed;
 };
