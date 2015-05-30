@@ -40,15 +40,7 @@ static const int MAX_GEOMETRY_GROUPS = 200;
 static Geometry *g_geometryGroups[MAX_GEOMETRY_GROUPS];
 static int g_groupSize = 0;
 
-struct GeoGroupInfo
-{
-    // TODO: object name?
-    int offset;
-    int numGroups;
-    char **mtlNames;
-};
-
-static GeoGroupInfo g_groupInfo[MAX_GEOMETRY_GROUPS];
+static GeoGroupInfo g_groupInfoList[MAX_GEOMETRY_GROUPS];
 static int g_groupInfoSize = 0;
 
 
@@ -107,6 +99,9 @@ void draw_scene()
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
+    RigTForm modelViewRbt = inputHandler.getViewTransform();
+    g_sponzaNode->drawGroup(modelViewRbt);
+
     glfwSwapBuffers(window);
 }
 
@@ -125,16 +120,12 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
-bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfo[], int &groupSize, int &groupInfoSize)
+bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], int &groupSize, int &groupInfoSize)
 {
     Geometry **geoList;
     char **mtlNames;
     size_t numGroups = mesh.geoListPNX(&geoList, &mtlNames);
-    /*
-    printf("in function getGeoList\n");
-    printf("numGroups = %d\n", numGrouops);
-    printf("groupSize = %d\n", groupSize);
-    */
+
     if(groupSize + numGroups > MAX_GEOMETRY_GROUPS)
     {
         fprintf(stderr, "Too many groups\n");
@@ -148,13 +139,13 @@ bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfo[]
         return false;
     }else
     {
-        for(size_t i = 0; i < groupSize; i++)
+        for(size_t i = 0; i < numGroups; i++)
             geometryGroups[g_groupSize + i] = geoList[i];
 
         free(geoList);        
-        groupInfo[groupInfoSize].mtlNames = mtlNames;
-        groupInfo[groupInfoSize].offset = groupSize;
-        groupInfo[groupInfoSize].numGroups = numGroups;
+        groupInfoList[groupInfoSize].mtlNames = mtlNames;
+        groupInfoList[groupInfoSize].offset = groupSize;
+        groupInfoList[groupInfoSize].numGroups = numGroups;
         
         groupSize += numGroups;
         groupInfoSize++;
@@ -208,16 +199,16 @@ void initGeometry()
     sponzaMesh.readFromObj("sponza.obj");
     sponzaMesh.computeVertexNormals();
     //g_sponza = sponzaMesh.produceGeometryPNX();
-    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfo, g_groupSize, g_groupInfoSize);
+    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, g_groupSize, g_groupInfoSize);
 
 
     printf("g_groupSize = %d\n", g_groupSize);
     for(int i = 0; i < g_groupInfoSize; i++)
     {
-        printf("offset = %d\n", g_groupInfo[i].offset);
-        printf("numGroups = %d\n", g_groupInfo[i].numGroups);
-        for(int j = 0; j < g_groupInfo[i].numGroups; j++)
-            printf("%s\n", g_groupInfo[i].mtlNames[j]);
+        printf("offset = %d\n", g_groupInfoList[i].offset);
+        printf("numGroups = %d\n", g_groupInfoList[i].numGroups);
+        for(int j = 0; j < g_groupInfoList[i].numGroups; j++)
+            printf("%s\n", g_groupInfoList[i].mtlNames[j]);
     }
 
     int vertSizePNX = 8;
@@ -426,6 +417,8 @@ void initMaterial()
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
     g_materials[numMat++] = g_cubeMaterial;
+
+    
 }
 
 void initScene()
@@ -449,8 +442,9 @@ void initScene()
     g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
-    modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
-    g_sponzaNode = new GeometryNode(g_sponza, g_cubeMaterial, modelRbt, false);
+    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
+    //g_sponzaNode = new GeometryNode(g_sponza, g_cubeMaterial, modelRbt, false);
+    g_sponzaNode = new GeometryNode(g_geometryGroups, g_groupInfoList[0], g_cubeMaterial, modelRbt, false);
     
 
     g_worldNode->addChild(g_terrainNode);

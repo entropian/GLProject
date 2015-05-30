@@ -45,4 +45,12 @@ struct Geometry {
     }
 };
 
+struct GeoGroupInfo
+{
+    // TODO: object name?
+    int offset;
+    int numGroups;
+    char **mtlNames;
+};
+
 #endif

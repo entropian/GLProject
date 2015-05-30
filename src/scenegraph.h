@@ -125,13 +125,21 @@ class GeometryNode : public TransformNode
     
 public:
     GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
-        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true)
+        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
     {
         nt = geometrynode;
-        scaleFactor = Vec3(1.0f, 1.0f, 1.0f);
     }
 
-    
+    GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *material, RigTForm &rbt, bool c)
+        :TransformNode(rbt), m(material), clickable(c), depthTest(true), numGroups(groupInfo.numGroups),
+        scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
+    {
+        geometries = (Geometry**)malloc(sizeof(Geometry*)*groupInfo.numGroups);
+        for(int i = 0; i < groupInfo.numGroups; i++)
+        {
+            geometries[i] = geoList[groupInfo.offset + i];
+        }
+    }
     
     Geometry* getGeometry()
     {
@@ -201,6 +209,20 @@ public:
             glEnable(GL_DEPTH_TEST);
     }
 
+    void drawGroup(RigTForm modelViewRbt)
+    {
+        if(depthTest == false)
+            glDisable(GL_DEPTH_TEST);
+        
+        for(int i = 0; i < numGroups; i++)
+        {
+            m->draw(geometries[i], modelViewRbt, scaleFactor);
+        }
+        
+        if(depthTest == false)
+            glEnable(GL_DEPTH_TEST);
+    }
+
 private:
     Geometry *geometry;    
     Material *m;
@@ -210,6 +232,7 @@ private:
 
     // new shit
     Geometry **geometries;
+    int numGroups;
     Material **materials;
     int *materialIndex;
 };
@@ -388,32 +411,4 @@ private:
     GLint code;
 };
 
-/*
-struct RenderObject
-{
-    // TODO: add a scaling rbt?
-    Geometry *geometry;
-    RigTForm modelRbt;
-    RigTForm modelViewRbt;
-    ShaderState *st;
-
-
-    RenderObject(Geometry *g, RigTForm& m, ShaderState *shaderstate)
-    {
-        geometry = g;
-        modelRbt = m;
-        st = shaderstate;
-    }
-
-    void calcModelView(RigTForm& viewRbt)
-    {
-        modelViewRbt = viewRbt * modelRbt;
-    }
-
-    void draw()
-    {
-        st->draw(geometry, modelViewRbt);
-    }
-};
-*/
 #endif
