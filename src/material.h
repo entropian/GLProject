@@ -3,7 +3,7 @@
 
 #include <GL/glew.h>
 
-
+#include <string.h>
 #include "SOIL.h"
 #include "rigtform.h"
 #include "geometry.h"
@@ -70,8 +70,9 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
 class Material
 {
 public:
-    Material(const char *vs, const char *fs)
+    Material(const char *vs, const char *fs, const char *materialName)
     {
+        strcpy(name, materialName);
         readAndCompileShaders(vs, fs, &shaderProgram);
 
         // Get the number of uniforms in shaderProgram
@@ -109,7 +110,6 @@ public:
         {
             vertexAttrib = PNX;            
         }
-        
     }
 
     ~Material()
@@ -122,6 +122,11 @@ public:
         glDeleteProgram(shaderProgram);
     }
 
+    char* getName()
+    {
+        return name;
+    }
+    
     GLint getNumUniforms()
     {
         return numUniforms;
@@ -301,6 +306,7 @@ private:
     GLint numUniforms;
     GLuint h_aPosition, h_aNormal, h_aTexcoord;
     GLuint h_aTangent, h_aBinormal, h_aDet;
+    char name[20];
 };
 
 #endif       

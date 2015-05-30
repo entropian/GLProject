@@ -3,13 +3,13 @@
 
 #include <GL/glew.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 
 struct Geometry {
     GLuint vao, vbo, ebo;
     int vboLen = 0, eboLen = 0;
     GLuint shaderProgram;
+    char name[20];
 
     Geometry(GLfloat vtx[], GLuint edx[], int vboLen, int eboLen, int vertexSize) {
         this->vboLen = vboLen;

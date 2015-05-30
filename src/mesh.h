@@ -6,7 +6,6 @@
 #include "geometry.h"
 
 
-
 class Mesh
 {
     struct FaceVertex
@@ -71,7 +70,7 @@ public:
         unsigned int vertexCount = int((float)faces.size() * 3 * 3 * (2.0f + 2.0f/3.0f));
         GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
 
-        int vertexIndex = 0;
+        size_t vertexIndex = 0;
         for(unsigned int i = 0; i < faces.size(); i++)
         {
             vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
@@ -89,14 +88,16 @@ public:
     void computeVertexBasis();
     Geometry* produceGeometryPNX();
     Geometry* produceGeometryPNXTBD();
-    void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const int*, const int*, char**, const unsigned int,
-                    const unsigned int, const unsigned int, const unsigned int, const unsigned int);
+    size_t geoListPNX(Geometry ***, char ***);
+    void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const size_t*, const size_t*, char**, const size_t,
+                    const size_t, const size_t, const size_t, const size_t);
 
 private:
-    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat *, GLfloat*, int*, int*, char**);
-    unsigned int extractObjData(const char*, const int, GLfloat*, GLfloat*, int*, int*, char**);
-    void vertexAttribPNX(GLfloat*, int*, const int, const int);
-    void vertexAttribPNXTBD(GLfloat*, int*, const int, const int);
+    unsigned int extractObjData(const char*, const size_t, GLfloat*, GLfloat *, GLfloat*, size_t*, size_t*, char**);
+    unsigned int extractObjData(const char*, const size_t, GLfloat*, GLfloat*, size_t*, size_t*, char**);
+    void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
+    void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);
+    Geometry* geometryFromGroupPNX(size_t);
     
     std::vector<Vec3> positions, normals;
     std::vector<Vec3> tangents, binormals;

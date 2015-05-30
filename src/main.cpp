@@ -36,12 +36,31 @@ static Mat4 g_proj;
 
 // Geometries
 static Geometry *g_cube, *g_floor, *g_wall, *g_ship1, *g_ship2, *g_terrain, *g_teapot, *g_sponza;
+static const int MAX_GEOMETRY_GROUPS = 200;
+static Geometry *g_geometryGroups[MAX_GEOMETRY_GROUPS];
+static int g_groupSize = 0;
+
+struct GeoGroupInfo
+{
+    // TODO: object name?
+    int offset;
+    int numGroups;
+    char **mtlNames;
+};
+
+static GeoGroupInfo g_groupInfo[MAX_GEOMETRY_GROUPS];
+static int g_groupInfoSize = 0;
+
+
 //static ShaderState *flatShader, *texturedShader;
 static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode, *g_ship2Node;
 
-//test
+
+
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
+static const int MAX_MATERIALS = 50;
+static Material *g_materials[MAX_MATERIALS];
 
 
 GLuint textures[6];
@@ -51,6 +70,8 @@ static double g_framesPerSec = 60.0f;
 static double g_distancePerSec = 2.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
+
+
 
 // New: InputHanlder
 InputHandler inputHandler;
@@ -83,7 +104,6 @@ void draw_scene()
     g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
 
     // Draw objects
-    printf("drawing\n");
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
@@ -105,60 +125,47 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
+bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfo[], int &groupSize, int &groupInfoSize)
+{
+    Geometry **geoList;
+    char **mtlNames;
+    size_t numGroups = mesh.geoListPNX(&geoList, &mtlNames);
+    /*
+    printf("in function getGeoList\n");
+    printf("numGroups = %d\n", numGrouops);
+    printf("groupSize = %d\n", groupSize);
+    */
+    if(groupSize + numGroups > MAX_GEOMETRY_GROUPS)
+    {
+        fprintf(stderr, "Too many groups\n");
+        for(size_t i = 0; i < groupSize; i++)
+        {
+            free(geoList[i]);
+            free(mtlNames[i]);
+        }
+        free(geoList);
+        free(mtlNames);
+        return false;
+    }else
+    {
+        for(size_t i = 0; i < groupSize; i++)
+            geometryGroups[g_groupSize + i] = geoList[i];
+
+        free(geoList);        
+        groupInfo[groupInfoSize].mtlNames = mtlNames;
+        groupInfo[groupInfoSize].offset = groupSize;
+        groupInfo[groupInfoSize].numGroups = numGroups;
+        
+        groupSize += numGroups;
+        groupInfoSize++;
+        
+        return true;
+    }
+}
+
 
 void initGeometry()
 {
-    // TODO: normals aren't correct?
-    GLfloat vertices[] = {
-        // front
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-
-        // back
-        -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-        0.5f,  0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        0.5f,  0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-
-        // left
-        -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-
-        // right
-        0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-
-        // bottom
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
-
-        // top
-        -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-        0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f
-    };
-
     GLfloat floor_verts[] = {
         -10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
         10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
@@ -200,7 +207,18 @@ void initGeometry()
     Mesh sponzaMesh;
     sponzaMesh.readFromObj("sponza.obj");
     sponzaMesh.computeVertexNormals();
-    g_sponza = sponzaMesh.produceGeometryPNX();
+    //g_sponza = sponzaMesh.produceGeometryPNX();
+    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfo, g_groupSize, g_groupInfoSize);
+
+
+    printf("g_groupSize = %d\n", g_groupSize);
+    for(int i = 0; i < g_groupInfoSize; i++)
+    {
+        printf("offset = %d\n", g_groupInfo[i].offset);
+        printf("numGroups = %d\n", g_groupInfo[i].numGroups);
+        for(int j = 0; j < g_groupInfo[i].numGroups; j++)
+            printf("%s\n", g_groupInfo[i].mtlNames[j]);
+    }
 
     int vertSizePNX = 8;
     g_floor = new Geometry(floor_verts, elements, 4, 6, vertSizePNX);
@@ -225,111 +243,110 @@ void initGeometry()
         }
     }
 
-    // add varying height to each vertex on the grid
-    srand(time(NULL));
-    for(int i = 0; i < 20; i++)
+
     {
-        for(int j = 0; j < 20; j++)
+        // add varying height to each vertex on the grid
+        srand(time(NULL));
+        for(int i = 0; i < 20; i++)
         {
-            int random = rand() % 100 + 1;
-            grid[i][j].y += (float)random / 100.0f * 1.0f;
-            //grid[i][j].y += (sin(grid[i][j].x) - cos(grid[i][j].z)) * 1.0f;
+            for(int j = 0; j < 20; j++)
+            {
+                int random = rand() % 100 + 1;
+                grid[i][j].y += (float)random / 100.0f * 1.0f;
+                //grid[i][j].y += (sin(grid[i][j].x) - cos(grid[i][j].z)) * 1.0f;
+            }
         }
-    }
+    
+        GLfloat terrain_verts[19*19*2*3*8];
+        int index = 0;
 
-    GLfloat terrain_verts[19*19*2*3*8];
-    int index = 0;
-
-    // TODO: change this to index drawing
-    for(int i = 0; i < 19; i++)
-    {
-        for(int j = 0; j < 19; j++)
+        // TODO: change this to index drawing
+        for(int i = 0; i < 19; i++)
         {
-            // first triangle
-            // position
-            terrain_verts[index++] = grid[i][j].x;
-            terrain_verts[index++] = grid[i][j].y;
-            terrain_verts[index++] = grid[i][j].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+            for(int j = 0; j < 19; j++)
+            {
+                // first triangle
+                // position
+                terrain_verts[index++] = grid[i][j].x;
+                terrain_verts[index++] = grid[i][j].y;
+                terrain_verts[index++] = grid[i][j].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
 
-            terrain_verts[index++] = grid[i+1][j].x;
-            terrain_verts[index++] = grid[i+1][j].y;
-            terrain_verts[index++] = grid[i+1][j].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = grid[i+1][j].x;
+                terrain_verts[index++] = grid[i+1][j].y;
+                terrain_verts[index++] = grid[i+1][j].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
 
-            terrain_verts[index++] = grid[i+1][j+1].x;
-            terrain_verts[index++] = grid[i+1][j+1].y;
-            terrain_verts[index++] = grid[i+1][j+1].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = grid[i+1][j+1].x;
+                terrain_verts[index++] = grid[i+1][j+1].y;
+                terrain_verts[index++] = grid[i+1][j+1].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
 
-            // second triangle
-            terrain_verts[index++] = grid[i][j].x;
-            terrain_verts[index++] = grid[i][j].y;
-            terrain_verts[index++] = grid[i][j].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+                // second triangle
+                terrain_verts[index++] = grid[i][j].x;
+                terrain_verts[index++] = grid[i][j].y;
+                terrain_verts[index++] = grid[i][j].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
 
-            terrain_verts[index++] = grid[i+1][j+1].x;
-            terrain_verts[index++] = grid[i+1][j+1].y;
-            terrain_verts[index++] = grid[i+1][j+1].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = grid[i+1][j+1].x;
+                terrain_verts[index++] = grid[i+1][j+1].y;
+                terrain_verts[index++] = grid[i+1][j+1].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
 
-            terrain_verts[index++] = grid[i][j+1].x;
-            terrain_verts[index++] = grid[i][j+1].y;
-            terrain_verts[index++] = grid[i][j+1].z;
-            // normal
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 1.0f;
-            terrain_verts[index++] = 0.0f;
-            // texcoord
-            terrain_verts[index++] = 0.0f;
-            terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = grid[i][j+1].x;
+                terrain_verts[index++] = grid[i][j+1].y;
+                terrain_verts[index++] = grid[i][j+1].z;
+                // normal
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 1.0f;
+                terrain_verts[index++] = 0.0f;
+                // texcoord
+                terrain_verts[index++] = 0.0f;
+                terrain_verts[index++] = 0.0f;
+            }
         }
-    }
 
-    g_terrain = new Geometry(terrain_verts, index/8, vertSizePNX);
+        g_terrain = new Geometry(terrain_verts, index/8, vertSizePNX);
+    }
     //free(mesh_verts);
 }
 
-void initTexture()
+void loadAndSpecifyTexture(const char *fileName)
 {
-    // Create 2 textures and load images to them    
-    glGenTextures(5, textures);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-
     int width, height;
-    unsigned char* image;
-    image = SOIL_load_image("sample.png", &width, &height, 0, SOIL_LOAD_RGB);
+    unsigned char *image;
+    image = SOIL_load_image(fileName, &width, &height, 0, SOIL_LOAD_RGB);
+
     if(image == NULL)
         fprintf(stderr, "NULL pointer.\n");
 
@@ -339,83 +356,38 @@ void initTexture()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
     SOIL_free_image_data(image);
+}
+
+void initTexture()
+{
+    // Create 2 textures and load images to them    
+    glGenTextures(5, textures);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    loadAndSpecifyTexture("sample.png");
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, textures[1]);
-    image = SOIL_load_image("Ship_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
+    loadAndSpecifyTexture("Ship_Diffuse.png");
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
 
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, textures[2]);
-    image = SOIL_load_image("default.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
+    loadAndSpecifyTexture("default.png");
 
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, textures[3]);
-    image = SOIL_load_image("Ship_Normal.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
+    loadAndSpecifyTexture("Ship_Normal.png");
 
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, textures[4]);
-    image = SOIL_load_image("Ship2_Diffuse.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
+    loadAndSpecifyTexture("Ship2_Diffuse.png");
 
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, textures[5]);
-    image = SOIL_load_image("Ship2_Normal.png", &width, &height, 0, SOIL_LOAD_RGB);
-    if(image == NULL)
-        fprintf(stderr, "NULL pointer.\n");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    SOIL_free_image_data(image);
-
+    loadAndSpecifyTexture("Ship2_Normal.png");
 }
 
 void initMaterial()
@@ -424,32 +396,36 @@ void initMaterial()
 
     g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
-    g_lightE = inputHandler.getViewTransform() * g_lightW;
+
+    int numMat = 0;
 
     // Material
-
-    g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc);
+    // TODO: what if two materials have the same name?
+    g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3v("uColor", color);
     g_shipMaterial1->sendUniformMat4("uProjMat", proj);
     g_shipMaterial1->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
     g_shipMaterial1->sendUniformTexture("uTex1", textures[3], GL_TEXTURE3, 3);
-
-    g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc);
+    g_materials[numMat++] = g_shipMaterial1;
+    
+    g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
     g_shipMaterial2->sendUniform3v("uColor", color);
     g_shipMaterial2->sendUniformMat4("uProjMat", proj);
     g_shipMaterial2->sendUniformTexture("uTex0", textures[4], GL_TEXTURE4, 4);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[5], GL_TEXTURE5, 5);
+    g_materials[numMat++] = g_shipMaterial2;
 
-    g_teapotMaterial = new Material(basicVertSrc, ADSSpotFragSrc);
+    g_teapotMaterial = new Material(basicVertSrc, ADSSpotFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[2], GL_TEXTURE2, 2);
+    g_materials[numMat++] = g_teapotMaterial;
 
-
-    g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc);
+    g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
+    g_materials[numMat++] = g_cubeMaterial;
 }
 
 void initScene()
@@ -461,20 +437,20 @@ void initScene()
     RigTForm modelRbt;
     //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
     modelRbt = RigTForm(Vec3(-1.0f, 0.0f, -1.0f));
-    g_terrainNode = new GeometryNode(modelRbt, g_ship1, g_shipMaterial1, true);
+    g_terrainNode = new GeometryNode(g_ship1, g_shipMaterial1, modelRbt, true);
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
-    g_ship2Node = new GeometryNode(modelRbt, g_ship2, g_shipMaterial2, true);
+    g_ship2Node = new GeometryNode(g_ship2, g_shipMaterial2, modelRbt, true);
     
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
-    g_cubeNode = new GeometryNode(modelRbt, g_cube, g_cubeMaterial, true);
+    g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);
 
     modelRbt = RigTForm(Vec3(8.0f, 0.0f, 0.0f));
-    g_teapotNode = new GeometryNode(modelRbt, g_teapot, g_teapotMaterial, true);
+    g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
     modelRbt = RigTForm(Vec3(5.0f, 0.0f, 0.0f));
-    g_sponzaNode = new GeometryNode(modelRbt, g_sponza, g_cubeMaterial, false);
+    g_sponzaNode = new GeometryNode(g_sponza, g_cubeMaterial, modelRbt, false);
     
 
     g_worldNode->addChild(g_terrainNode);

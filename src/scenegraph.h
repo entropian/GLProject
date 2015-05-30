@@ -120,17 +120,19 @@ private:
     int childrenCount;
 };
 
-// TODO: change member names
 class GeometryNode : public TransformNode
 {
     
 public:
-    GeometryNode(RigTForm& rbt, Geometry *g,  Material *material, bool c)
+    GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
         :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true)
     {
         nt = geometrynode;
         scaleFactor = Vec3(1.0f, 1.0f, 1.0f);
     }
+
+    
+    
     Geometry* getGeometry()
     {
         return geometry;
@@ -200,11 +202,16 @@ public:
     }
 
 private:
-    Geometry *geometry;
+    Geometry *geometry;    
     Material *m;
     Vec3 scaleFactor;
     bool clickable;  // Indicates whether the node can be selected by clicking
     bool depthTest;  // Indicates whether the node can be covered by other object
+
+    // new shit
+    Geometry **geometries;
+    Material **materials;
+    int *materialIndex;
 };
 
 class Visitor

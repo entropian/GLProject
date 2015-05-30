@@ -61,32 +61,32 @@ void InputHandler::initialize()
     Mat4 proj = transpose(projMat);
 
     // Initialize arrow materials and picking material
-    arrowYMat = new Material(basicVertSrc, flatFragSrc);
+    arrowYMat = new Material(basicVertSrc, flatFragSrc, "arrowYMaterial");
     arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
     arrowYMat->sendUniformMat4("uProjMat", proj);
 
-    arrowZMat = new Material(basicVertSrc, flatFragSrc);
+    arrowZMat = new Material(basicVertSrc, flatFragSrc, "arrowZMaterial");
     arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
     arrowZMat->sendUniformMat4("uProjMat", proj);
 
-    arrowXMat = new Material(basicVertSrc, flatFragSrc);
+    arrowXMat = new Material(basicVertSrc, flatFragSrc, "arrowXMaterial");
     arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
     arrowXMat->sendUniformMat4("uProjMat", proj);
 
-    pickMaterial = new Material(pickVertSrc, pickFragSrc);
+    pickMaterial = new Material(pickVertSrc, pickFragSrc, "PickMaterial");
     pickMaterial->sendUniformMat4("uProjMat", proj);
 
     // Initialize arrow GeometryNodes
     RigTForm modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    arrowYNode = new GeometryNode(modelRbt, arrow, arrowYMat, false);
+    arrowYNode = new GeometryNode(arrow, arrowYMat, modelRbt, false);
     arrowYNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeZRotation(-90.0f));
-    arrowXNode = new GeometryNode(modelRbt, arrow, arrowXMat, false);
+    arrowXNode = new GeometryNode(arrow, arrowXMat, modelRbt, false);
     arrowXNode->setDepthTest(false);
 
     modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
-    arrowZNode = new GeometryNode(modelRbt, arrow, arrowZMat, false);
+    arrowZNode = new GeometryNode(arrow, arrowZMat, modelRbt, false);
     arrowZNode->setDepthTest(false);
 
 }
