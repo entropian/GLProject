@@ -394,8 +394,6 @@ const char* ADSSpotFragSrc = GLSL(
         {
             outColor = vec4(ambContrib, 1.0);
         }
-
-        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 

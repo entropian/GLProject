@@ -1,60 +1,7 @@
 #include <iostream>
 #include <string>
 #include "mesh.h"
-
-// returns the index of the character immediately after the substring.
-// returns -1 if no new substring
-static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSize, size_t index)
-{
-    size_t i, j;
-    for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
-
-    for(j = 0; (fileContent[j+i] >= 'A' && fileContent[j+i] <= 'Z') || (fileContent[j+i] >= 'a' && fileContent[j+i] <= 'z'); j++)
-        buffer[j] = fileContent[j+i];
-
-    buffer[j] = '\0';
-
-    return int(j + i);
-}
-
-// returns the index of the character immediately after the substring.
-// returns -1 if no new substring
-static int subStringNum(const char* fileContent, char buffer[], size_t fileSize, size_t index)
-{
-    size_t i, j;
-    for(i = index; (fileContent[i] < '0' || fileContent[i] > '9') && fileContent[i] != '-'; i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
-
-    for(j = 0; ((fileContent[j+i] >= '0' && fileContent[j+i] <= '9') || fileContent[j+i] == '.') || fileContent[j+i] == '-'; j++)
-        buffer[j] = fileContent[j+i];
-
-    buffer[j] = '\0';
-    return int(j + i);
-}
-
-int getMaterialName(const char *fileContent, char buffer[], size_t fileSize, size_t index)
-{
-    size_t i, j;
-    for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
-
-    for(j = 0; fileContent[j+i] != '\n'; j++)
-        buffer[j] = fileContent[j+i];
-    buffer[j] = '\0';
-
-    return int(j + i);
-}
-
+#include "fileIO.h"
 
 
 void Mesh::initialize(const GLfloat *posArray, const GLfloat *normArray, const GLfloat *texcoordArray, const size_t *faceArray,
@@ -262,31 +209,14 @@ unsigned int Mesh::extractObjData(const char *fileContent, const size_t fileSize
 void Mesh::readFromObj(const char* fileName)
 {
     // Read the file into the string fileContent
-    FILE *fp = fopen(fileName, "rb");
-    if(fp == NULL)
-    {
-        fprintf(stderr, "Cannot open file.");
-        exit(0);
-    }
+    char *fileContent;
+    size_t readResult = readFileIntoString(fileName, &fileContent);
     
-    fseek(fp, 0L, SEEK_END);
-    size_t fileSize = ftell(fp);
-    char *fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
-    rewind(fp);
-    //printf("File size = %d\n", fileSize);
-
-    size_t readResult = fread((void*)fileContent, 1, fileSize, fp);    
-    if(readResult != fileSize)
-    {
-        fprintf(stderr, "Reading error.\n");
-        exit(1);
-    }
-    fclose(fp);
-    fileContent[readResult] = '\0';
 
     // Count the number of positions, normals, texcoords, faces, and groups in the file
     char buffer[50];
-    size_t posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0, index = 0;
+    size_t posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0;
+    int index = 0;
     size_t groupCount = 0;
     while(index != -1)
     {
@@ -645,7 +575,6 @@ size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)
         (*mtlNames)[i] = (char*)malloc(sizeof(char)*groups[i].second.length());
         strcpy((*mtlNames)[i], groups[i].second.c_str());
     }
-    printf("group size = %d\n", groups.size());
     return groups.size();
 }
 
