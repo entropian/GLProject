@@ -89,6 +89,7 @@ public:
     Geometry* produceGeometryPNX();
     Geometry* produceGeometryPNXTBD();
     size_t geoListPNX(Geometry ***, char ***);
+    void flipTexcoordY();
     void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const size_t*, const size_t*, char**, const size_t,
                     const size_t, const size_t, const size_t, const size_t);
 

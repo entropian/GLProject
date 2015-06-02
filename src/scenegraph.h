@@ -2,6 +2,7 @@
 #define SCENEGRAPH_H
 
 #include <stdio.h>
+#include <assert.h>
 #include "geometry.h"
 #include "rigtform.h"
 #include "material.h"
@@ -125,19 +126,53 @@ class GeometryNode : public TransformNode
     
 public:
     GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
-        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
+        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f)),
+        numGeometries(0)
     {
         nt = geometrynode;
     }
 
-    GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *material, RigTForm &rbt, bool c)
-        :TransformNode(rbt), m(material), clickable(c), depthTest(true), numGroups(groupInfo.numGroups),
+    GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *m[], const size_t numMat,
+                 RigTForm &rbt, bool c)
+        :TransformNode(rbt), clickable(c), depthTest(true), numGeometries(groupInfo.numGroups),
         scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
     {
         geometries = (Geometry**)malloc(sizeof(Geometry*)*groupInfo.numGroups);
-        for(int i = 0; i < groupInfo.numGroups; i++)
-        {
+        for(size_t i = 0; i < groupInfo.numGroups; i++)
             geometries[i] = geoList[groupInfo.offset + i];
+        
+        materials = (Material**)malloc(sizeof(Material*)*groupInfo.numGroups);
+        materialIndex = (size_t*)malloc(sizeof(size_t)*groupInfo.numGroups);
+        size_t matIndex = 0;
+        for(size_t i = 0; i < groupInfo.numGroups; i++)
+        {
+            size_t j;
+            for(j = 0; strcmp(groupInfo.mtlNames[i], m[j]->getName()) != 0 && j < numMat; j++){};
+            assert(j < numMat);
+            bool duplicate = false;
+            for(size_t k = 0; k < matIndex; k++)
+            {
+                if(materials[k] == m[j])
+                {
+                    duplicate = true;
+                    materialIndex[i] = k;
+                }
+            }
+            if(!duplicate)
+            {
+                materials[matIndex] = m[j];
+                materialIndex[i] = matIndex++;
+            }
+        }
+        numMaterials = matIndex;
+    }
+
+    ~GeometryNode()
+    {
+        if(numGeometries > 0)
+        {
+            free(geometries);
+            free(materialIndex);
         }
     }
     
@@ -169,6 +204,16 @@ public:
     void setMaterial(Material *material)
     {
         m = material;
+    }
+
+    size_t getNumMat()
+    {
+        return numMaterials;
+    }
+    
+    Material* getMatListEntry(const size_t i)
+    {
+        return materials[i];
     }
 
     bool getClickable()
@@ -214,9 +259,9 @@ public:
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
         
-        for(int i = 0; i < numGroups; i++)
+        for(int i = 0; i < numGeometries; i++)
         {
-            m->draw(geometries[i], modelViewRbt, scaleFactor);
+            materials[materialIndex[i]]->draw(geometries[i], modelViewRbt, scaleFactor);
         }
         
         if(depthTest == false)
@@ -232,9 +277,10 @@ private:
 
     // new shit
     Geometry **geometries;
-    int numGroups;
+    size_t numGeometries;
     Material **materials;
-    int *materialIndex;
+    size_t numMaterials;
+    size_t *materialIndex;
 };
 
 class Visitor
@@ -266,7 +312,7 @@ public:
         pushRbt(tn->getRigidBodyTransform());            
         if(tn->getNodeType() == transformnode)
         {
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Visiting transform node.\n");
 
             for(int i = 0; i < tn->getNumChildren(); i++)
@@ -274,11 +320,11 @@ public:
                 this->visitNode(tn->getChild(i));
             }
 
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Exiting transform node.\n");
         }else if(tn->getNodeType() == geometrynode)
         {
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Visiting geometry node.\n");
             RigTForm modelViewRbt;
             if(rbtCount == 0)
@@ -295,7 +341,7 @@ public:
             {
                 this->visitNode(gn->getChild(i));
             }
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Exiting geometry node.\n");
         }
         popRbt();
@@ -308,7 +354,7 @@ public:
                     
         if(tn->getNodeType() == transformnode)
         {
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Visiting transform node.\n");
             
             for(int i = 0; i < tn->getNumChildren(); i++)
@@ -316,11 +362,11 @@ public:
                 this->visitPickNode(tn->getChild(i), overrideMat);
             }
 
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Exiting transform node.\n");
         }else if(tn->getNodeType() == geometrynode)
         {
-            if(g_debugString == true)
+            if(g_debugString)
             printf("Visiting geometry node.\n");
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
             
@@ -350,7 +396,7 @@ public:
             {
                 this->visitPickNode(gn->getChild(i), overrideMat);
             }
-            if(g_debugString == true)
+            if(g_debugString)
                 printf("Exiting geometry node.\n");
         }
         popRbt();

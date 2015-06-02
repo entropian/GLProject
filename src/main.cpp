@@ -32,6 +32,7 @@ static float g_windowHeight = 720.0f;
 // some of the shader uniforms
 static RigTForm g_view;
 static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
+//static Vec3 g_lightE, g_lightW(0.07625f, 1.0f, 0.9f);
 static Mat4 g_proj;
 
 // Geometries
@@ -52,10 +53,13 @@ static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode,
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
 static const int MAX_MATERIALS = 50;
 static Material *g_materials[MAX_MATERIALS];
-static const int g_numMat = 0;
+static int g_numMat = 0;
 
 
-GLuint *textures;
+static GLuint *textures;
+static char **g_textureFileNames;
+static size_t g_numTextures;
+
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
@@ -83,7 +87,7 @@ void draw_scene()
     RigTForm trans(inputHandler.getMovementDir() * g_distancePerFrame);
     inputHandler.setViewTransform(trans * inputHandler.getViewTransform());
 
-    // TODO: since visitor already passes the view matrix, let it carry other often updated uniforms too,
+    // NOTE: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
     // Update some uniforms    
     g_lightE = inputHandler.getViewTransform() * g_lightW;
@@ -95,12 +99,18 @@ void draw_scene()
     Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
     g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
 
+    // TODO: update the uniforms in g_materials
+    for(size_t i = 0; i < g_sponzaNode->getNumMat(); i++)
+    {
+        g_sponzaNode->getMatListEntry(i)->sendUniform3v("uLight", g_lightE);
+    }
+
     // Draw objects
 
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
-    RigTForm modelViewRbt = inputHandler.getViewTransform();
+    //RigTForm modelViewRbt = inputHandler.getViewTransform();
     //g_sponzaNode->drawGroup(modelViewRbt);
 
     glfwSwapBuffers(window);
@@ -199,6 +209,8 @@ void initGeometry()
     Mesh sponzaMesh;
     sponzaMesh.readFromObj("sponza.obj");
     sponzaMesh.computeVertexNormals();
+    sponzaMesh.flipTexcoordY(); // For some reason the texcoords are flipped for sponza.obj
+                                // Or perhaps it's the space ships that have the flipped texcoords
     //g_sponza = sponzaMesh.produceGeometryPNX();
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, g_groupSize, g_groupInfoSize);
 
@@ -351,15 +363,17 @@ void loadAndSpecifyTexture(const char *fileName)
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     SOIL_free_image_data(image);
 }
 
-void initTexture(MaterialInfo *matInfoList, const size_t matCount)
+size_t initTexture(MaterialInfo *matInfoList, const size_t matCount, char **&textureFileNames)
 {
     /*
     char *nonMTLTextures[6] = {"sample.png", "Ship_Diffuse.png", "default.png", "Ship_Normal.png",
@@ -371,12 +385,12 @@ void initTexture(MaterialInfo *matInfoList, const size_t matCount)
     size_t numNonMTL = 5;
     
     size_t tmp = 5 + matCount;
-    char **textureFiles = (char**)malloc(sizeof(char*)*tmp); 
+    textureFileNames = (char**)malloc(sizeof(char*)*tmp); 
     for(size_t i = 0; i < tmp; i++)
-        textureFiles[i] = (char*)malloc(sizeof(char)*30);
+        textureFileNames[i] = (char*)malloc(sizeof(char)*30);
     
     for(size_t i = 0; i < numNonMTL; i++)
-        strcpy(textureFiles[i], nonMTLTextures[i]);
+        strcpy(textureFileNames[i], nonMTLTextures[i]);
 
 
     size_t tfIndex = 0;
@@ -387,24 +401,19 @@ void initTexture(MaterialInfo *matInfoList, const size_t matCount)
             bool duplicate = false;
             for(size_t j = 0; j < numNonMTL + tfIndex; j++)
             {
-                if(strcmp(matInfoList[i].map_Kd, textureFiles[j]) == 0)
+                if(strcmp(matInfoList[i].map_Kd, textureFileNames[j]) == 0)
                     duplicate = true;
             }
 
             if(!duplicate)
             {
-                strcpy(textureFiles[numNonMTL + tfIndex], matInfoList[i].map_Kd);
+                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_Kd);
                 tfIndex++;
             }
         }            
     }
                                                                                   
     size_t numTextureFiles = tfIndex + numNonMTL;        
-    for(size_t i = 0; i < numTextureFiles; i++)
-        printf("%s\n", textureFiles[i]);
-
-    printf("numTextureFiles = %d\n", numTextureFiles);
-
         
     // Create 2 textures and load images to them
     textures = (GLuint*)malloc(sizeof(GLuint)*numTextureFiles);
@@ -415,10 +424,10 @@ void initTexture(MaterialInfo *matInfoList, const size_t matCount)
     {
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, textures[i]);
-        loadAndSpecifyTexture(textureFiles[i]);
+        loadAndSpecifyTexture(textureFileNames[i]);
     }
 
-
+    return numTextureFiles;
     
     /*
     glGenTextures(7, textures);
@@ -462,8 +471,6 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 30.0f);
     Mat4 proj = transpose(g_proj);
 
-    int numMat = 0;
-
     // Material
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
@@ -479,16 +486,36 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_shipMaterial2->sendUniformTexture("uTex0", textures[3], GL_TEXTURE3, 3);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[4], GL_TEXTURE4, 4);
 
-
     g_teapotMaterial = new Material(basicVertSrc, ADSSpotFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
 
-
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
+
+    for(size_t i = 0; i < matCount; i++)
+    {
+        g_materials[i] = new Material(basicVertSrc, basicFragSrc, matInfoList[i].name);
+        g_materials[i]->sendUniform3v("uColor", color);
+        g_materials[i]->sendUniformMat4("uProjMat", proj);
+
+        if(matInfoList[i].name[0] == '\0')
+            g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+        else
+        {
+            size_t j;
+            for(j = 0; j < g_numTextures; j++)
+            {
+                if(strcmp(matInfoList[i].map_Kd, g_textureFileNames[j]) == 0)
+                    break;
+            }
+            g_materials[i]->sendUniformTexture("uTex0", textures[j], GL_TEXTURE0 + j, j);
+        }
+    }
+
+    g_numMat += matCount;
 }
 
 void initScene()
@@ -498,7 +525,6 @@ void initScene()
     inputHandler.setWorldNode(g_worldNode);
 
     RigTForm modelRbt;
-    //modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 0.0f));
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
     g_terrainNode = new GeometryNode(g_ship1, g_shipMaterial1, modelRbt, true);
 
@@ -514,7 +540,7 @@ void initScene()
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     //g_sponzaNode = new GeometryNode(g_sponza, g_cubeMaterial, modelRbt, false);
-    g_sponzaNode = new GeometryNode(g_geometryGroups, g_groupInfoList[0], g_cubeMaterial, modelRbt, false);
+    g_sponzaNode = new GeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, false);
     
 
     g_worldNode->addChild(g_terrainNode);
@@ -580,8 +606,13 @@ int main()
         printf("map_bump: %s\n", matInfoList[i].map_bump);
     }
     */
-    initTexture(matInfoList, matCount);
+
+    g_numTextures = initTexture(matInfoList, matCount, g_textureFileNames);
+    for(size_t i = 0; i < g_numTextures; i++)
+        printf("%s\n", g_textureFileNames[i]);
     initMaterial(matInfoList, matCount);
+    for(size_t i = 0; i < matCount; i++)
+        printf("%s\n", g_materials[i]->getName());
     initScene();
 
 

@@ -142,7 +142,7 @@ public:
         }
         if(i == numUniforms)
         {
-            if(g_debugUniformString == true)
+            if(g_debugUniformString)
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
@@ -163,7 +163,7 @@ public:
         }
         if(i == numUniforms)
         {
-            if(g_debugUniformString == true)
+            if(g_debugUniformString)
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
@@ -185,7 +185,7 @@ public:
         }
         if(i == numUniforms)
         {
-            if(g_debugUniformString == true)
+            if(g_debugUniformString)
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }
@@ -206,7 +206,7 @@ public:
         }
         if(i == numUniforms)
         {
-            if(g_debugUniformString == true)
+            if(g_debugUniformString)
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
             return false;
         }

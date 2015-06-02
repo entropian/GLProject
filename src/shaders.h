@@ -24,6 +24,7 @@ const char* basicVertSrc = GLSL(
     {
         vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
+        //vTexcoord = vec2(aTexcoord.x, 1 - aTexcoord.y);
         vTexcoord = aTexcoord;
         gl_Position = uProjMat * vec4(vPosition, 1.0);
     }

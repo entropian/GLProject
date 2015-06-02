@@ -50,7 +50,8 @@ struct GeoGroupInfo
     // TODO: object name?
     int offset;
     int numGroups;
-    char **mtlNames;
+    char **mtlNames;  // Since each group has a corresponding material, mtlNames should have numGroups number of entries
+                      // once the struct is populated
 };
 
 #endif
