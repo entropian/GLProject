@@ -31,15 +31,15 @@ static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
-static Vec3 g_lightE, g_lightW(0.0f, 10.0f, 5.0f);
+static Vec3 g_lightE, g_lightW(0.0f, 9.5f, 5.0f);
 //static Vec3 g_lightE, g_lightW(0.07625f, 1.0f, 0.9f);
 static Mat4 g_proj;
 
 // Geometries
-static Geometry *g_cube, *g_floor, *g_wall, *g_ship1, *g_ship2, *g_terrain, *g_teapot, *g_sponza;
-static const int MAX_GEOMETRY_GROUPS = 200;
+static Geometry *g_cube, *g_floor, *g_wall, *g_ship1, *g_ship2, *g_terrain, *g_teapot, *g_sponza, *g_crysponza;
+static const size_t MAX_GEOMETRY_GROUPS = 1000;
 static Geometry *g_geometryGroups[MAX_GEOMETRY_GROUPS];
-static int g_groupSize = 0;
+static size_t g_groupSize = 0;
 
 static GeoGroupInfo g_groupInfoList[MAX_GEOMETRY_GROUPS];
 static int g_groupInfoSize = 0;
@@ -47,11 +47,12 @@ static int g_groupInfoSize = 0;
 // Scenegraph nodes
 static TransformNode *g_worldNode;
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode, *g_ship2Node;
+static GeometryNode *g_crysponzaNode;
 
 
 // Materials
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
-static const int MAX_MATERIALS = 50;
+static const int MAX_MATERIALS = 200;
 static Material *g_materials[MAX_MATERIALS];
 static int g_numMat = 0;
 
@@ -95,15 +96,13 @@ void draw_scene()
     g_shipMaterial2->sendUniform3v("uLight", g_lightE);    
     g_cubeMaterial->sendUniform3v("uLight", g_lightE);
     g_teapotMaterial->sendUniform3v("uLight", g_lightE);
-    Vec3 lightTargetW(1.0f, 0.0f, 0.0f);
-    Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
-    g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
+    //Vec3 lightTargetW(1.0f, 0.0f, 0.0f);
+    //Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
+    //g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
 
     // TODO: update the uniforms in g_materials
-    for(size_t i = 0; i < g_sponzaNode->getNumMat(); i++)
-    {
-        g_sponzaNode->getMatListEntry(i)->sendUniform3v("uLight", g_lightE);
-    }
+    for(int i = 0; i < g_numMat; i++)
+        g_materials[i]->sendUniform3v("uLight", g_lightE);
 
     // Draw objects
 
@@ -131,39 +130,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
-bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], int &groupSize, int &groupInfoSize)
-{
-    Geometry **geoList;
-    char **mtlNames;
-    size_t numGroups = mesh.geoListPNX(&geoList, &mtlNames);
-
-    if(groupSize + numGroups > MAX_GEOMETRY_GROUPS)
-    {
-        fprintf(stderr, "Too many groups\n");
-        for(size_t i = 0; i < groupSize; i++)
-        {
-            free(geoList[i]);
-            free(mtlNames[i]);
-        }
-        free(geoList);
-        free(mtlNames);
-        return false;
-    }else
-    {
-        for(size_t i = 0; i < numGroups; i++)
-            geometryGroups[g_groupSize + i] = geoList[i];
-
-        free(geoList);        
-        groupInfoList[groupInfoSize].mtlNames = mtlNames;
-        groupInfoList[groupInfoSize].offset = groupSize;
-        groupInfoList[groupInfoSize].numGroups = numGroups;
-        
-        groupSize += numGroups;
-        groupInfoSize++;
-        
-        return true;
-    }
-}
 
 
 void initGeometry()
@@ -209,10 +175,16 @@ void initGeometry()
     Mesh sponzaMesh;
     sponzaMesh.readFromObj("sponza.obj");
     sponzaMesh.computeVertexNormals();
+    //sponzaMesh.computeVertexBasis();
     sponzaMesh.flipTexcoordY(); // For some reason the texcoords are flipped for sponza.obj
                                 // Or perhaps it's the space ships that have the flipped texcoords
     //g_sponza = sponzaMesh.produceGeometryPNX();
-    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, g_groupSize, g_groupInfoSize);
+    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
+
+    Mesh crysponzaMesh;
+    crysponzaMesh.readFromObj("crysponza.obj");
+    g_crysponza = crysponzaMesh.produceGeometryPNX();
+    getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 
     /*
     printf("g_groupSize = %d\n", g_groupSize);
@@ -375,17 +347,14 @@ void loadAndSpecifyTexture(const char *fileName)
 
 size_t initTexture(MaterialInfo *matInfoList, const size_t matCount, char **&textureFileNames)
 {
-    /*
-    char *nonMTLTextures[6] = {"sample.png", "Ship_Diffuse.png", "default.png", "Ship_Normal.png",
-                           "Ship2_Diffuse.png", "Ship2_Normal.png"};
-    */
-
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
                            "Ship2_Diffuse.png", "Ship2_Normal.png"};
     size_t numNonMTL = 5;
     
     size_t tmp = 5 + matCount;
-    textureFileNames = (char**)malloc(sizeof(char*)*tmp); 
+    printf("tmp = %d\n", tmp);
+    textureFileNames = (char**)malloc(sizeof(char*)*tmp);
+
     for(size_t i = 0; i < tmp; i++)
         textureFileNames[i] = (char*)malloc(sizeof(char)*30);
     
@@ -428,47 +397,36 @@ size_t initTexture(MaterialInfo *matInfoList, const size_t matCount, char **&tex
     }
 
     return numTextureFiles;
-    
-    /*
-    glGenTextures(7, textures);
-    int numTextures = 0;
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    loadAndSpecifyTexture("sample.png");
-
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    loadAndSpecifyTexture("Ship_Diffuse.png");
-
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[2]);
-    loadAndSpecifyTexture("default.png");
-
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[3]);
-    loadAndSpecifyTexture("Ship_Normal.png");
-    
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[4]);
-    loadAndSpecifyTexture("Ship2_Diffuse.png");
-    
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[5]);
-    loadAndSpecifyTexture("Ship2_Normal.png");
-
-    glActiveTexture(GL_TEXTURE0 + numTextures++);
-    glBindTexture(GL_TEXTURE_2D, textures[6]);
-    loadAndSpecifyTexture("Ship2_Diffuse.png");
-    */
 }
 
+size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
+{
+    MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(infoListSize));
+    size_t numMat = 0;
 
+    for(size_t i = 0; i < numMTLFiles; i++)
+    {
+        size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
+        if(matCount + numMat >= infoListSize)
+        {
+            fprintf(stderr, "Too many materials.\n");
+            return 0;
+        }
+
+        for(size_t j = 0; j < matCount; j++)
+            matInfoList[numMat + j] = tmpList[j];
+
+        numMat += matCount;
+    }
+
+    return numMat;
+}
 
 void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 {
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
-    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 30.0f);
+    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
     Mat4 proj = transpose(g_proj);
 
     // Material
@@ -486,7 +444,7 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_shipMaterial2->sendUniformTexture("uTex0", textures[3], GL_TEXTURE3, 3);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[4], GL_TEXTURE4, 4);
 
-    g_teapotMaterial = new Material(basicVertSrc, ADSSpotFragSrc, "TeapotMaterial");
+    g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3v("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
@@ -497,9 +455,12 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 
     for(size_t i = 0; i < matCount; i++)
     {
-        g_materials[i] = new Material(basicVertSrc, basicFragSrc, matInfoList[i].name);
-        g_materials[i]->sendUniform3v("uColor", color);
+        g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
         g_materials[i]->sendUniformMat4("uProjMat", proj);
+        g_materials[i]->sendUniform3v("Ka", matInfoList[i].Ka);
+        g_materials[i]->sendUniform3v("Kd", matInfoList[i].Kd);
+        g_materials[i]->sendUniform3v("Ks", matInfoList[i].Ks);
+        g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
 
         if(matInfoList[i].name[0] == '\0')
             g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
@@ -541,13 +502,17 @@ void initScene()
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     //g_sponzaNode = new GeometryNode(g_sponza, g_cubeMaterial, modelRbt, false);
     g_sponzaNode = new GeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, false);
+
+    g_crysponzaNode = new GeometryNode(g_crysponza, g_teapotMaterial, modelRbt, false);
+    g_crysponzaNode->setScaleFactor(Vec3(1.0f/50.0f, 1.0f/50.0f, 1.0f/50.0f));
     
 
-    g_worldNode->addChild(g_terrainNode);
-    g_worldNode->addChild(g_ship2Node);
+    //g_worldNode->addChild(g_terrainNode);
+    //g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
-    g_worldNode->addChild(g_teapotNode);
-    //g_worldNode->addChild(g_sponzaNode);
+    //g_worldNode->addChild(g_teapotNode);
+    g_worldNode->addChild(g_sponzaNode);
+    //g_worldNode->addChild(g_crysponzaNode);
 }
 
 int main()
@@ -582,14 +547,21 @@ int main()
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
     glfwSetKeyCallback(window, keyCallback);
+    glFrontFace(GL_CCW);
 
     // ----------------------------- RESOURCES ----------------------------- //
 
     inputHandler.initialize();
     
     initGeometry();
-    MaterialInfo *matInfoList;
-    size_t matCount = parseMtlFile("sponza.mtl", matInfoList);
+    MaterialInfo matInfoList[MAX_MATERIALS];
+    MaterialInfo totalMatInfoList[MAX_MATERIALS];
+
+    const size_t numMTLFiles = 1;
+    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl"};
+    
+    size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
+    //size_t matCount = parseMtlFile("sponza.mtl", matInfoList);
     /*
     printf("sponza materials\n");
     for(size_t i = 0; i < matCount; i++)
@@ -643,8 +615,7 @@ int main()
     // ---------------------------- Clearing ------------------------------ //
 
     // Delete allocated resources
-    //glDeleteProgram(flatShader->shaderProgram);
-    //glDeleteProgram(texturedShader->shaderProgram);
+
 
     glDeleteTextures(2, textures);
     glDeleteBuffers(1, &(g_cube->vbo));

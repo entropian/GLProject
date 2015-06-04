@@ -205,7 +205,7 @@ void InputHandler::calcPickedObj()
     {
         // Determine which object is picked
         unsigned char pixel[3];
-        glReadPixels(cursorX, windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
+        glReadPixels((GLint)cursorX, (GLint)(windowHeight - cursorY), 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
         pickedObj = visitor.getClickedNode(pixel[0] - 1);
 
         // The rendering loop resumes
@@ -270,7 +270,7 @@ void InputHandler::calcPickedArrow()
 
     // Determine which object is picked
     unsigned char pixel[3];
-    glReadPixels(cursorX, windowHeight - cursorY, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
+    glReadPixels((GLint)cursorX, (GLint)(windowHeight - cursorY), 1, 1, GL_RGB, GL_UNSIGNED_BYTE, &pixel);
     pickedArrow = visitor.getClickedNode(pixel[0] - 1);
     
     // pickedArrow is also used as flag to signal to handleCursor() that an object is being dragged
@@ -448,7 +448,7 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         Mat4 viewMat = rigTFormToMat(viewRbt);
         Vec4 clipAxis = projMat * viewMat * axis;
         Vec3 clipVec = normalize(Vec3(clipAxis[0], clipAxis[1], 0.0f));
-        float distance = dot(clipVec, Vec3(x - cursorX, cursorY - y, 0.0f));
+        float distance = dot(clipVec, Vec3(x - (float)cursorX, (float)cursorY - y, 0.0f));
 
         
 

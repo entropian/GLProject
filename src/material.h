@@ -152,6 +152,27 @@ public:
         glUseProgram(0);
         return true;
     }
+
+    bool sendUniform1f(const char *uniformName, GLfloat uniform)
+    {
+        GLint i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            if(g_debugUniformString)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
+            return false;
+        }
+
+        glUseProgram(shaderProgram);
+        glUniform1f(uniformDesc[i].handle, uniform);
+        glUseProgram(0);
+        return true;
+    }
     
     bool sendUniform3v(const char *uniformName, Vec3 uniform)
     {

@@ -3,7 +3,8 @@
 #include <GL/glew.h>
 #include <vector>
 #include "vec.h"
-#include "geometry.h"
+//#include "geometry.h"
+#include "scenegraph.h"
 
 
 class Mesh
@@ -85,10 +86,12 @@ public:
 
     void readFromObj(const char* fileName);
     void computeVertexNormals();
+    void computeFaceNormals();
     void computeVertexBasis();
     Geometry* produceGeometryPNX();
     Geometry* produceGeometryPNXTBD();
     size_t geoListPNX(Geometry ***, char ***);
+    size_t geoListPNXTBD(Geometry ***, char ***);
     void flipTexcoordY();
     void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const size_t*, const size_t*, char**, const size_t,
                     const size_t, const size_t, const size_t, const size_t);
@@ -99,6 +102,7 @@ private:
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
     void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);
     Geometry* geometryFromGroupPNX(size_t);
+
     
     std::vector<Vec3> positions, normals;
     std::vector<Vec3> tangents, binormals;
@@ -108,5 +112,44 @@ private:
     std::vector<float> determinants;
     bool normalsComputed;
 };
+
+static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], size_t MAX_GEOMETRY_GROUPS,
+                       size_t &groupSize, int &groupInfoSize, VertexAttrib va)
+{
+    Geometry **geoList;
+    char **mtlNames;
+    size_t numGroups = 0;;
+    if(va == PNX)
+        numGroups = mesh.geoListPNX(&geoList, &mtlNames);
+    else if(va == PNXTBD)
+        numGroups = mesh.geoListPNXTBD(&geoList, &mtlNames);
+
+    if(groupSize + numGroups > MAX_GEOMETRY_GROUPS)
+    {
+        fprintf(stderr, "Too many groups\n");
+        for(size_t i = 0; i < numGroups ; i++)
+        {
+            free(geoList[i]);
+            free(mtlNames[i]);
+        }
+        free(geoList);
+        free(mtlNames);
+        return false;
+    }else
+    {
+        for(size_t i = 0; i < numGroups; i++)
+            geometryGroups[groupSize + i] = geoList[i];
+
+        free(geoList);        
+        groupInfoList[groupInfoSize].mtlNames = mtlNames;
+        groupInfoList[groupInfoSize].offset = groupSize;
+        groupInfoList[groupInfoSize].numGroups = numGroups;
+        
+        groupSize += numGroups;
+        groupInfoSize++;
+        
+        return true;
+    }
+}
 
 #endif

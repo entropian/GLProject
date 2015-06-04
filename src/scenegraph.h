@@ -14,16 +14,14 @@
 
 static bool g_debugString = false;
 
-enum NodeType {transformnode, geometrynode};
+enum NodeType {TRANSFORM, GEOMETRY};
 
 class TransformNode 
 {
 public:
     TransformNode()
-        :parent(NULL), parentToLocal(), childrenCount(0)
-    {
-        nt = transformnode;
-    }
+        :parent(NULL), parentToLocal(), childrenCount(0), nt(TRANSFORM)
+    {}
 
     TransformNode(RigTForm& rbt)
         :parent(NULL), childrenCount(0)
@@ -127,15 +125,15 @@ class GeometryNode : public TransformNode
 public:
     GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
         :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f)),
-        numGeometries(0)
+        numGeometries(0), groups(false)
     {
-        nt = geometrynode;
+        nt = GEOMETRY;
     }
 
     GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *m[], const size_t numMat,
                  RigTForm &rbt, bool c)
         :TransformNode(rbt), clickable(c), depthTest(true), numGeometries(groupInfo.numGroups),
-        scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
+        scaleFactor(Vec3(1.0f, 1.0f, 1.0f)), groups(true)
     {
         geometries = (Geometry**)malloc(sizeof(Geometry*)*groupInfo.numGroups);
         for(size_t i = 0; i < groupInfo.numGroups; i++)
@@ -165,6 +163,7 @@ public:
             }
         }
         numMaterials = matIndex;
+        nt = GEOMETRY;
     }
 
     ~GeometryNode()
@@ -194,6 +193,11 @@ public:
     void setScaleFactor(Vec3 v)
     {
         scaleFactor = v;
+    }
+
+    bool hasGroups()
+    {
+        return groups;
     }
 
     Material* getMaterial()
@@ -268,19 +272,36 @@ public:
             glEnable(GL_DEPTH_TEST);
     }
 
+    void overrideMatDrawGroup(Material *overrideMat, RigTForm modelViewRbt)
+    {
+        if(depthTest == false)
+            glDisable(GL_DEPTH_TEST);
+        
+        for(int i = 0; i < numGeometries; i++)
+        {
+            overrideMat->draw(geometries[i], modelViewRbt, scaleFactor);
+        }
+        
+        if(depthTest == false)
+            glEnable(GL_DEPTH_TEST);
+    }
+    
 private:
+    // For drawing a single geometry with one material
     Geometry *geometry;    
     Material *m;
-    Vec3 scaleFactor;
-    bool clickable;  // Indicates whether the node can be selected by clicking
-    bool depthTest;  // Indicates whether the node can be covered by other object
 
-    // new shit
+    // For drawing groups of geometries, each with a corresponding material
     Geometry **geometries;
     size_t numGeometries;
     Material **materials;
     size_t numMaterials;
     size_t *materialIndex;
+    
+    bool groups;
+    Vec3 scaleFactor;
+    bool clickable;  // Indicates whether the node can be selected by clicking
+    bool depthTest;  // Indicates whether the node can be covered by other object
 };
 
 class Visitor
@@ -310,7 +331,7 @@ public:
     void visitNode(TransformNode *tn)
     {
         pushRbt(tn->getRigidBodyTransform());            
-        if(tn->getNodeType() == transformnode)
+        if(tn->getNodeType() == TRANSFORM)
         {
             if(g_debugString)
                 printf("Visiting transform node.\n");
@@ -322,7 +343,7 @@ public:
 
             if(g_debugString)
                 printf("Exiting transform node.\n");
-        }else if(tn->getNodeType() == geometrynode)
+        }else if(tn->getNodeType() == GEOMETRY)
         {
             if(g_debugString)
                 printf("Visiting geometry node.\n");
@@ -335,7 +356,10 @@ public:
                 modelViewRbt = viewRbt * rbtStack[rbtCount-1];
             }
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
-            gn->draw(modelViewRbt);
+            if(gn->hasGroups())
+                gn->drawGroup(modelViewRbt);
+            else
+                gn->draw(modelViewRbt);
 
             for(int i = 0; i < gn->getNumChildren(); i++)
             {
@@ -352,7 +376,7 @@ public:
     {
         pushRbt(tn->getRigidBodyTransform());            
                     
-        if(tn->getNodeType() == transformnode)
+        if(tn->getNodeType() == TRANSFORM)
         {
             if(g_debugString)
                 printf("Visiting transform node.\n");
@@ -364,7 +388,7 @@ public:
 
             if(g_debugString)
                 printf("Exiting transform node.\n");
-        }else if(tn->getNodeType() == geometrynode)
+        }else if(tn->getNodeType() == GEOMETRY)
         {
             if(g_debugString)
             printf("Visiting geometry node.\n");
@@ -382,14 +406,20 @@ public:
                 // The corresponding geoNodes index for a node is code - 1
                 // NOTE: Not sure if casting changes the pointer
                 geoNodes[code] = static_cast<GeometryNode*>(tn);
-                overrideMat->sendUniform1i("uCode", ++code);                
-                gn->overrideMatDraw(overrideMat, modelViewRbt);
+                overrideMat->sendUniform1i("uCode", ++code);
+                if(gn->hasGroups())
+                    gn->overrideMatDrawGroup(overrideMat, modelViewRbt);
+                else                    
+                    gn->overrideMatDraw(overrideMat, modelViewRbt);
             }else
             {
                 // TODO: render the object with background color or something like that
                 // The back ground color is black. Setting uCode to 0 makes the color black
                 overrideMat->sendUniform1i("uCode", 0);
-                gn->overrideMatDraw(overrideMat, modelViewRbt);
+                if(gn->hasGroups())
+                    gn->overrideMatDrawGroup(overrideMat, modelViewRbt);
+                else
+                    gn->overrideMatDraw(overrideMat, modelViewRbt);
             }
 
             for(int i = 0; i < gn->getNumChildren(); i++)

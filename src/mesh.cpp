@@ -308,15 +308,30 @@ void Mesh::computeVertexNormals()
     for(size_t i = 0; i < faces.size(); i++)
     {
         // compute face normal
-        Vec3 pos0 = positions[faces[i][0].posIndex];
-        Vec3 pos1 = positions[faces[i][1].posIndex];
-        Vec3 pos2 = positions[faces[i][2].posIndex];
-        Face f = faces[i];
-        Vec3 normXAxis = positions[faces[i][1].posIndex] - positions[faces[i][0].posIndex];
-        Vec3 tmpVec = positions[faces[i][2].posIndex] - positions[faces[i][0].posIndex];
+        Face &face = faces[i];
+        Vec3 pos0 = positions[face[0].posIndex];
+        Vec3 pos1 = positions[face[1].posIndex];
+        Vec3 pos2 = positions[face[2].posIndex];
+
+        Vec3 normXAxis = pos1 - pos0;
+        Vec3 tmpVec = pos2 - pos1;
         Vec3 normZAxis = cross(normXAxis, tmpVec);
         if(norm2(normZAxis) != 0.0f)
             normZAxis = normalize(normZAxis);
+        else
+        {
+            /*
+            normXAxis = positions[face[1].posIndex] - positions[face[0].posIndex];
+            tmpVec = positions[face[2].posIndex] - positions[face[0].posIndex];
+            normZAxis = cross(normXAxis, tmpVec);
+            if(norm2(normZAxis) != 0.0f)
+                normZAxis = normalize(normZAxis);
+            else
+            {}
+            */
+            printf("normal is 0. i = %d\n", i);
+            normZAxis = faceNorms[i-1];
+        }
         faceNorms.push_back(normZAxis);
     }
 
@@ -331,10 +346,11 @@ void Mesh::computeVertexNormals()
         // for each face, cycle through all three face verts, and add the corresponding
         // face normal to normals at the same index as the posIndex
         // increment normTimes[posIndex]
+        Face &face = faces[i];
         for(size_t j = 0; j < 3; j++)
         {
-            normals[faces[i][j].posIndex] += faceNorms[i];
-            normTimes[faces[i][j].posIndex] += 1.0f;
+            normals[face[j].posIndex] += faceNorms[i];
+            normTimes[face[j].posIndex] += 1.0f;
         }
     }
 
@@ -347,8 +363,56 @@ void Mesh::computeVertexNormals()
     for(size_t i = 0; i < faces.size(); i++)
     {
         // Copy posIndex to normIndex
+        Face &face = faces[i];
         for(size_t j = 0; j < 3; j++)
-            faces[i][j].normIndex = faces[i][j].posIndex;
+            face[j].normIndex = face[j].posIndex;
+    }
+    normalsComputed = true;
+}
+
+void Mesh::computeFaceNormals()
+{
+    std::vector<Vec3> faceNorms;
+    for(size_t i = 0; i < faces.size(); i++)
+    {
+        // compute face normal
+        Face face = faces[i];
+        Vec3 pos0 = positions[face[0].posIndex];
+        Vec3 pos1 = positions[face[1].posIndex];
+        Vec3 pos2 = positions[face[2].posIndex];
+
+        Vec3 normXAxis = pos1 - pos0;
+        Vec3 tmpVec = pos2 - pos1;
+        
+        Vec3 normZAxis = cross(normXAxis, tmpVec);
+        if(norm2(normZAxis) != 0.0f)
+            normZAxis = normalize(normZAxis);
+        faceNorms.push_back(normZAxis);
+    }
+
+    
+    normals.clear();
+    for(size_t i = 0; i < positions.size(); i++)
+        normals.push_back(Vec3(0.0f, 0.0f, 0.0f));
+    
+    for(size_t i = 0; i < faces.size(); i++)
+    {
+        // for each face, cycle through all three face verts, and add the corresponding
+        // face normal to normals at the same index as the posIndex
+        // increment normTimes[posIndex]
+        Face &face = faces[i];
+        for(size_t j = 0; j < 3; j++)
+        {
+            normals[face[j].posIndex] = faceNorms[i];
+        }
+    }
+
+     for(size_t i = 0; i < faces.size(); i++)
+    {
+        // Copy posIndex to normIndex
+        Face &face = faces[i];
+        for(size_t j = 0; j < 3; j++)
+            face[j].normIndex = face[j].posIndex;
     }
     normalsComputed = true;
 }
@@ -395,10 +459,14 @@ void Mesh::computeVertexBasis()
     {
         // Make sure that the tangent and binormal vectors are perpendicular to the vertex normal
         // then normalize them
-        tangents[i] = tangents[i] - normals[i] * dot(normals[i], tangents[i]);        
-        binormals[i] = binormals[i] - normals[i] * dot(normals[i], binormals[i]);
-        tangents[i] = normalize(tangents[i]);
-        binormals[i] = normalize(binormals[i]);
+        //tangents[i] = tangents[i] - normals[i] * dot(normals[i], tangents[i]);        
+        //binormals[i] = binormals[i] - normals[i] * dot(normals[i], binormals[i]);
+        Vec3 tmpTan = tangents[i] - normals[i] * dot(normals[i], tangents[i]);
+        Vec3 tmpBi = binormals[i] - normals[i] * dot(normals[i], binormals[i]);
+        //tangents[i] = normalize(tangents[i]);
+        //binormals[i] = normalize(binormals[i]);
+        tangents[i] = normalize(tmpTan);
+        binormals[i] = normalize(tmpBi);
 
         // Check if we're mirrored
         if(dot(cross(normals[i], tangents[i]), binormals[i]) < 0.0f)
@@ -578,9 +646,15 @@ size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)
     return groups.size();
 }
 
+size_t Mesh::geoListPNXTBD(Geometry ***GeoList, char ***mtlNames)
+{
+    return 0;
+}
+
 void Mesh::flipTexcoordY()
 {
     for(size_t i = 0; i < texcoords.size(); i++)
         texcoords[i][1] = 1.0f - texcoords[i][1];
 }
+
 

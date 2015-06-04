@@ -48,8 +48,8 @@ struct Geometry {
 struct GeoGroupInfo
 {
     // TODO: object name?
-    int offset;
-    int numGroups;
+    size_t offset;
+    size_t numGroups;
     char **mtlNames;  // Since each group has a corresponding material, mtlNames should have numGroups number of entries
                       // once the struct is populated
 };

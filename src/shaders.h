@@ -355,6 +355,39 @@ const char* ADSFragSrc = GLSL(
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
+
+const char* OBJFragSrc = GLSL(
+    uniform vec3 uLight;
+    uniform sampler2D uTex0;
+    //uniform sampler2D uTex1;
+
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        
+        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
+        vec3 eyeDir = normalize(-vPosition);        
+        vec4 texColor = texture(uTex0, vTexcoord);
+
+        vec3 ambContrib = Ka * texColor.xyz;
+
+        vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
+
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Ks;
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
 const char* ADSSpotFragSrc = GLSL(
     uniform vec3 uLight;
     uniform vec3 uLightTarget;

@@ -106,7 +106,111 @@ struct MaterialInfo
     char map_bump[30];
 };
 
-static size_t parseMtlFile(const char *fileName, MaterialInfo *&infoList)
+static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, const char *fileName)
+{
+    char *fileContent;
+    size_t readResult = readFileIntoString(fileName, &fileContent);
+
+    char buffer[50];
+    size_t matCount = 0;
+    int index = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "newmtl") == 0)
+            matCount++;
+    }
+
+    if(matCount > infoListSize)
+    {
+        fprintf(stderr, "Too many materials in %s.\n", fileName);
+        return 0;
+    }
+    //infoList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*matCount);
+
+    for(size_t i = 0; i < matCount; i++)
+    {
+        infoList[i].name[0] = '\0';
+        infoList[i].map_Ka[0] = '\0';
+        infoList[i].map_Kd[0] = '\0';
+        infoList[i].map_bump[0] = '\0';
+    }
+
+    size_t infoIndex = 0;
+    index = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "newmtl") == 0)
+        {
+            index = getMaterialName(fileContent, buffer, readResult, index);
+            strcpy(infoList[infoIndex].name, buffer);
+            infoIndex++;
+        }else if(strcmp(buffer, "Ka") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ka[0] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ka[1] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ka[2] = (float)atof(buffer);            
+        }else if(strcmp(buffer, "Kd") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Kd[0] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Kd[1] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Kd[2] = (float)atof(buffer);            
+        }else if(strcmp(buffer, "Ks") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ks[0] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ks[1] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ks[2] = (float)atof(buffer);
+        }else if(strcmp(buffer, "Ke") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ke[0] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ke[1] = (float)atof(buffer);
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ke[2] = (float)atof(buffer);            
+        }else if(strcmp(buffer, "Ns") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ns = (float)atof(buffer);
+        }else if(strcmp(buffer, "Ni") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].Ni = (float)atof(buffer);
+        }else if(strcmp(buffer, "illum") == 0)
+        {
+            index = subStringNum(fileContent, buffer, readResult, index);
+            infoList[infoIndex-1].illum = atoi(buffer);                                                
+        }else if(strcmp(buffer, "map_Kd") == 0)
+        {
+            index = getMaterialName(fileContent, buffer, readResult, index);
+            strcpy(infoList[infoIndex-1].map_Kd, buffer);
+        }else if(strcmp(buffer, "map_Ka") == 0)
+        {
+            index = getMaterialName(fileContent, buffer, readResult, index);
+            strcpy(infoList[infoIndex-1].map_Ka, buffer);
+        }else if(strcmp(buffer, "map_bump") == 0)
+        {
+            index = getMaterialName(fileContent, buffer, readResult, index);
+            strcpy(infoList[infoIndex-1].map_bump, buffer);
+        }            
+
+    }
+
+    return matCount;
+}
+
+/*
+  static size_t parseMTLFile(const char *fileName, MaterialInfo *&infoList)
 {
     char *fileContent;
     size_t readResult = readFileIntoString(fileName, &fileContent);
@@ -180,7 +284,7 @@ static size_t parseMtlFile(const char *fileName, MaterialInfo *&infoList)
         }else if(strcmp(buffer, "Ni") == 0)
         {
             index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ni = atof(buffer);
+            infoList[infoIndex-1].Ni = (float)atof(buffer);
         }else if(strcmp(buffer, "illum") == 0)
         {
             index = subStringNum(fileContent, buffer, readResult, index);
@@ -203,6 +307,7 @@ static size_t parseMtlFile(const char *fileName, MaterialInfo *&infoList)
 
     return matCount;
 }
+*/
 
 
 static GLfloat* readFromCollada(const char* fileName, int *numVertices)
@@ -210,7 +315,7 @@ static GLfloat* readFromCollada(const char* fileName, int *numVertices)
 
 
     char buffer[50], *fileContent;
-    int i, posCount, normCount, indexCount, fileSize, index;
+    int i, posCount, normCount, indexCount, index;
     float *posArray, *normArray, *vertexArray;
     int *indexArray;
     
