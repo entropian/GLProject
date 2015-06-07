@@ -2,15 +2,16 @@
 
 #if __GNUG__
 #   include <GLFW/glfw3.h>
+#   include "SOIL/SOIL.h"
 #else
 #   include <GL/glfw3.h>
+#   include "SOIL.h"
 #endif
 
 #include <iostream>
 #include <stdlib.h>
 #include <time.h>
 
-#include "SOIL.h"
 #include "fileIO.h"
 #include "shaders.h"
 
@@ -345,7 +346,7 @@ void loadAndSpecifyTexture(const char *fileName)
     SOIL_free_image_data(image);
 }
 
-size_t initTexture(MaterialInfo *matInfoList, const size_t matCount, char **&textureFileNames)
+size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames)
 {
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
                            "Ship2_Diffuse.png", "Ship2_Normal.png"};
@@ -356,7 +357,7 @@ size_t initTexture(MaterialInfo *matInfoList, const size_t matCount, char **&tex
     textureFileNames = (char**)malloc(sizeof(char*)*tmp);
 
     for(size_t i = 0; i < tmp; i++)
-        textureFileNames[i] = (char*)malloc(sizeof(char)*30);
+        textureFileNames[i] = (char*)malloc(sizeof(char)*20);
     
     for(size_t i = 0; i < numNonMTL; i++)
         strcpy(textureFileNames[i], nonMTLTextures[i]);
@@ -407,10 +408,16 @@ size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char 
     for(size_t i = 0; i < numMTLFiles; i++)
     {
         size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
+        if(matCount == 0)
+        {
+            fprintf(stderr, "Error parsing %s.\n", MTLFileNames[i]);
+            continue;
+        }
+        
         if(matCount + numMat >= infoListSize)
         {
-            fprintf(stderr, "Too many materials.\n");
-            return 0;
+            fprintf(stderr, "Not enough space for %s.\n", MTLFileNames[i]);
+            continue;
         }
 
         for(size_t j = 0; j < matCount; j++)
@@ -418,7 +425,8 @@ size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char 
 
         numMat += matCount;
     }
-
+    
+    free(tmpList);
     return numMat;
 }
 

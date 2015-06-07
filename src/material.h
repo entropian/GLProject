@@ -4,7 +4,7 @@
 #include <GL/glew.h>
 
 #include <string.h>
-#include "SOIL.h"
+//#include "SOIL.h"
 #include "rigtform.h"
 #include "geometry.h"
 

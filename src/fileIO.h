@@ -73,8 +73,9 @@ static size_t readFileIntoString(const char *fileName, char **fileContent)
     FILE *fp = fopen(fileName, "rb");
     if(fp == NULL)
     {
-        fprintf(stderr, "Cannot open file.");
-        exit(0);
+        fprintf(stderr, "Cannot open file %s.\n", fileName);
+        return 0;
+        //exit(0);
     }
     
     fseek(fp, 0L, SEEK_END);
@@ -111,6 +112,12 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
     char *fileContent;
     size_t readResult = readFileIntoString(fileName, &fileContent);
 
+    if(readResult == 0)
+    {
+        fprintf(stderr, "Read nothing from %s\n", fileName);
+        return 0;
+    }
+
     char buffer[50];
     size_t matCount = 0;
     int index = 0;
@@ -143,8 +150,8 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         index = subStringAlpha(fileContent, buffer, readResult, index);
         if(strcmp(buffer, "newmtl") == 0)
         {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex].name, buffer);
+            index = getMaterialName(fileContent, infoList[infoIndex].name, readResult, index);
+            //strcpy(infoList[infoIndex].name, buffer);
             infoIndex++;
         }else if(strcmp(buffer, "Ka") == 0)
         {
@@ -192,20 +199,20 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
             infoList[infoIndex-1].illum = atoi(buffer);                                                
         }else if(strcmp(buffer, "map_Kd") == 0)
         {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_Kd, buffer);
+            index = getMaterialName(fileContent, infoList[infoIndex-1].map_Kd, readResult, index);
+            //strcpy(infoList[infoIndex-1].map_Kd, buffer);
         }else if(strcmp(buffer, "map_Ka") == 0)
         {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_Ka, buffer);
+            index = getMaterialName(fileContent, infoList[infoIndex-1].map_Ka, readResult, index);
+            //strcpy(infoList[infoIndex-1].map_Ka, buffer);
         }else if(strcmp(buffer, "map_bump") == 0)
         {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_bump, buffer);
+            index = getMaterialName(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
+            //strcpy(infoList[infoIndex-1].map_bump, buffer);
         }            
-
     }
 
+    free(fileContent);
     return matCount;
 }
 
