@@ -131,7 +131,7 @@ public:
 
 	Vec& normalize()
 	{
-		assert(dot(*this, *this) > EPS2);
+		assert((double)dot(*this, *this) > EPS2);
 		return *this /= sqrt(dot(*this, *this));
 	}
 };
@@ -139,7 +139,6 @@ public:
 typedef Vec<2> Vec2;
 typedef Vec<3> Vec3;
 typedef Vec<4> Vec4;
-
 
 inline Vec3 cross(const Vec3& a, const Vec3& b)
 {
@@ -171,7 +170,7 @@ inline float norm(const Vec<n>& v)
 template<int n>
 inline Vec<n> normalize(const Vec<n>& v)
 {
-	assert(dot(v, v) > EPS2);
+	assert((double)(dot(v, v)) > EPS2);
 	return v / norm(v);
 }
 

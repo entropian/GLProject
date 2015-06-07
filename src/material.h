@@ -4,22 +4,10 @@
 #include <GL/glew.h>
 
 #include <string.h>
-//#include "SOIL.h"
 #include "rigtform.h"
 #include "geometry.h"
 
 static bool g_debugUniformString = true;
-
-/*
-struct AttribDesc
-{
-    char name[20];
-    GLuint index;
-    GLenum type;
-    GLuint handle;
-    GLsizei size;
-};
-*/
 
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
@@ -35,51 +23,52 @@ struct UniformDesc
     GLsizei size;
 };
 
+// Compile the shaders and link the program
 static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shaderProgram)
 {
-    // Compile the shaders and link the program
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vs, NULL);
-        glCompileShader(vertexShader);
+    // Compile shaders
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vs, NULL);
+    glCompileShader(vertexShader);
 
-        GLint status;
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+    GLint status;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
 
-        if(status != GL_TRUE)
-            fprintf(stderr, "Vertex shader compiled incorrectly.\n");
+    if(status != GL_TRUE)
+        fprintf(stderr, "Vertex shader compiled incorrectly.\n");
         
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fs, NULL);
-        glCompileShader(fragmentShader);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fs, NULL);
+    glCompileShader(fragmentShader);
 
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
 
-        if(status != GL_TRUE)
-            fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+    if(status != GL_TRUE)
+        fprintf(stderr, "Fragment shader compiled incorrectly.\n");
 
-        // Link the vertex and fragment shader into a shader program
-        *shaderProgram = glCreateProgram();
-        glAttachShader(*shaderProgram, vertexShader);
-        glAttachShader(*shaderProgram, fragmentShader);
-        glBindFragDataLocation(*shaderProgram, 0, "outColor");
-        glLinkProgram(*shaderProgram);
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+    // Link the vertex and fragment shader into the shader program
+    *shaderProgram = glCreateProgram();
+    glAttachShader(*shaderProgram, vertexShader);
+    glAttachShader(*shaderProgram, fragmentShader);
+    glBindFragDataLocation(*shaderProgram, 0, "outColor");
+    glLinkProgram(*shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
 }
 
 class Material
 {
 public:
-    Material(const char *vs, const char *fs, const char *materialName)
+    Material(const char *vertexShader, const char *fragmentShader, const char *materialName)
     {
         strcpy(name, materialName);
-        readAndCompileShaders(vs, fs, &shaderProgram);
+        readAndCompileShaders(vertexShader, fragmentShader, &shaderProgram);
 
         // Get the number of uniforms in shaderProgram
         glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);
         uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
 
-        // Populate uniformDesc
+        // Populate uniformDesc with uniform information
         GLsizei lengthWritten;
         for(GLint i = 0; i < numUniforms; i++)
         {
@@ -117,7 +106,6 @@ public:
         for(GLint i = 0; i < numUniforms; i++)
         {
             free(uniformDesc);
-            //free(uniforms[i]);
         }
         glDeleteProgram(shaderProgram);
     }

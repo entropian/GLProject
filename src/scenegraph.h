@@ -7,10 +7,10 @@
 #include "rigtform.h"
 #include "material.h"
 
-// Arbitrary limit
-#define MAX_CHILDREN 30
-#define MAX_LAYER 10
-#define MAX_OBJECTS_ONSCREEN 50
+// Arbitrary limits
+static const size_t MAX_CHILDREN = 30;
+static const size_t MAX_LAYER = 10;
+static const size_t MAX_OBJECTS_ONSCREEN = 50;
 
 static bool g_debugString = false;
 

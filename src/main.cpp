@@ -385,7 +385,6 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
                                                                                   
     size_t numTextureFiles = tfIndex + numNonMTL;        
         
-    // Create 2 textures and load images to them
     textures = (GLuint*)malloc(sizeof(GLuint)*numTextureFiles);
     glGenTextures(numTextureFiles, textures);
 

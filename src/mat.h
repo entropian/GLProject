@@ -10,27 +10,26 @@ class Mat4
     float f_[16];
 
 public:
-    //tested?
     float& operator () (const int row, const int col)
     {
         return f_[(row << 2) + col];
     }
-    //tested
+
     const float& operator () (const int row, const int col) const
     {
         return f_[(row << 2) + col];
     }
-    //tested?
+
     float& operator [] (const int i)
     {
         return f_[i];
     }
-    //tested
+
     const float& operator [] (const int i) const
     {
         return f_[i];
     }
-    //tested
+
     Mat4()
     {
         for(int i = 0; i < 16; i++)
@@ -39,60 +38,60 @@ public:
         for(int i = 0; i < 4; i++)
             f_[(i << 2) + i] = 1;
     }
-    //tested
+
     Mat4(const float a)
     {
         for(int i = 0; i < 16; i++)
             f_[i] = a;
     }
-    //tested
+
     Mat4(const Mat4& m)
     {
         for(int i = 0; i < 16; i++)
             f_[i] = m.f_[i];
     }
-    //tested
+
     Mat4& operator +=(const Mat4& m)
     {
         for(int i = 0; i < 16; i++)
             f_[i] += m.f_[i];
         return *this;
     }
-    //tested
+
     Mat4& operator -=(const Mat4& m)
     {
         for(int i = 0; i < 16; i++)
             f_[i] -= m.f_[i];
         return *this;
     }
-    //tested
+
     Mat4& operator *=(const float a)
     {
         for(int i = 0; i < 16; i++)
             f_[i] *= a;
         return *this;
     }
-    //tested
+
     Mat4& operator *=(const Mat4& m)
     {
         return *this = *this * m;
     }
-    //tested
+
     Mat4 operator + (const Mat4& m) const
     {
         return Mat4(*this) += m;
     }
-    //tested
+
     Mat4 operator - (const Mat4& m) const
     {
         return Mat4(*this) -= m;
     }
-    //tested
+
     Mat4 operator * (const float a) const
     {
         return Mat4(*this) *= a;
     }
-    //tested?
+
     Vec4 operator * (const Vec4& v) const
     {
         Vec4 r(0);
@@ -103,7 +102,7 @@ public:
         }
         return r;
     }
-    //tested?
+
     Mat4 operator * (const Mat4& m) const
     {
         Mat4 r(0);
@@ -129,7 +128,7 @@ public:
         r(2, 2) = cosAng;
         return r;
     }
-    //tested?
+
     static Mat4 makeYRotation(const float ang)
     {
         Mat4 r;
@@ -141,7 +140,7 @@ public:
         r(2, 2) = cosAng;
         return r;
     }
-    //tested?
+
     static Mat4 makeZRotation(const float ang)
     {
         Mat4 r;
@@ -153,7 +152,7 @@ public:
         r(1, 1) = cosAng;
         return r;
     }
-    //tested
+
     static Mat4 makeTranslation(const Vec3& t)
     {
         Mat4 r;
@@ -161,7 +160,7 @@ public:
             r(i, 3) = t[i];
         return r;
     }
-    //tested?
+
     static Mat4 makeScale(const Vec3& s)
     {
         Mat4 r;
@@ -213,12 +212,12 @@ public:
         return r;
     } 
 };
-//tested?
+
 inline bool isAffine(const Mat4& m)
 {
     return abs(m[15]-1) + abs(m[14]) + abs(m[13]) + abs(m[12]) < EPS;
 }
-//tesed?
+
 inline float norm2(const Mat4& m)
 {
     float r = 0;
@@ -226,7 +225,7 @@ inline float norm2(const Mat4& m)
         r += m[i]*m[i];
     return r;
 }
-// we'll see
+
 // computes inverse of affine matrix. assumes last row is [0,0,0,1]
 inline Mat4 inv(const Mat4& m) {
   Mat4 r;                                              // default constructor initializes it to identity
@@ -257,7 +256,7 @@ inline Mat4 inv(const Mat4& m) {
   //assert(isAffine(r) && norm2(Mat4() - m*r) < EPS2);
   return r;
 }
-//tested
+
 inline Mat4 transpose(const Mat4& m)
 {
     Mat4 r(0);

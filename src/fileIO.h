@@ -74,8 +74,7 @@ static size_t readFileIntoString(const char *fileName, char **fileContent)
     if(fp == NULL)
     {
         fprintf(stderr, "Cannot open file %s.\n", fileName);
-        return 0;
-        //exit(0);
+        exit(0);
     }
     
     fseek(fp, 0L, SEEK_END);
@@ -214,6 +213,171 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
 
     free(fileContent);
     return matCount;
+}
+
+struct OBJData
+{
+    GLfloat *positions = NULL, *normals = NULL, *texcoords = NULL;
+    int *faces = NULL;
+    size_t *groupIndices;;
+    char **mtlNames = NULL;
+    size_t numPositions = 0, numNormals = 0, numTexcoords = 0, numFaces = 0, numGroups = 0;    
+};
+
+static void extractOBJData(const char *fileContent, const size_t fileSize, OBJData *objData)
+{
+    char buffer[20];
+    size_t posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0, groupIndex = 0;
+    int index = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, fileSize, index);
+        if(strcmp(buffer, "v") == 0)
+        {
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            objData->positions[posIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            objData->positions[posIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            // Reversing Z
+            objData->positions[posIndex++] = -(GLfloat)atof(buffer);
+        }else if(strcmp(buffer, "vt") == 0)
+        {
+            index = subStringNum(fileContent, buffer, fileSize, index);            
+            objData->texcoords[texcoordIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            // Reversing V
+            objData->texcoords[texcoordIndex++] = 1.0f - (GLfloat)atof(buffer);
+        }else if(strcmp(buffer, "vn") == 0)
+        {
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            objData->normals[normIndex++] = (GLfloat)atof(buffer);
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            objData->normals[normIndex++] = (GLfloat)atof(buffer);            
+            index = subStringNum(fileContent, buffer, fileSize, index);
+            objData->normals[normIndex++] = (GLfloat)atof(buffer);            
+        }else if(strcmp(buffer, "f") == 0)
+        {
+            int slashCount = 0;
+ 
+            // Count the number of slashes in the line to determine what polygon the face is.
+            for(int i = index; fileContent[i] != '\n'; i++)
+            {
+                if(fileContent[i] == '/')
+                    slashCount++;
+            }
+
+            if(objData->numNormals > 0)
+            {
+                int numFaceVerts = slashCount / 2;
+                int tmpIndex;
+                for(int i = 0; i < (numFaceVerts - 2); i++)
+                {
+                    tmpIndex = index;
+                    for(int j = 0; j < (9 + i*3); j++)
+                    {
+                        tmpIndex = subStringNum(fileContent, buffer, fileSize, tmpIndex);
+                        if(j < 3 || j > (2 + i*3))
+                            objData->faces[faceIndex++] = atoi(buffer) - 1;
+                    }
+                }
+            }else
+            {
+                int numFaceVerts = slashCount;
+                int tmpIndex;
+                for(int i = 0; i < (numFaceVerts - 2); i++)
+                {
+                    tmpIndex = index;
+                    //for(int j = 0; j < (9 + i*3); j++)
+                    for(int j = 0; j < (6 + i*2); j++)
+                    {
+                        tmpIndex = subStringNum(fileContent, buffer, fileSize, tmpIndex);
+                        //if(j < 3 || j > (2 + i*3))
+                        if(j < 2 || j > (1 + i*2))
+                            objData->faces[faceIndex++] = atoi(buffer) - 1;
+                    }
+                }
+            }
+        }else if(strcmp(buffer, "g") == 0)
+        {
+
+            objData->groupIndices[groupIndex] = faceIndex / (3 * 3); // 3 indices per vertex and 3 vertices per face
+
+            while(fileContent[index++] != '\n'); // Skip over group name
+            // Assuming "usemtl blah_material" is the next line
+            index = subStringAlpha(fileContent, buffer, fileSize, index); // Skip over "usemtl"
+
+            index = getMaterialName(fileContent, buffer, fileSize, index);
+
+            strcpy(objData->mtlNames[groupIndex++], buffer);
+        }
+    }
+    objData->numFaces = faceIndex;
+}
+
+static void parseOBJFile(const char *fileName, OBJData *objData)
+{
+    // Read the file into the string fileContent
+    char *fileContent;
+    size_t readResult = readFileIntoString(fileName, &fileContent);
+
+        // Count the number of positions, normals, texcoords, faces, and groups in the file
+    char buffer[50];
+    size_t posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0;
+    int index = 0;
+    size_t groupCount = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "v") == 0)
+            posCount++;
+        else if(strcmp(buffer, "vt") == 0)
+            texcoordCount++;
+        else if(strcmp(buffer, "vn") == 0)            
+            normCount++;
+        else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
+        {
+            faceCount++;
+        }else if(strcmp(buffer, "g") == 0)
+        {
+            groupCount++;
+        }
+    }
+
+    // Allocate memory for objData members
+    {
+        objData->numPositions = posCount * 3;
+        objData->positions = (GLfloat*)malloc(sizeof(GLfloat) * objData->numPositions);
+
+        if(normCount > 0)
+        {
+            objData->numNormals = normCount * 3;
+            objData->normals = (GLfloat*)malloc(sizeof(GLfloat) * objData->numNormals);
+        }
+
+        objData->numTexcoords = texcoordCount * 2;
+        objData->texcoords = (GLfloat*)malloc(sizeof(GLfloat) * objData->numTexcoords);
+
+        // Not sure how many faces there will be after making sure thay are all triangles
+        // so I quadrupled the size of the faceArray
+        objData->numFaces = faceCount * 3 * 3 * 4;
+        //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
+        objData->faces = (int*)malloc(sizeof(int) * objData->numFaces);
+
+        if(groupCount > 0)
+        {
+            objData->numGroups = groupCount;
+            objData->groupIndices = (size_t*)malloc(sizeof(size_t)*groupCount);
+            objData->mtlNames = (char**)malloc(sizeof(char*)*groupCount);
+            for(size_t i = 0; i < groupCount; i++)
+                objData->mtlNames[i] = (char*)malloc(sizeof(char*)*20);
+        }
+    }
+
+    //size_t faceIndex = extractOBJData(fileContent, readResult, objData);
+    extractOBJData(fileContent, readResult, objData);
+    
+    free(fileContent);
 }
 
 /*
