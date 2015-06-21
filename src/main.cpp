@@ -46,7 +46,7 @@ static GeoGroupInfo g_groupInfoList[MAX_GEOMETRY_GROUPS];
 static int g_groupInfoSize = 0;
 
 // Scenegraph nodes
-static TransformNode *g_worldNode;
+static TransformNode *g_worldNode;  // Root node
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode, *g_ship2Node;
 static GeometryNode *g_crysponzaNode;
 
@@ -201,120 +201,6 @@ void initGeometry()
     g_floor = new Geometry(floor_verts, elements, 4, 6, vertSizePNX);
     g_wall = new Geometry(wall_verts, elements, 4, 6, vertSizePNX);
 
-    // Terrain
-    struct vertex
-    {
-        float x, y, z;
-    };
-
-    vertex grid[20][20];
-
-    // make flat grid
-    for(int i = 0; i < 20; i++)
-    {
-        for(int j = 0; j < 20; j++)
-        {
-            grid[i][j].x = -10.0f + j;
-            grid[i][j].z = 10.0f - i;
-            grid[i][j].y = 0.0f;
-        }
-    }
-
-
-    {
-        // add varying height to each vertex on the grid
-        srand(time(NULL));
-        for(int i = 0; i < 20; i++)
-        {
-            for(int j = 0; j < 20; j++)
-            {
-                int random = rand() % 100 + 1;
-                grid[i][j].y += (float)random / 100.0f * 1.0f;
-                //grid[i][j].y += (sin(grid[i][j].x) - cos(grid[i][j].z)) * 1.0f;
-            }
-        }
-    
-        GLfloat terrain_verts[19*19*2*3*8];
-        int index = 0;
-
-        // TODO: change this to index drawing
-        for(int i = 0; i < 19; i++)
-        {
-            for(int j = 0; j < 19; j++)
-            {
-                // first triangle
-                // position
-                terrain_verts[index++] = grid[i][j].x;
-                terrain_verts[index++] = grid[i][j].y;
-                terrain_verts[index++] = grid[i][j].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-
-                terrain_verts[index++] = grid[i+1][j].x;
-                terrain_verts[index++] = grid[i+1][j].y;
-                terrain_verts[index++] = grid[i+1][j].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-
-                terrain_verts[index++] = grid[i+1][j+1].x;
-                terrain_verts[index++] = grid[i+1][j+1].y;
-                terrain_verts[index++] = grid[i+1][j+1].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-
-                // second triangle
-                terrain_verts[index++] = grid[i][j].x;
-                terrain_verts[index++] = grid[i][j].y;
-                terrain_verts[index++] = grid[i][j].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-
-                terrain_verts[index++] = grid[i+1][j+1].x;
-                terrain_verts[index++] = grid[i+1][j+1].y;
-                terrain_verts[index++] = grid[i+1][j+1].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-
-                terrain_verts[index++] = grid[i][j+1].x;
-                terrain_verts[index++] = grid[i][j+1].y;
-                terrain_verts[index++] = grid[i][j+1].z;
-                // normal
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 1.0f;
-                terrain_verts[index++] = 0.0f;
-                // texcoord
-                terrain_verts[index++] = 0.0f;
-                terrain_verts[index++] = 0.0f;
-            }
-        }
-
-        g_terrain = new Geometry(terrain_verts, index/8, vertSizePNX);
-    }
     //free(mesh_verts);
 }
 
@@ -329,7 +215,6 @@ void loadAndSpecifyTexture(const char *fileName)
       
     */
     image = SOIL_load_image(fileName, &width, &height, 0, SOIL_LOAD_RGBA);
-    //printf("fileName = %s\n", fileName);
 
     if(image == NULL)
         fprintf(stderr, "Failed to load %s.\n", fileName);

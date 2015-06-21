@@ -32,10 +32,15 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
     glCompileShader(vertexShader);
 
     GLint status;
+    GLchar infoLog[512];
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
 
     if(status != GL_TRUE)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         fprintf(stderr, "Vertex shader compiled incorrectly.\n");
+        fprintf(stderr, "%s\n", infoLog);
+    }
         
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fs, NULL);
@@ -44,7 +49,11 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
 
     if(status != GL_TRUE)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+        fprintf(stderr, "%s\n", infoLog);
+    }
 
     // Link the vertex and fragment shader into the shader program
     *shaderProgram = glCreateProgram();
@@ -52,6 +61,15 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
     glAttachShader(*shaderProgram, fragmentShader);
     glBindFragDataLocation(*shaderProgram, 0, "outColor");
     glLinkProgram(*shaderProgram);
+
+    glGetProgramiv(*shaderProgram, GL_LINK_STATUS, &status);
+    if(status != GL_TRUE)
+    {
+        glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
+        fprintf(stderr, "Shaders linked incorrectly.\n");
+        fprintf(stderr, "%s\n", infoLog);
+    }
+    
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 }
@@ -232,6 +250,7 @@ public:
     void draw(Geometry *geometry, RigTForm& modelViewRbt, Vec3& scaleFactor)
     {
         glBindVertexArray(geometry->vao);
+        // TODO: check if rebinding buffer is needed
         glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
         Mat4 scaleMat;

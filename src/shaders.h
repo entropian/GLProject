@@ -167,7 +167,7 @@ const char* lightVertexSrc = GLSL(
         vec3 eyeDirE = normalize(-posE);
         vec3 reflectDirE = 2.0*dot(lightDirE, normE)*normE - lightDirE;
 
-        vColor = uColor * max(dot(eyeDirE, reflectDirE), 0.0);
+        vColor = uColor * pow(max(dot(eyeDirE, reflectDirE), 0.0), 10);
         
         vTexcoord = aTexcoord;
         gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
