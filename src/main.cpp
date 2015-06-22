@@ -19,12 +19,6 @@
 #include "input.h"
 #include "mesh.h"
 
-/*
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
-*/
-
 #define GLSL(src) "#version 150 core\n" #src
 
 static float g_windowWidth = 1280.0f;
@@ -32,7 +26,7 @@ static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
-static Vec3 g_lightE, g_lightW(0.0f, 9.5f, 5.0f);
+static Vec3 g_lightE, g_lightW(0.0f, 9.5f, -10.0f);
 //static Vec3 g_lightE, g_lightW(0.07625f, 1.0f, 0.9f);
 static Mat4 g_proj;
 
@@ -53,7 +47,7 @@ static GeometryNode *g_crysponzaNode;
 
 // Materials
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
-static const int MAX_MATERIALS = 200;
+static const size_t MAX_MATERIALS = 200;
 static Material *g_materials[MAX_MATERIALS];
 static int g_numMat = 0;
 
@@ -107,11 +101,11 @@ void draw_scene()
 
     // Draw objects
 
-    Visitor visitor(inputHandler.getViewTransform());
-    visitor.visitNode(inputHandler.getWorldNode());
+    //Visitor visitor(inputHandler.getViewTransform());
+    //visitor.visitNode(inputHandler.getWorldNode());
 
-    //RigTForm modelViewRbt = inputHandler.getViewTransform();
-    //g_sponzaNode->drawGroup(modelViewRbt);
+    RigTForm modelViewRbt = inputHandler.getViewTransform();
+    g_sponzaNode->drawGroup(modelViewRbt);
 
     glfwSwapBuffers(window);
 }
@@ -286,12 +280,14 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
 
 size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
 {
-    MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(infoListSize));
+    MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
     size_t numMat = 0;
+
 
     for(size_t i = 0; i < numMTLFiles; i++)
     {
         size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
+
         if(matCount == 0)
         {
             fprintf(stderr, "Error parsing %s.\n", MTLFileNames[i]);
@@ -309,7 +305,7 @@ size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char 
 
         numMat += matCount;
     }
-    
+
     free(tmpList);
     return numMat;
 }
@@ -358,6 +354,7 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
             g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
         else
         {
+            //printf("map_Kd for %s is %s\n", matInfoList[i].name, matInfoList[i].map_Kd);
             size_t j;
             for(j = 0; j < g_numTextures; j++)
             {
@@ -472,8 +469,8 @@ int main()
     */
 
     g_numTextures = initTexture(matInfoList, matCount, g_textureFileNames);
-    for(size_t i = 0; i < g_numTextures; i++)
-        printf("%s\n", g_textureFileNames[i]);
+    //for(size_t i = 0; i < g_numTextures; i++)
+    //printf("%s\n", g_textureFileNames[i]);
     initMaterial(matInfoList, matCount);
     for(size_t i = 0; i < matCount; i++)
         printf("%s\n", g_materials[i]->getName());

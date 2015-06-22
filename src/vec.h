@@ -170,8 +170,11 @@ inline float norm(const Vec<n>& v)
 template<int n>
 inline Vec<n> normalize(const Vec<n>& v)
 {
-	assert((double)(dot(v, v)) > EPS2);
-	return v / norm(v);
+	//assert((double)(dot(v, v)) > EPS2);
+    if((double)(dot(v, v)) < EPS2)
+        return Vec3(0.0f, 0.0f, 0.0f);
+    else
+        return v / norm(v);
 }
 
 

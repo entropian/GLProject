@@ -105,10 +105,10 @@ void Mesh::computeVertexNormals()
         Vec3 normXAxis = pos1 - pos0;
         Vec3 tmpVec = pos2 - pos1;
         Vec3 normZAxis = cross(normXAxis, tmpVec);
-        /*
+
         if(norm2(normZAxis) != 0.0f)
             normZAxis = normalize(normZAxis);
-        */
+
         faceNorms.push_back(normZAxis);
     }
 
@@ -127,17 +127,17 @@ void Mesh::computeVertexNormals()
         for(size_t j = 0; j < 3; j++)
         {
             normals[face[j].posIndex] += faceNorms[i];
-            //normTimes[face[j].posIndex] += 1.0f;
+            normTimes[face[j].posIndex] += 1.0f;
         }
     }
 
     for(size_t i = 0; i < normals.size(); i++)
     {
         // Divide each element in normals by the corresponding element in normTimes
-        //normals[i] /= normTimes[i];
+        normals[i] /= normTimes[i];
 
         // Normalize each normal
-        normals[i] = normalize(normals[i]);
+        //normals[i] = normalize(normals[i]);
     }
 
     for(size_t i = 0; i < faces.size(); i++)

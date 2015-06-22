@@ -130,6 +130,7 @@ public:
         nt = GEOMETRY;
     }
 
+    // Constructor for geometryNode with multiple geometries and multiple corresponding materials
     GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *m[], const size_t numMat,
                  RigTForm &rbt, bool c)
         :TransformNode(rbt), clickable(c), depthTest(true), numGeometries(groupInfo.numGroups),

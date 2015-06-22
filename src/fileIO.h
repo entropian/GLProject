@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "vec.h"
 
 
@@ -108,6 +109,7 @@ struct MaterialInfo
 
 static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, const char *fileName)
 {
+
     char *fileContent;
     size_t readResult = readFileIntoString(fileName, &fileContent);
 
@@ -211,7 +213,7 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         }            
     }
 
-    free(fileContent);
+    free(fileContent);    
     return matCount;
 }
 
