@@ -163,6 +163,7 @@ public:
                 materialIndex[i] = matIndex++;
             }
         }
+
         numMaterials = matIndex;
         nt = GEOMETRY;
     }
@@ -358,9 +359,12 @@ public:
             }
             GeometryNode *gn = static_cast<GeometryNode*>(tn);
             if(gn->hasGroups())
+            {
                 gn->drawGroup(modelViewRbt);
-            else
+            }else
+            {
                 gn->draw(modelViewRbt);
+            }
 
             for(int i = 0; i < gn->getNumChildren(); i++)
             {

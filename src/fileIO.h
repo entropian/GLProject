@@ -221,7 +221,7 @@ struct OBJData
 {
     GLfloat *positions = NULL, *normals = NULL, *texcoords = NULL;
     int *faces = NULL;
-    size_t *groupIndices;;
+    size_t *groupIndices = NULL;
     char **mtlNames = NULL;
     size_t numPositions = 0, numNormals = 0, numTexcoords = 0, numFaces = 0, numGroups = 0;    
 };
@@ -257,7 +257,7 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
             index = subStringNum(fileContent, buffer, fileSize, index);
             objData->normals[normIndex++] = (GLfloat)atof(buffer);            
             index = subStringNum(fileContent, buffer, fileSize, index);
-            objData->normals[normIndex++] = (GLfloat)atof(buffer);            
+            objData->normals[normIndex++] = -(GLfloat)atof(buffer);            
         }else if(strcmp(buffer, "f") == 0)
         {
             int slashCount = 0;
@@ -302,8 +302,10 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
             }
         }else if(strcmp(buffer, "g") == 0)
         {
-
-            objData->groupIndices[groupIndex] = faceIndex / (3 * 3); // 3 indices per vertex and 3 vertices per face
+            if(objData->numNormals > 0)
+                objData->groupIndices[groupIndex] = faceIndex / (3 * 3); // 3 indices per vertex and 3 vertices per face
+            else
+                objData->groupIndices[groupIndex] = faceIndex / (2 * 3); // 2 indices per vertex and 3 vertices per face
 
             while(fileContent[index++] != '\n'); // Skip over group name
             // Assuming "usemtl blah_material" is the next line

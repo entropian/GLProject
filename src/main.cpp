@@ -26,7 +26,7 @@ static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
-static Vec3 g_lightE, g_lightW(0.0f, 9.5f, -10.0f);
+static Vec3 g_lightE, g_lightW(0.0f, 9.5f, 0.0f);
 //static Vec3 g_lightE, g_lightW(0.07625f, 1.0f, 0.9f);
 static Mat4 g_proj;
 
@@ -43,6 +43,7 @@ static int g_groupInfoSize = 0;
 static TransformNode *g_worldNode;  // Root node
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_sponzaNode, *g_ship2Node;
 static GeometryNode *g_crysponzaNode;
+static GeometryNode *g_teapotArray[20];
 
 
 // Materials
@@ -101,11 +102,11 @@ void draw_scene()
 
     // Draw objects
 
-    //Visitor visitor(inputHandler.getViewTransform());
-    //visitor.visitNode(inputHandler.getWorldNode());
+    Visitor visitor(inputHandler.getViewTransform());
+    visitor.visitNode(inputHandler.getWorldNode());
 
-    RigTForm modelViewRbt = inputHandler.getViewTransform();
-    g_sponzaNode->drawGroup(modelViewRbt);
+    //RigTForm modelViewRbt = inputHandler.getViewTransform();
+    //g_sponzaNode->drawGroup(modelViewRbt);
 
     glfwSwapBuffers(window);
 }
@@ -171,7 +172,7 @@ void initGeometry()
     sponzaMesh.readFromObj("sponza.obj");
     sponzaMesh.computeVertexNormals();
     //sponzaMesh.computeVertexBasis();
-    sponzaMesh.flipTexcoordY(); // For some reason the texcoords are flipped for sponza.obj
+    //sponzaMesh.flipTexcoordY(); // For some reason the texcoords are flipped for sponza.obj
                                 // Or perhaps it's the space ships that have the flipped texcoords
     //g_sponza = sponzaMesh.produceGeometryPNX();
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
@@ -179,7 +180,7 @@ void initGeometry()
     Mesh crysponzaMesh;
     crysponzaMesh.readFromObj("crysponza.obj");
     g_crysponza = crysponzaMesh.produceGeometryPNX();
-    getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
+    //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 
     /*
     printf("g_groupSize = %d\n", g_groupSize);
@@ -262,8 +263,8 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
         }            
     }
                                                                                   
-    size_t numTextureFiles = tfIndex + numNonMTL;        
-        
+    size_t numTextureFiles = tfIndex + numNonMTL;
+
     textures = (GLuint*)malloc(sizeof(GLuint)*numTextureFiles);
     glGenTextures(numTextureFiles, textures);
 
@@ -361,7 +362,15 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
                 if(strcmp(matInfoList[i].map_Kd, g_textureFileNames[j]) == 0)
                     break;
             }
-            g_materials[i]->sendUniformTexture("uTex0", textures[j], GL_TEXTURE0 + j, j);
+
+            if(j == g_numTextures)
+                g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+            else
+            {
+                printf("%s\n", g_textureFileNames[j]);
+                g_materials[i]->sendUniformTexture("uTex0", textures[j], GL_TEXTURE0 + j, j);
+                //g_materials[i]->sendUniformTexture("uTex0", textures[0], GL_TEXTURE0 + 0, 0);
+            }
         }
     }
 
@@ -386,6 +395,7 @@ void initScene()
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
+    //g_teapotNode = new GeometryNode(g_teapot, g_materials[0], modelRbt, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
@@ -394,7 +404,18 @@ void initScene()
 
     g_crysponzaNode = new GeometryNode(g_crysponza, g_teapotMaterial, modelRbt, false);
     g_crysponzaNode->setScaleFactor(Vec3(1.0f/50.0f, 1.0f/50.0f, 1.0f/50.0f));
-    
+
+
+    /*
+    for(int i = 0; i < 20; i++)
+    {
+        printf("%s\n", g_materials[i]->getName());
+        modelRbt = RigTForm(Vec3(-15.0 + (i % 5)*10, 0.0f, (i / 5) * 10));
+        g_teapotArray[i] = new GeometryNode(g_teapot, g_materials[i], modelRbt, true);
+        g_teapotArray[i]->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
+        g_worldNode->addChild(g_teapotArray[i]);
+    }
+    */
 
     //g_worldNode->addChild(g_terrainNode);
     //g_worldNode->addChild(g_ship2Node);
@@ -443,6 +464,7 @@ int main()
     inputHandler.initialize();
     
     initGeometry();
+    
     MaterialInfo matInfoList[MAX_MATERIALS];
     MaterialInfo totalMatInfoList[MAX_MATERIALS];
 
@@ -469,11 +491,7 @@ int main()
     */
 
     g_numTextures = initTexture(matInfoList, matCount, g_textureFileNames);
-    //for(size_t i = 0; i < g_numTextures; i++)
-    //printf("%s\n", g_textureFileNames[i]);
     initMaterial(matInfoList, matCount);
-    for(size_t i = 0; i < matCount; i++)
-        printf("%s\n", g_materials[i]->getName());
     initScene();
 
 

@@ -343,13 +343,14 @@ const char* ADSFragSrc = GLSL(
     {
         
         vec3 lightDir = normalize(uLight - vPosition);
-        vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
+        //vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
+        vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
 
         vec3 ambContrib = 0.1 * texColor.xyz;
 
-        vec3 diffContrib = dot(lightDir, vNormal) * texColor.xyz;
+        vec3 diffContrib = max(dot(lightDir, vNormal), 0) * texColor.xyz;
 
         vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), 6) * texColor.xyz;
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
@@ -376,7 +377,7 @@ const char* OBJFragSrc = GLSL(
     {
         
         vec3 lightDir = normalize(uLight - vPosition);
-        vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
+        vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord);
 

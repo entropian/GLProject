@@ -60,7 +60,7 @@ void Mesh::initialize(OBJData *objData)
     }
 }
 
-// returns the number of elements in faceArray
+
 void Mesh::readFromObj(const char* fileName)
 {
     OBJData objData;
@@ -106,9 +106,10 @@ void Mesh::computeVertexNormals()
         Vec3 tmpVec = pos2 - pos1;
         Vec3 normZAxis = cross(normXAxis, tmpVec);
 
+        /*
         if(norm2(normZAxis) != 0.0f)
             normZAxis = normalize(normZAxis);
-
+        */
         faceNorms.push_back(normZAxis);
     }
 
@@ -134,10 +135,10 @@ void Mesh::computeVertexNormals()
     for(size_t i = 0; i < normals.size(); i++)
     {
         // Divide each element in normals by the corresponding element in normTimes
-        normals[i] /= normTimes[i];
+        //normals[i] /= -normTimes[i];
 
         // Normalize each normal
-        //normals[i] = normalize(normals[i]);
+        normals[i] = normalize(-normals[i]);
     }
 
     for(size_t i = 0; i < faces.size(); i++)
@@ -423,6 +424,7 @@ size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)
         (*mtlNames)[i] = (char*)malloc(sizeof(char)*groups[i].second.length());
         strcpy((*mtlNames)[i], groups[i].second.c_str());
     }
+
     return groups.size();
 }
 
