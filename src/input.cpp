@@ -1,5 +1,6 @@
 #include "input.h"
 
+// Places coordinate system arrows on an object
 void InputHandler::putArrowsOn(GeometryNode *gn)
 {
 
@@ -8,9 +9,9 @@ void InputHandler::putArrowsOn(GeometryNode *gn)
     gn->addChild(arrowXNode);
 }
 
+// Maintain the coordinate system arrows' orientation
 void InputHandler::updateArrowOrientation()
 {
-    // TODO: the arrows don't stay in the object's origin
     RigTForm counterRotation;
     TransformNode *tn = pickedObj;
     while(tn != worldNode)
@@ -24,6 +25,7 @@ void InputHandler::updateArrowOrientation()
     arrowXNode->setRigidBodyTransform(counterRotation * RigTForm(Quat::makeZRotation(-90.0f)));    
 }
 
+// Removess the coordinate systems arrows on an object
 void InputHandler::removeArrows(GeometryNode *gn)
 {
     gn->removeChild(arrowYNode);    
@@ -50,6 +52,7 @@ void InputHandler::setArrowsUnclickable()
     arrowXNode->setClickable(false);    
 }
 
+
 void InputHandler::initialize()
 {
     // Loads the arrow model
@@ -62,15 +65,15 @@ void InputHandler::initialize()
 
     // Initialize arrow materials and picking material
     arrowYMat = new Material(basicVertSrc, flatFragSrc, "arrowYMaterial");
-    arrowYMat->sendUniform3v("uColor", Vec3(0.0f, 0.0f, 1.0f));
+    arrowYMat->sendUniform3f("uColor", Vec3(0.0f, 0.0f, 1.0f));
     arrowYMat->sendUniformMat4("uProjMat", proj);
 
     arrowZMat = new Material(basicVertSrc, flatFragSrc, "arrowZMaterial");
-    arrowZMat->sendUniform3v("uColor", Vec3(0.0f, 1.0f, 0.0f));
+    arrowZMat->sendUniform3f("uColor", Vec3(0.0f, 1.0f, 0.0f));
     arrowZMat->sendUniformMat4("uProjMat", proj);
 
     arrowXMat = new Material(basicVertSrc, flatFragSrc, "arrowXMaterial");
-    arrowXMat->sendUniform3v("uColor", Vec3(1.0f, 0.0f, 0.0f));
+    arrowXMat->sendUniform3f("uColor", Vec3(1.0f, 0.0f, 0.0f));
     arrowXMat->sendUniformMat4("uProjMat", proj);
 
     pickMaterial = new Material(pickVertSrc, pickFragSrc, "PickMaterial");
@@ -88,7 +91,6 @@ void InputHandler::initialize()
     modelRbt = RigTForm(Quat::makeXRotation(-90.0f));
     arrowZNode = new GeometryNode(arrow, arrowZMat, modelRbt, false);
     arrowZNode->setDepthTest(false);
-
 }
 
 void InputHandler::FPSModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -175,10 +177,11 @@ void InputHandler::FPSModeKeyInput(GLFWwindow *window, int key, int scancode, in
         }
 }
 
+// Determines which object has been clicked on
 void InputHandler::calcPickedObj()
 {
     // TODO: Doesn't work well when objects are in the edge of the window
-    // or when I'm clicking near the edge of the object
+    // or when I'm clicking near the edge of the object    
     
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -190,7 +193,6 @@ void InputHandler::calcPickedObj()
     // so don't bother swapping the buffer
     //glfwSwapBuffers(window);
 
-
     // Thread safety?
     // Waits for a mouse click or the p key being pressed
     // pickModeClicked is only set to false here
@@ -198,7 +200,6 @@ void InputHandler::calcPickedObj()
     while(pickModeClicked == false && inputMode == PICKING_MODE)
     {
         glfwWaitEvents();
-        //glfwPollEvents();
     }
 
     if(pickModeClicked == true && inputMode == PICKING_MODE)
@@ -224,6 +225,7 @@ void InputHandler::calcPickedObj()
         }
     }
 }
+
 void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     RigTForm rbt;
@@ -258,6 +260,7 @@ void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, in
     updateArrowOrientation();
 }
 
+// Determine which coordinate system arrow has been clicked on
 void InputHandler::calcPickedArrow()
 {
     printf("picking arrow\n");
@@ -396,7 +399,7 @@ void InputHandler::handleMouseButton(GLFWwindow *window, int button, int action,
     }
 }
 
-
+// Handles cursor movement
 void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
 {
     if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED && inputMode == FPS_MODE)
@@ -424,11 +427,12 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
             viewRbt = tform * viewRbt;;
         }
 
+        /*
         // Report camera position in world space
-        //RigTForm invView = inv(g_view);
-        //Vec3 trans = invView.getTranslation();        
-        //std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
-        
+        RigTForm invView = inv(g_view);
+        Vec3 trans = invView.getTranslation();        
+        std::cout << "Camera pos: " << trans[0] << " " << trans[1] << " " << trans[2] << "\n";
+        */
 
     }else if(pickedArrow != NULL && inputMode == OBJECT_MODE)
     {

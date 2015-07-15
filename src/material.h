@@ -23,7 +23,7 @@ struct UniformDesc
     GLsizei size;
 };
 
-// Compile the shaders and link the program
+// Compile the shaders and link shaders to the program
 static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shaderProgram)
 {
     // Compile shaders
@@ -80,6 +80,7 @@ public:
     Material(const char *vertexShader, const char *fragmentShader, const char *materialName)
     {
         strcpy(name, materialName);
+        // Compile shaders
         readAndCompileShaders(vertexShader, fragmentShader, &shaderProgram);
 
         // Get the number of uniforms in shaderProgram
@@ -180,7 +181,7 @@ public:
         return true;
     }
     
-    bool sendUniform3v(const char *uniformName, Vec3 uniform)
+    bool sendUniform3f(const char *uniformName, Vec3 uniform)
     {
         GLint i;
         for(i = 0; i < numUniforms; i++)
@@ -223,7 +224,7 @@ public:
         return true;
     }
     
-    bool sendUniformTexture(const char *uniformName, GLuint uniform, GLenum texture, GLint texUnit)
+    bool sendUniformTexture(const char *uniformName, GLuint uniform, GLuint texUnit)
     {
         GLint i;
         for(i = 0; i < numUniforms; i++)
@@ -239,7 +240,7 @@ public:
         }
         
         glUseProgram(shaderProgram);
-        glActiveTexture(texture);
+        glActiveTexture(GL_TEXTURE0 + texUnit);
         glBindTexture(GL_TEXTURE_2D, uniform);
         glUniform1i(uniformDesc[i].handle, texUnit);
         glUseProgram(0);

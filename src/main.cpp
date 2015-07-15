@@ -52,7 +52,6 @@ static const size_t MAX_MATERIALS = 200;
 static Material *g_materials[MAX_MATERIALS];
 static int g_numMat = 0;
 
-
 static GLuint *textures;
 static char **g_textureFileNames;
 static size_t g_numTextures;
@@ -64,22 +63,27 @@ static double g_distancePerSec = 3.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
+// Render-to-buffer stuff
+static GLuint framebuffer, texColorBuffer, rbo;
+static GLuint RTBvao, RTBvbo;
+static GLuint RTBProgram;
+static GLuint textureHandle;
+static bool g_renderToBuffer = true;
 
 
-// New: InputHanlder
 InputHandler inputHandler;
 
 void draw_scene()
 {
+    if(g_renderToBuffer)
+    {
+        //glActiveTexture(GL_TEXTURE2);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    }
+    
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    //trans = Mat4::makeZRotation((float)(glfwGetTime()*30));
-    // Update cube positions
-    /*
-    for(int i = 0; i < 2; i++)
-        g_cubeArray[i]->setRigidBodyTransform(RigTForm(Quat::makeYRotation(1.0f)) *g_cubeArray[i]->getRbt());
-    */
     // Calculate camera movement
     RigTForm trans(inputHandler.getMovementDir() * g_distancePerFrame);
     inputHandler.setViewTransform(trans * inputHandler.getViewTransform());
@@ -88,26 +92,39 @@ void draw_scene()
     // like g_lightE
     // Update some uniforms    
     g_lightE = inputHandler.getViewTransform() * g_lightW;
-    g_shipMaterial1->sendUniform3v("uLight", g_lightE);
-    g_shipMaterial2->sendUniform3v("uLight", g_lightE);    
-    g_cubeMaterial->sendUniform3v("uLight", g_lightE);
-    g_teapotMaterial->sendUniform3v("uLight", g_lightE);
+    g_shipMaterial1->sendUniform3f("uLight", g_lightE);
+    g_shipMaterial2->sendUniform3f("uLight", g_lightE);    
+    g_cubeMaterial->sendUniform3f("uLight", g_lightE);
+    g_teapotMaterial->sendUniform3f("uLight", g_lightE);
     //Vec3 lightTargetW(1.0f, 0.0f, 0.0f);
     //Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
-    //g_teapotMaterial->sendUniform3v("uLightTarget", lightTargetE);
+    //g_teapotMaterial->sendUniform3f("uLightTarget", lightTargetE);
 
-    // TODO: update the uniforms in g_materials
+    // Update light position in g_materials
     for(int i = 0; i < g_numMat; i++)
-        g_materials[i]->sendUniform3v("uLight", g_lightE);
-
+        g_materials[i]->sendUniform3f("uLight", g_lightE);
+ 
     // Draw objects
-
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
-    //RigTForm modelViewRbt = inputHandler.getViewTransform();
-    //g_sponzaNode->drawGroup(modelViewRbt);
+    if(g_renderToBuffer)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
+        glUseProgram(RTBProgram);
+        glBindVertexArray(RTBvao);
+        glActiveTexture(GL_TEXTURE0 + g_numTextures + 1);
+        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glUniform1i(textureHandle, g_numTextures + 1);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glEnable(GL_DEPTH_TEST);
+    }
 
+    
     glfwSwapBuffers(window);
 }
 
@@ -125,7 +142,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 {
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
-
 
 
 void initGeometry()
@@ -174,7 +190,7 @@ void initGeometry()
     //sponzaMesh.computeVertexBasis();
     //sponzaMesh.flipTexcoordY(); // For some reason the texcoords are flipped for sponza.obj
                                 // Or perhaps it's the space ships that have the flipped texcoords
-    //g_sponza = sponzaMesh.produceGeometryPNX();
+
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 
     Mesh crysponzaMesh;
@@ -195,8 +211,6 @@ void initGeometry()
     int vertSizePNX = 8;
     g_floor = new Geometry(floor_verts, elements, 4, 6, vertSizePNX);
     g_wall = new Geometry(wall_verts, elements, 4, 6, vertSizePNX);
-
-    //free(mesh_verts);
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -230,10 +244,10 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
 {
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
                            "Ship2_Diffuse.png", "Ship2_Normal.png"};
+
     size_t numNonMTL = 5;
     
     size_t tmp = 5 + matCount;
-    printf("tmp = %d\n", tmp);
     textureFileNames = (char**)malloc(sizeof(char*)*tmp);
 
     for(size_t i = 0; i < tmp; i++)
@@ -275,15 +289,15 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
         glBindTexture(GL_TEXTURE_2D, textures[i]);
         loadAndSpecifyTexture(textureFileNames[i]);
     }
-
+    glBindTexture(GL_TEXTURE_2D, 0);
     return numTextureFiles;
 }
 
+// Loads the data from MTL files specified by MTLFileNames into matInfoList
 size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
 {
     MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
     size_t numMat = 0;
-
 
     for(size_t i = 0; i < numMTLFiles; i++)
     {
@@ -318,41 +332,42 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
     Mat4 proj = transpose(g_proj);
 
-    // Material
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     Vec3 color(1.0f, 1.0f, 1.0f);
-    g_shipMaterial1->sendUniform3v("uColor", color);
+    g_shipMaterial1->sendUniform3f("uColor", color);
     g_shipMaterial1->sendUniformMat4("uProjMat", proj);
-    g_shipMaterial1->sendUniformTexture("uTex0", textures[0], GL_TEXTURE0, 0);
-    g_shipMaterial1->sendUniformTexture("uTex1", textures[2], GL_TEXTURE2, 2);
+    //g_shipMaterial1->sendUniformTexture("uTex0", textures[0], GL_TEXTURE0, 0);
+    g_shipMaterial1->sendUniformTexture("uTex0", textures[0], 0);
+    g_shipMaterial1->sendUniformTexture("uTex1", textures[2], 2);
     
     g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
-    g_shipMaterial2->sendUniform3v("uColor", color);
+    g_shipMaterial2->sendUniform3f("uColor", color);
     g_shipMaterial2->sendUniformMat4("uProjMat", proj);
-    g_shipMaterial2->sendUniformTexture("uTex0", textures[3], GL_TEXTURE3, 3);
-    g_shipMaterial2->sendUniformTexture("uTex1", textures[4], GL_TEXTURE4, 4);
+    g_shipMaterial2->sendUniformTexture("uTex0", textures[3], 3);
+    g_shipMaterial2->sendUniformTexture("uTex1", textures[4], 4);
 
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
-    g_teapotMaterial->sendUniform3v("uColor", color);
+    g_teapotMaterial->sendUniform3f("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
-    g_teapotMaterial->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+    g_teapotMaterial->sendUniformTexture("uTex0", textures[1], 1);
 
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
-    g_cubeMaterial->sendUniform3v("uColor", Vec3(1.0f, 1.0f, 0.0f));
+    g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", proj);
 
+    // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
         g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
         g_materials[i]->sendUniformMat4("uProjMat", proj);
-        g_materials[i]->sendUniform3v("Ka", matInfoList[i].Ka);
-        g_materials[i]->sendUniform3v("Kd", matInfoList[i].Kd);
-        g_materials[i]->sendUniform3v("Ks", matInfoList[i].Ks);
+        g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
+        g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
+        g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
 
         if(matInfoList[i].name[0] == '\0')
-            g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+            g_materials[i]->sendUniformTexture("uTex0", textures[1], 1);
         else
         {
             //printf("map_Kd for %s is %s\n", matInfoList[i].name, matInfoList[i].map_Kd);
@@ -364,12 +379,10 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
             }
 
             if(j == g_numTextures)
-                g_materials[i]->sendUniformTexture("uTex0", textures[1], GL_TEXTURE1, 1);
+                g_materials[i]->sendUniformTexture("uTex0", textures[1], 1);
             else
             {
-                printf("%s\n", g_textureFileNames[j]);
-                g_materials[i]->sendUniformTexture("uTex0", textures[j], GL_TEXTURE0 + j, j);
-                //g_materials[i]->sendUniformTexture("uTex0", textures[0], GL_TEXTURE0 + 0, 0);
+                g_materials[i]->sendUniformTexture("uTex0", textures[j], j);
             }
         }
     }
@@ -425,6 +438,71 @@ void initScene()
     //g_worldNode->addChild(g_crysponzaNode);
 }
 
+void initRenderToBuffer()
+{
+    readAndCompileShaders(RTBVertSrc, RTBFragSrc, &RTBProgram);
+    glUseProgram(RTBProgram);
+    // The quad that covers the whole viewport
+    GLfloat vertices[] = {
+        -1.0f,  -1.0f, 0.0f, 0.0f,
+        1.0f, -1.0f, 1.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f, 1.0f,
+        1.0, -1.0, 1.0f, 0.0f,
+        -1.0, 1.0, 0.0f, 1.0f,
+        1.0, 1.0, 1.0f, 1.0f
+    };    
+
+    // Generate and bind buffer objects
+    glGenVertexArrays(1, &RTBvao);
+    glBindVertexArray(RTBvao);
+
+    glGenBuffers(1, &RTBvbo);
+    glBindBuffer(GL_ARRAY_BUFFER, RTBvbo);
+    //sizeof works because vertices is an array, not a pointer.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    
+    // Setup vertex attributes
+    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+
+    // Setup texture handle
+    textureHandle = glGetUniformLocation(RTBProgram, "uTex0");    
+
+
+    // Generate framebuffer
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+    // Generate texture
+    glGenTextures(1, &texColorBuffer);
+    // TODO: glActiveTexture
+    glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);    
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Attach texture to currently bound framebuffer object
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+
+    // Create renderbuffer object for stencil and depth buffer
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, (int)g_windowWidth, (int)g_windowHeight);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        fprintf(stderr, "Frame buffer is not complete.\n");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int main()
 {
     // -------------------------------- INIT ------------------------------- //
@@ -435,9 +513,9 @@ int main()
         return -1;
     }
     
-    // Create a rendering window with OpenGL 3.2 context
+    // Create a rendering window with OpenGL 3.3 context
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -460,6 +538,9 @@ int main()
     glFrontFace(GL_CCW);
 
     // ----------------------------- RESOURCES ----------------------------- //
+    int a;
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &a);
+    printf("Max texture image units = %d\n", a);
 
     inputHandler.initialize();
     
@@ -493,7 +574,7 @@ int main()
     g_numTextures = initTexture(matInfoList, matCount, g_textureFileNames);
     initMaterial(matInfoList, matCount);
     initScene();
-
+    initRenderToBuffer();
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
