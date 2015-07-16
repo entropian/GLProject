@@ -430,11 +430,11 @@ void initScene()
     }
     */
 
-    //g_worldNode->addChild(g_terrainNode);
-    //g_worldNode->addChild(g_ship2Node);
+    g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
-    //g_worldNode->addChild(g_teapotNode);
-    g_worldNode->addChild(g_sponzaNode);
+    g_worldNode->addChild(g_teapotNode);
+    //g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
 }
 

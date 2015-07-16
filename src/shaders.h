@@ -175,12 +175,10 @@ const char* RTBFragSrc = GLSL(
     in vec2 vTexcoord;
 
     out vec4 outColor;
-    
+
     void main()
     {
         outColor = texture(uTex0, vTexcoord);
-        //outColor = vec4(1, 0, 0, 1);
-        //outColor = vec4(vTexcoord, 0, 1.0f);
     }
 );
 
@@ -485,6 +483,170 @@ const char* normalFragSrc = GLSL(
         vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), 4.0) * texColor.xyz;
         
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+//------------------ Post processing fragment shaders
+
+// Inverts the color of the image
+const char* invertFragSrc = GLSL(
+    uniform sampler2D uTex0;
+    
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+    
+    void main()
+    {
+        outColor = vec4(vec3(1.0 - texture(uTex0, vTexcoord)), 1.0);
+    }
+);
+
+// Turns the image to grey scale
+const char* greyScaleFragSrc = GLSL(
+    uniform sampler2D uTex0;
+    
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+    
+    void main()
+    {
+        outColor = texture(uTex0, vTexcoord);
+        float average = 0.2126 * outColor.r + 0.7152 * outColor.g + 0.0722 * outColor.b;
+        outColor = vec4(average, average, average, 1.0);
+    }
+);
+
+// Sharpens the edges in the scene
+const char* sharpenFragSrc = GLSL(
+    uniform sampler2D uTex0;
+    
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    const float offset = 1.0 / 300;
+    
+    void main()
+    {
+        vec2 offsets[9] = vec2[](
+            vec2(-offset, offset),
+            vec2(0.0f, offset),
+            vec2(offset, offset),
+            vec2(-offset, 0.0f),
+            vec2(0.0f, 0.0f),
+            vec2(offset, 0.0f),
+            vec2(-offset, -offset),
+            vec2(0.0f, -offset),
+            vec2(offset, -offset)         
+        );
+
+        float kernel[9] = float[](
+            -1, -1, -1,
+            -1, 9, -1,
+            -1, -1, -1
+        );
+
+        vec3 sampleTex[9];
+        for(int i = 0; i < 9; i++)
+        {
+            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+        }
+
+        vec3 col;
+        for(int i = 0; i < 9; i++)
+            col += sampleTex[i] * kernel[i];
+
+        outColor = vec4(col, 1.0);
+    }
+);
+
+// Blurs everything
+const char* blurFragSrc = GLSL(
+    uniform sampler2D uTex0;
+    
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    const float offset = 1.0 / 300;
+    
+    void main()
+    {
+        vec2 offsets[9] = vec2[](
+            vec2(-offset, offset),
+            vec2(0.0f, offset),
+            vec2(offset, offset),
+            vec2(-offset, 0.0f),
+            vec2(0.0f, 0.0f),
+            vec2(offset, 0.0f),
+            vec2(-offset, -offset),
+            vec2(0.0f, -offset),
+            vec2(offset, -offset)         
+        );
+
+        float kernel[9] = float[](
+            1.0/16, 2.0/16, 1.0/16,
+            2.0/16, 4.0/16, 2/16,
+            1.0/16, 2.0/16, 1.0/16
+        );
+
+        vec3 sampleTex[9];
+        for(int i = 0; i < 9; i++)
+        {
+            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+        }
+
+        vec3 col;
+        for(int i = 0; i < 9; i++)
+            col += sampleTex[i] * kernel[i];
+
+        outColor = vec4(col, 1.0);
+    }
+);
+
+// Brighten the edges and darken everything else
+const char* brightEdgeFragSrc = GLSL(
+    uniform sampler2D uTex0;
+    
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    const float offset = 1.0 / 300;
+    
+    void main()
+    {
+        vec2 offsets[9] = vec2[](
+            vec2(-offset, offset),
+            vec2(0.0f, offset),
+            vec2(offset, offset),
+            vec2(-offset, 0.0f),
+            vec2(0.0f, 0.0f),
+            vec2(offset, 0.0f),
+            vec2(-offset, -offset),
+            vec2(0.0f, -offset),
+            vec2(offset, -offset)         
+        );
+
+        float kernel[9] = float[](
+            1, 1, 1,
+            1, -8, 1,
+            1, 1, 1
+        );
+
+        vec3 sampleTex[9];
+        for(int i = 0; i < 9; i++)
+        {
+            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+        }
+
+        vec3 col;
+        for(int i = 0; i < 9; i++)
+            col += sampleTex[i] * kernel[i];
+
+        outColor = vec4(col, 1.0);
     }
 );
 
