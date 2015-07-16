@@ -8,6 +8,7 @@
 #include "geometry.h"
 
 static bool g_debugUniformString = true;
+static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;
 
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
@@ -118,6 +119,8 @@ public:
         {
             vertexAttrib = PNX;            
         }
+
+        textureCount = 0;
     }
 
     ~Material()
@@ -223,10 +226,15 @@ public:
         glUseProgram(0);
         return true;
     }
-    
-    bool sendUniformTexture(const char *uniformName, GLuint uniform, GLuint texUnit)
+
+    /*
+      Instead of directly sending the uniform to the shader program like the other
+      sendUniform functions, this function only stores the texture handles.
+      Binding of textures and texture units happen in draw()
+     */
+    bool sendUniformTexture(const char *uniformName, GLuint uniform)
     {
-        GLint i;
+        GLuint i;
         for(i = 0; i < numUniforms; i++)
         {
             if(strcmp(uniformDesc[i].name, uniformName) == 0)
@@ -239,14 +247,12 @@ public:
             return false;
         }
         
-        glUseProgram(shaderProgram);
-        glActiveTexture(GL_TEXTURE0 + texUnit);
-        glBindTexture(GL_TEXTURE_2D, uniform);
-        glUniform1i(uniformDesc[i].handle, texUnit);
-        glUseProgram(0);
+        textureHandles[textureCount] = uniform;
+        textureToUniformIndex[textureCount] = i;
+        ++textureCount;
 
         return true;
-    }
+    }    
 
     void draw(Geometry *geometry, RigTForm& modelViewRbt, Vec3& scaleFactor)
     {
@@ -288,6 +294,17 @@ public:
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));                
                 break;
             }
+        }
+
+        /*
+          Binding texture objects to texture units and binding texture units
+          to uniforms
+         */
+        for(GLuint i = 0; i < textureCount; i++)
+        {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, textureHandles[i]);
+            glUniform1i(uniformDesc[textureToUniformIndex[i]].handle, i);
         }
         
 
@@ -335,6 +352,9 @@ private:
     GLint numUniforms;
     GLuint h_aPosition, h_aNormal, h_aTexcoord;
     GLuint h_aTangent, h_aBinormal, h_aDet;
+    GLuint textureToUniformIndex[MAX_TEXTURES_PER_MATERIAL];
+    GLuint textureHandles[MAX_TEXTURES_PER_MATERIAL];
+    unsigned int textureCount;
     char name[20];
 };
 

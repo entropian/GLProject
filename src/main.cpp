@@ -76,10 +76,8 @@ InputHandler inputHandler;
 void draw_scene()
 {
     if(g_renderToBuffer)
-    {
-        //glActiveTexture(GL_TEXTURE2);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    }
+
     
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -108,22 +106,22 @@ void draw_scene()
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
 
+    // Draws the image in the framebuffer to a quad that covers the screen
     if(g_renderToBuffer)
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);                
         glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         glUseProgram(RTBProgram);
         glBindVertexArray(RTBvao);
-        glActiveTexture(GL_TEXTURE0 + g_numTextures + 1);
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-        glUniform1i(textureHandle, g_numTextures + 1);
+        glUniform1i(textureHandle, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glEnable(GL_DEPTH_TEST);
     }
-
     
     glfwSwapBuffers(window);
 }
@@ -282,10 +280,9 @@ size_t initTexture(MaterialInfo matInfoList[], const size_t matCount, char **&te
     textures = (GLuint*)malloc(sizeof(GLuint)*numTextureFiles);
     glGenTextures(numTextureFiles, textures);
 
-
+    glActiveTexture(GL_TEXTURE0);
     for(size_t i = 0; i < numTextureFiles; i++)
     {
-        glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, textures[i]);
         loadAndSpecifyTexture(textureFileNames[i]);
     }
@@ -337,20 +334,19 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3f("uColor", color);
     g_shipMaterial1->sendUniformMat4("uProjMat", proj);
-    //g_shipMaterial1->sendUniformTexture("uTex0", textures[0], GL_TEXTURE0, 0);
-    g_shipMaterial1->sendUniformTexture("uTex0", textures[0], 0);
-    g_shipMaterial1->sendUniformTexture("uTex1", textures[2], 2);
+    g_shipMaterial1->sendUniformTexture("uTex0", textures[0]);
+    g_shipMaterial1->sendUniformTexture("uTex1", textures[2]);
     
     g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
     g_shipMaterial2->sendUniform3f("uColor", color);
     g_shipMaterial2->sendUniformMat4("uProjMat", proj);
-    g_shipMaterial2->sendUniformTexture("uTex0", textures[3], 3);
-    g_shipMaterial2->sendUniformTexture("uTex1", textures[4], 4);
+    g_shipMaterial2->sendUniformTexture("uTex0", textures[3]);
+    g_shipMaterial2->sendUniformTexture("uTex1", textures[4]);
 
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3f("uColor", color);
     g_teapotMaterial->sendUniformMat4("uProjMat", proj);
-    g_teapotMaterial->sendUniformTexture("uTex0", textures[1], 1);
+    g_teapotMaterial->sendUniformTexture("uTex0", textures[1]);
 
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
@@ -367,7 +363,7 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
         g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
 
         if(matInfoList[i].name[0] == '\0')
-            g_materials[i]->sendUniformTexture("uTex0", textures[1], 1);
+            g_materials[i]->sendUniformTexture("uTex0", textures[1]);
         else
         {
             //printf("map_Kd for %s is %s\n", matInfoList[i].name, matInfoList[i].map_Kd);
@@ -379,10 +375,10 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
             }
 
             if(j == g_numTextures)
-                g_materials[i]->sendUniformTexture("uTex0", textures[1], 1);
+                g_materials[i]->sendUniformTexture("uTex0", textures[1]);
             else
             {
-                g_materials[i]->sendUniformTexture("uTex0", textures[j], j);
+                g_materials[i]->sendUniformTexture("uTex0", textures[j]);
             }
         }
     }
@@ -472,14 +468,12 @@ void initRenderToBuffer()
     // Setup texture handle
     textureHandle = glGetUniformLocation(RTBProgram, "uTex0");    
 
-
     // Generate framebuffer
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
     // Generate texture
     glGenTextures(1, &texColorBuffer);
-    // TODO: glActiveTexture
     glBindTexture(GL_TEXTURE_2D, texColorBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
