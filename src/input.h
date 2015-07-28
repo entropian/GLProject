@@ -28,7 +28,6 @@ extern const char* basicVertSrc;
 extern const char* flatFragSrc;
 extern const char* pickVertSrc;
 extern const char* pickFragSrc;
-extern GLfloat* readFromObj(const char* fileName, int *numVertices);
 
 /*
   Accepts a mouse button or key press, makes changes to its members,

@@ -61,7 +61,7 @@ void Mesh::initialize(OBJData *objData)
 }
 
 
-void Mesh::readFromObj(const char* fileName)
+void Mesh::loadOBJFile(const char* fileName)
 {
     OBJData objData;
     parseOBJFile(fileName, &objData);
@@ -151,54 +151,9 @@ void Mesh::computeVertexNormals()
     normalsComputed = true;
 }
 
-void Mesh::computeFaceNormals()
-{
-    std::vector<Vec3> faceNorms;
-    for(size_t i = 0; i < faces.size(); i++)
-    {
-        // compute face normal
-        Face face = faces[i];
-        Vec3 pos0 = positions[face[0].posIndex];
-        Vec3 pos1 = positions[face[1].posIndex];
-        Vec3 pos2 = positions[face[2].posIndex];
-
-        Vec3 normXAxis = pos1 - pos0;
-        Vec3 tmpVec = pos2 - pos1;
-        
-        Vec3 normZAxis = cross(normXAxis, tmpVec);
-        if(norm2(normZAxis) != 0.0f)
-            normZAxis = normalize(normZAxis);
-        faceNorms.push_back(normZAxis);
-    }
-
-    
-    normals.clear();
-    for(size_t i = 0; i < positions.size(); i++)
-        normals.push_back(Vec3(0.0f, 0.0f, 0.0f));
-    
-    for(size_t i = 0; i < faces.size(); i++)
-    {
-        // for each face, cycle through all three face verts, and add the corresponding
-        // face normal to normals at the same index as the posIndex
-        // increment normTimes[posIndex]
-        Face &face = faces[i];
-        for(size_t j = 0; j < 3; j++)
-        {
-            normals[face[j].posIndex] = faceNorms[i];
-        }
-    }
-
-     for(size_t i = 0; i < faces.size(); i++)
-    {
-        // Copy posIndex to normIndex
-        Face &face = faces[i];
-        for(size_t j = 0; j < 3; j++)
-            face[j].normIndex = face[j].posIndex;
-    }
-    normalsComputed = true;
-}
 
 /*
+  Computes the orthonormal basis for all mesh vertices
   Reference: 3D Math Primer p435
  */
 void Mesh::computeVertexBasis()
@@ -259,10 +214,6 @@ void Mesh::computeVertexBasis()
 
 void Mesh::vertexAttribPNX(GLfloat *vertexArray, size_t *vertexIndex, const size_t i, const size_t j)
 {
-    // NOTE: what's with all the reversal?
-    // the z component of position and normal are both reversed
-    // normal used to be untouched, and the object was lit on the wrong side
-
     // Position
     vertexArray[(*vertexIndex)++] = positions[faces[i][j].posIndex][0];
     vertexArray[(*vertexIndex)++] = positions[faces[i][j].posIndex][1];
@@ -272,7 +223,6 @@ void Mesh::vertexAttribPNX(GLfloat *vertexArray, size_t *vertexIndex, const size
     vertexArray[(*vertexIndex)++] = normals[faces[i][j].normIndex][1];
     vertexArray[(*vertexIndex)++] = normals[faces[i][j].normIndex][2];
     // Texcoord
-    // also reversed the v component of texcoord
     vertexArray[(*vertexIndex)++] = texcoords[faces[i][j].texcoordIndex][0];
     vertexArray[(*vertexIndex)++] = texcoords[faces[i][j].texcoordIndex][1];
 }
@@ -366,6 +316,10 @@ Geometry* Mesh::produceGeometryPNXTBD()
     return geometry;
 }
 
+/*
+  Returns an array of Geoemetry* with their VBO in the format of:
+  position, normal, and texcoord.
+ */
 Geometry* Mesh::geometryFromGroupPNX(size_t groupNum)
 {
     if(groupNum >= groups.size())
@@ -428,6 +382,7 @@ size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)
     return groups.size();
 }
 
+// TODO
 size_t Mesh::geoListPNXTBD(Geometry ***GeoList, char ***mtlNames)
 {
     return 0;

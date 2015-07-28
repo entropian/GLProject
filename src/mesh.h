@@ -14,7 +14,6 @@ class Mesh
         int posIndex;
         int normIndex;
         int texcoordIndex;
-
     
         FaceVertex()
         {}
@@ -46,34 +45,47 @@ public:
     Mesh()
         :normalsComputed(false)
     {}
-    
-    
-
+       
     Mesh(const Mesh& m)
     {
         *this = m;
     }
 
-    void readFromObj(const char* fileName);
+    // Load mesh data from an OBJ file specified by fileName
+    void loadOBJFile(const char* fileName);
+    
     void computeVertexNormals();
+    
+    // Compute the orthonormal basis for every mesh vertex
     void computeVertexBasis();
-    // TODO: get rid of this
-    void computeFaceNormals();
+    
+    // Returns a Geometry* with positions, normals, and texcoords as its vertex attributes
     Geometry* produceGeometryPNX();
+    
+    // Returns a Geometry* with positions, normals, texcoords, tangent, bitangent, and determinant as its vertex attributes    
     Geometry* produceGeometryPNXTBD();
+
+    /*
+      Store an array of Geometry objects in Geometry***, each with the vertex attributes
+      position, normal, and texcoord. char*** will contain the material name for each Geometry
+      object
+    */
     size_t geoListPNX(Geometry ***, char ***);
+
+    /*
+      Store an array of Geometry objects in Geometry***, each with the vertex attributes
+      position, normal, texcoord, tangent, bitangent, and determinant. char*** will contain
+      the material name for each Geometry object.
+    */
     size_t geoListPNXTBD(Geometry ***, char ***);
-    void flipTexcoordY();
-    void initialize(const GLfloat*, const GLfloat*, const GLfloat*, const size_t*, const size_t*, char**, const size_t,
-                    const size_t, const size_t, const size_t, const size_t);
-    void initialize(OBJData*);
+
+    
 private:
-    unsigned int extractObjData(const char*, const size_t, GLfloat*, GLfloat *, GLfloat*, size_t*, size_t*, char**);
-    unsigned int extractObjData(const char*, const size_t, GLfloat*, GLfloat*, size_t*, size_t*, char**);
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
     void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);
+    void initialize(OBJData*);
     Geometry* geometryFromGroupPNX(size_t);
-
+    void flipTexcoordY();
     
     std::vector<Vec3> positions, normals;
     std::vector<Vec3> tangents, binormals;
@@ -84,6 +96,11 @@ private:
     bool normalsComputed;
 };
 
+/*
+  Takes the vertex attributes in mesh, and produces Geometry objects according to the
+  grouping info in the mesh. The Geometry objects are stored in geometryGrousp[].
+  Additional information about the groups of Geometry objects are stored in groupInfoList.
+ */
 static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], size_t MAX_GEOMETRY_GROUPS,
                        size_t &groupSize, int &groupInfoSize, VertexAttrib va)
 {

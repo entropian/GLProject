@@ -237,7 +237,7 @@ inline Mat4 inv(const Mat4& m) {
   // check non-singular matrix
   assert(abs(det) > EPS3);
 
-  // "rotation part"
+  // The rotation part
   r(0,0) =  (m(1,1) * m(2,2) - m(1,2) * m(2,1)) / det;
   r(1,0) = -(m(1,0) * m(2,2) - m(1,2) * m(2,0)) / det;
   r(2,0) =  (m(1,0) * m(2,1) - m(1,1) * m(2,0)) / det;
@@ -248,7 +248,7 @@ inline Mat4 inv(const Mat4& m) {
   r(1,2) = -(m(0,0) * m(1,2) - m(0,2) * m(1,0)) / det;
   r(2,2) =  (m(0,0) * m(1,1) - m(0,1) * m(1,0)) / det;
 
-  // "translation part" - multiply the translation (on the left) by the inverse linear part
+  // The translation part - multiply the translation (on the left) by the inverse linear part
   r(0,3) = -(m(0,3) * r(0,0) + m(1,3) * r(0,1) + m(2,3) * r(0,2));
   r(1,3) = -(m(0,3) * r(1,0) + m(1,3) * r(1,1) + m(2,3) * r(1,2));
   r(2,3) = -(m(0,3) * r(2,0) + m(1,3) * r(2,1) + m(2,3) * r(2,2));

@@ -6,11 +6,13 @@
 #include <stdio.h>
 
 struct Geometry {
-    GLuint vao, vbo, ebo;
-    int vboLen = 0, eboLen = 0;
-    GLuint shaderProgram;
-    char name[20];
+    GLuint vao;                // Vertex array object
+    GLuint vbo;                // Vertex buffer object
+    GLuint ebo;                // Index buffer object
+    int vboLen = 0, eboLen = 0;                // number of vertices and number of indices
+    GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
 
+    // Constructor for geometry with vertex indices
     Geometry(GLfloat vtx[], GLuint edx[], int vboLen, int eboLen, int vertexSize) {
         this->vboLen = vboLen;
         this->eboLen = eboLen;
@@ -20,7 +22,6 @@ struct Geometry {
         glGenBuffers(1, &ebo);
 
         glBindVertexArray(vao);
-        // Now create the VBO and IBO
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * vertexSize, vtx, GL_STATIC_DRAW);
 
@@ -30,6 +31,7 @@ struct Geometry {
         glBindVertexArray(0);
     }
 
+    // Constructor for geometry without vertex indices
     Geometry(GLfloat vtx[], int vboLen, int vertexSize) {
         this->vboLen = vboLen;
 

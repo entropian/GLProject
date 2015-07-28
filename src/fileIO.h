@@ -8,20 +8,20 @@
 #include <ctype.h>
 #include "vec.h"
 
-
-// returns the index of the character immediately after the substring.
-// returns -1 if no new substring
+/*
+  Stores into buffer[] the next alphabetic word in fileContent[] starting after fileContent[index] 
+  Returns the index of the character immediately after the substring.
+  Returns -1 if no word found
+*/
 static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    //for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
     for(i = index; isalpha(fileContent[i]) == 0; i++)
     {
         if(i >= fileSize)
             return -1;
     }
 
-    //for(j = 0; (fileContent[j+i] >= 'A' && fileContent[j+i] <= 'Z') || (fileContent[j+i] >= 'a' && fileContent[j+i] <= 'z'); j++)
     for(j = 0; isalpha(fileContent[j+i]) || fileContent[j+i] == '_';j++)
         buffer[j] = fileContent[j+i];
 
@@ -30,12 +30,14 @@ static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSiz
     return int(j + i);
 }
 
-// returns the index of the character immediately after the substring.
-// returns -1 if no new substring
+/*
+  Stores into buffer[] the next number in fileContent[] starting after fileContent[index] 
+  Returns the index of the character immediately after the substring.
+  Returns -1 if no number found.
+*/
 static int subStringNum(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    //for(i = index; (fileContent[i] < '0' || fileContent[i] > '9') && fileContent[i] != '-'; i++)
     for(i = index; isdigit(fileContent[i]) == 0 && fileContent[i] != '-'; i++)
     {
         if(i >= fileSize)
@@ -51,10 +53,14 @@ static int subStringNum(const char* fileContent, char buffer[], size_t fileSize,
     return int(j + i);
 }
 
+/*
+  Stores into buffer[] the next alpha-numeric word in fileContent[] starting after fileContent[index] 
+  Returns the index of the character immediately after the substring.
+  Returns -1 if no word found
+*/
 static int getMaterialName(const char *fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    //for(i = index; (fileContent[i] < 'A' || fileContent[i] > 'Z') && (fileContent[i] < 'a' || fileContent[i] > 'z'); i++)
     for(i = index; isalnum(fileContent[i]) == 0; i++)
     {
         if(i >= fileSize)
@@ -68,9 +74,10 @@ static int getMaterialName(const char *fileContent, char buffer[], size_t fileSi
     return int(j + i);
 }
 
+// Reads the content from file specified by fileName and stores in fileContent
+// Returns the length of fileContent
 static size_t readFileIntoString(const char *fileName, char **fileContent)
 {
-    // Read the file into the string fileContent
     FILE *fp = fopen(fileName, "rb");
     if(fp == NULL)
     {
@@ -82,7 +89,6 @@ static size_t readFileIntoString(const char *fileName, char **fileContent)
     size_t fileSize = ftell(fp);
     *fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
     rewind(fp);
-    //printf("File size = %d\n", fileSize);
 
     size_t readResult = fread((void*)(*fileContent), 1, fileSize, fp);    
     if(readResult != fileSize)
@@ -96,31 +102,35 @@ static size_t readFileIntoString(const char *fileName, char **fileContent)
     return readResult;
 }
 
+// Struct for storing info from MTL material entries
 struct MaterialInfo
 {    
     char name[30];
-    Vec3 Ka, Kd, Ks, Ke; // Ambient color, diffuse color, specular color, and emmisive color
-    float Ns = 0.0f, Ni = 0.0f;         // Specular exponent and index of reflection
-    int illum = 0;            // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
-    char map_Ka[30];
-    char map_Kd[30];
-    char map_bump[30];
+    Vec3 Ka, Kd, Ks, Ke;         // Ambient color, diffuse color, specular color, and emmisive color
+    float Ns = 0.0f, Ni = 0.0f;  // Specular exponent and index of reflection
+    int illum = 0;               // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
+    char map_Ka[30];             // Ambient map file name
+    char map_Kd[30];             // Diffuse map file name
+    char map_bump[30];           // Bump map file name
 };
 
+/*
+  Reads the MTL file specified by fileName, and store the material entry info into infoList.
+  Returns the number of materials read
+ */
 static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, const char *fileName)
 {
-
     char *fileContent;
     size_t readResult = readFileIntoString(fileName, &fileContent);
-
     if(readResult == 0)
     {
         fprintf(stderr, "Read nothing from %s\n", fileName);
         return 0;
     }
-
     char buffer[50];
     size_t matCount = 0;
+
+    // Count the number of material entries in fileContent.
     int index = 0;
     while(index != -1)
     {
@@ -134,7 +144,6 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         fprintf(stderr, "Too many materials in %s.\n", fileName);
         return 0;
     }
-    //infoList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*matCount);
 
     for(size_t i = 0; i < matCount; i++)
     {
@@ -152,7 +161,6 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         if(strcmp(buffer, "newmtl") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex].name, readResult, index);
-            //strcpy(infoList[infoIndex].name, buffer);
             infoIndex++;
         }else if(strcmp(buffer, "Ka") == 0)
         {
@@ -201,15 +209,12 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         }else if(strcmp(buffer, "map_Kd") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_Kd, readResult, index);
-            //strcpy(infoList[infoIndex-1].map_Kd, buffer);
         }else if(strcmp(buffer, "map_Ka") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_Ka, readResult, index);
-            //strcpy(infoList[infoIndex-1].map_Ka, buffer);
         }else if(strcmp(buffer, "map_bump") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
-            //strcpy(infoList[infoIndex-1].map_bump, buffer);
         }            
     }
 
@@ -217,6 +222,7 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
     return matCount;
 }
 
+// Struct for temporarily storing data from an OBJ file
 struct OBJData
 {
     GLfloat *positions = NULL, *normals = NULL, *texcoords = NULL;
@@ -226,6 +232,8 @@ struct OBJData
     size_t numPositions = 0, numNormals = 0, numTexcoords = 0, numFaces = 0, numGroups = 0;    
 };
 
+
+//Extract the OBJ file data from fileContent and store them in objData
 static void extractOBJData(const char *fileContent, const size_t fileSize, OBJData *objData)
 {
     char buffer[20];
@@ -236,28 +244,29 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
         index = subStringAlpha(fileContent, buffer, fileSize, index);
         if(strcmp(buffer, "v") == 0)
         {
+            // Position
             index = subStringNum(fileContent, buffer, fileSize, index);
             objData->positions[posIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
             objData->positions[posIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
-            // Reversing Z
-            objData->positions[posIndex++] = -(GLfloat)atof(buffer);
+            objData->positions[posIndex++] = -(GLfloat)atof(buffer);            // Reversing Z
         }else if(strcmp(buffer, "vt") == 0)
         {
+            // Texcoord
             index = subStringNum(fileContent, buffer, fileSize, index);            
             objData->texcoords[texcoordIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
-            // Reversing V
-            objData->texcoords[texcoordIndex++] = 1.0f - (GLfloat)atof(buffer);
+            objData->texcoords[texcoordIndex++] = 1.0f - (GLfloat)atof(buffer);            // Reversing V
         }else if(strcmp(buffer, "vn") == 0)
         {
+            // Normal
             index = subStringNum(fileContent, buffer, fileSize, index);
             objData->normals[normIndex++] = (GLfloat)atof(buffer);
             index = subStringNum(fileContent, buffer, fileSize, index);
             objData->normals[normIndex++] = (GLfloat)atof(buffer);            
             index = subStringNum(fileContent, buffer, fileSize, index);
-            objData->normals[normIndex++] = -(GLfloat)atof(buffer);            
+            objData->normals[normIndex++] = -(GLfloat)atof(buffer);            // Reversing Z            
         }else if(strcmp(buffer, "f") == 0)
         {
             int slashCount = 0;
@@ -319,13 +328,14 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
     objData->numFaces = faceIndex;
 }
 
+// Extract data from the file specified by fileName and store the data in objData
 static void parseOBJFile(const char *fileName, OBJData *objData)
 {
     // Read the file into the string fileContent
     char *fileContent;
     size_t readResult = readFileIntoString(fileName, &fileContent);
 
-        // Count the number of positions, normals, texcoords, faces, and groups in the file
+    // Count the number of positions, normals, texcoords, faces, and groups in the file
     char buffer[50];
     size_t posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0;
     int index = 0;
@@ -378,111 +388,10 @@ static void parseOBJFile(const char *fileName, OBJData *objData)
         }
     }
 
-    //size_t faceIndex = extractOBJData(fileContent, readResult, objData);
-    extractOBJData(fileContent, readResult, objData);
-    
+    // Extract the OBJ file data from fileContent and store the data in objData.
+    extractOBJData(fileContent, readResult, objData);    
     free(fileContent);
 }
-
-/*
-  static size_t parseMTLFile(const char *fileName, MaterialInfo *&infoList)
-{
-    char *fileContent;
-    size_t readResult = readFileIntoString(fileName, &fileContent);
-
-    char buffer[50];
-    size_t matCount = 0;
-    int index = 0;
-    while(index != -1)
-    {
-        index = subStringAlpha(fileContent, buffer, readResult, index);
-        if(strcmp(buffer, "newmtl") == 0)
-            matCount++;
-    }
-
-    infoList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*matCount);
-
-    for(size_t i = 0; i < matCount; i++)
-    {
-        infoList[i].name[0] = '\0';
-        infoList[i].map_Ka[0] = '\0';
-        infoList[i].map_Kd[0] = '\0';
-        infoList[i].map_bump[0] = '\0';
-    }
-
-    size_t infoIndex = 0;
-    index = 0;
-    while(index != -1)
-    {
-        index = subStringAlpha(fileContent, buffer, readResult, index);
-        if(strcmp(buffer, "newmtl") == 0)
-        {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex].name, buffer);
-            infoIndex++;
-        }else if(strcmp(buffer, "Ka") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[2] = (float)atof(buffer);            
-        }else if(strcmp(buffer, "Kd") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[2] = (float)atof(buffer);            
-        }else if(strcmp(buffer, "Ks") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[2] = (float)atof(buffer);
-        }else if(strcmp(buffer, "Ke") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[2] = (float)atof(buffer);            
-        }else if(strcmp(buffer, "Ns") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ns = (float)atof(buffer);
-        }else if(strcmp(buffer, "Ni") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ni = (float)atof(buffer);
-        }else if(strcmp(buffer, "illum") == 0)
-        {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].illum = atoi(buffer);                                                
-        }else if(strcmp(buffer, "map_Kd") == 0)
-        {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_Kd, buffer);
-        }else if(strcmp(buffer, "map_Ka") == 0)
-        {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_Ka, buffer);
-        }else if(strcmp(buffer, "map_bump") == 0)
-        {
-            index = getMaterialName(fileContent, buffer, readResult, index);
-            strcpy(infoList[infoIndex-1].map_bump, buffer);
-        }            
-
-    }
-
-    return matCount;
-}
-*/
 
 
 static GLfloat* readFromCollada(const char* fileName, int *numVertices)

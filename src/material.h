@@ -7,8 +7,8 @@
 #include "rigtform.h"
 #include "geometry.h"
 
-static bool g_debugUniformString = true;
-static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;
+static bool g_debugUniformString = false;
+static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;                // Arbitrary
 
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
@@ -24,10 +24,10 @@ struct UniformDesc
     GLsizei size;
 };
 
-// Compile the shaders and link shaders to the program
-static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shaderProgram)
+// Compile vertex shader vs and fragment shader fs, and attach them to a shader program
+// Returns the handle to the shader program
+static GLuint compileShaders(const char *vs, const char *fs)
 {
-    // Compile shaders
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vs, NULL);
     glCompileShader(vertexShader);
@@ -56,14 +56,14 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
         fprintf(stderr, "%s\n", infoLog);
     }
 
-    // Link the vertex and fragment shader into the shader program
-    *shaderProgram = glCreateProgram();
-    glAttachShader(*shaderProgram, vertexShader);
-    glAttachShader(*shaderProgram, fragmentShader);
-    glBindFragDataLocation(*shaderProgram, 0, "outColor");
-    glLinkProgram(*shaderProgram);
 
-    glGetProgramiv(*shaderProgram, GL_LINK_STATUS, &status);
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glBindFragDataLocation(shaderProgram, 0, "outColor");
+    glLinkProgram(shaderProgram);
+
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &status);
     if(status != GL_TRUE)
     {
         glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
@@ -73,7 +73,10 @@ static void readAndCompileShaders(const char *vs, const char *fs, GLuint *shader
     
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    return shaderProgram;
 }
+
 
 class Material
 {
@@ -81,11 +84,9 @@ public:
     Material(const char *vertexShader, const char *fragmentShader, const char *materialName)
     {
         strcpy(name, materialName);
-        // Compile shaders
-        readAndCompileShaders(vertexShader, fragmentShader, &shaderProgram);
+        shaderProgram = compileShaders(vertexShader, fragmentShader);             // Compile shaders
 
-        // Get the number of uniforms in shaderProgram
-        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);
+        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);          // Get the number of uniforms in shaderProgram
         uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
 
         // Populate uniformDesc with uniform information
@@ -103,23 +104,18 @@ public:
         h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
         h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
         h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
+        vertexAttrib = PNX;            
 
         // Retrieve handles to optional vertex attributes
         GLint numActiveAttrib;
         glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
-        printf("numActiveAttrib = %d\n", numActiveAttrib);
         if(numActiveAttrib == 6)
         {
-            printf("Optional attributes\n");
             h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
             h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
             h_aDet = glGetAttribLocation(shaderProgram, "aDet");
             vertexAttrib = PNXTBD;
-        }else
-        {
-            vertexAttrib = PNX;            
         }
-
         textureCount = 0;
     }
 
@@ -254,11 +250,14 @@ public:
         return true;
     }    
 
+    /*
+      Draws geometry with modelview transform modelVewRbt and scaled with scaleFactor
+     */
     void draw(Geometry *geometry, RigTForm& modelViewRbt, Vec3& scaleFactor)
     {
         glBindVertexArray(geometry->vao);
-        // TODO: check if rebinding buffer is needed
-        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
+        // NOTE: don't know why the vbo needs rebinding
+        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);             
 
         Mat4 scaleMat;
         scaleMat[0] = scaleFactor[0];
@@ -278,23 +277,18 @@ public:
         glUseProgram(shaderProgram);
 
         for(GLint i = 0; i < numUniforms; i++)
-        {
             if(strcmp(uniformDesc[i].name, "uModelViewMat") == 0)
             {
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
                 break;
             }
-        }
-
 
         for(GLint i = 0; i < numUniforms; i++)
-        {
             if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
             {
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));                
                 break;
             }
-        }
 
         /*
           Binding texture objects to texture units and binding texture units
@@ -307,7 +301,7 @@ public:
             glUniform1i(uniformDesc[textureToUniformIndex[i]].handle, i);
         }
         
-
+        // Link vertex attributes 
         if(geometry->shaderProgram != shaderProgram)
         {
             GLint vertexSize; 
@@ -325,15 +319,13 @@ public:
 
             if(vertexAttrib == PNXTBD)
             {
-                //printf("vertexAttrib == PNXTBD\n");
                 glEnableVertexAttribArray(h_aTangent);
                 glVertexAttribPointer(h_aTangent, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(8 * sizeof(GLfloat)));
                 glEnableVertexAttribArray(h_aBinormal);
                 glVertexAttribPointer(h_aBinormal, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(11 * sizeof(GLfloat)));
                 glEnableVertexAttribArray(h_aDet);
                 glVertexAttribPointer(h_aDet, 1, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(14 * sizeof(GLfloat)));
-            }else
-                //printf("vertexAttrib == PNX\n");
+            }
             
             geometry->shaderProgram = shaderProgram;
         }
