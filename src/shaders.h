@@ -57,6 +57,31 @@ const char* basicVertSrc = GLSL(
     }
 );
 
+const char* cubemapReflectionVertSrc = GLSL(
+    uniform mat4 uModelViewMat;
+    uniform mat4 uNormalMat;
+    uniform mat4 uProjMat;
+    uniform mat4 uInvViewMat;    
+
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    out vec3 TexVec;
+
+    void main()
+    {        
+        vec3 vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
+        vec3 vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
+        vec3 eyeDir = normalize(-vPosition);
+        vec3 reflectDir = 2*dot(eyeDir, vNormal)*vNormal - eyeDir;
+        TexVec = (uInvViewMat * vec4(reflectDir, 0.0)).xyz;
+        gl_Position = uProjMat * vec4(vPosition, 1.0);
+    }
+);
+
+
+
 // Vertex shader that calculates the orthonormal basis for normal mapping
 const char* normalVertSrc = GLSL(
     uniform mat4 uModelViewMat;
@@ -206,8 +231,20 @@ const char* skyboxFragSrc = GLSL(
     void main()
     {
         outColor = texture(skybox, Texcoords);
-        //outColor = vec4(1, 1, 1, 1);
     } 
+);
+
+const char* cubemapReflectionFragSrc = GLSL(
+    uniform samplerCube uCubemap;
+
+    in vec3 TexVec;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        outColor = texture(uCubemap, TexVec);
+    }
 );
 
 const char* fragmentSource = GLSL(

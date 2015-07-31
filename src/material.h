@@ -117,11 +117,12 @@ public:
             vertexAttrib = PNXTBD;
         }
         textureCount = 0;
+        cubemap = false;
     }
 
     ~Material()
     {
-        for(GLint i = 0; i < numUniforms; i++)
+        for(int i = 0; i < numUniforms; i++)
         {
             free(uniformDesc);
         }
@@ -140,87 +141,55 @@ public:
 
     bool sendUniform1i(const char *uniformName, GLint uniform)
     {
-        GLint i;
-        for(i = 0; i < numUniforms; i++)
+        int i = searchUniformDesc(uniformName);
+        if(i != -1)
         {
-            if(strcmp(uniformDesc[i].name, uniformName) == 0)
-                break;
+            glUseProgram(shaderProgram);
+            glUniform1i(uniformDesc[i].handle, uniform);
+            glUseProgram(0);
+            return true;
         }
-        if(i == numUniforms)
-        {
-            if(g_debugUniformString)
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-            return false;
-        }
-
-        glUseProgram(shaderProgram);
-        glUniform1i(uniformDesc[i].handle, uniform);
-        glUseProgram(0);
-        return true;
+        return false;
     }
 
     bool sendUniform1f(const char *uniformName, GLfloat uniform)
     {
-        GLint i;
-        for(i = 0; i < numUniforms; i++)
+        int i = searchUniformDesc(uniformName);
+        if(i != -1)
         {
-            if(strcmp(uniformDesc[i].name, uniformName) == 0)
-                break;
+            glUseProgram(shaderProgram);
+            glUniform1f(uniformDesc[i].handle, uniform);
+            glUseProgram(0);
+            return true;
         }
-        if(i == numUniforms)
-        {
-            if(g_debugUniformString)
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-            return false;
-        }
-
-        glUseProgram(shaderProgram);
-        glUniform1f(uniformDesc[i].handle, uniform);
-        glUseProgram(0);
-        return true;
+        return false;
     }
     
     bool sendUniform3f(const char *uniformName, Vec3 uniform)
     {
-        GLint i;
-        for(i = 0; i < numUniforms; i++)
+        int i = searchUniformDesc(uniformName);
+        if(i != -1)
         {
-            if(strcmp(uniformDesc[i].name, uniformName) == 0)
-                break;
+            glUseProgram(shaderProgram);
+            glUniform3f(uniformDesc[i].handle, uniform[0], uniform[1], uniform[2]);
+            glUseProgram(0);
+            return true;
         }
-        if(i == numUniforms)
-        {
-            if(g_debugUniformString)
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-            return false;
-        }
-
-        glUseProgram(shaderProgram);
-        glUniform3f(uniformDesc[i].handle, uniform[0], uniform[1], uniform[2]);
-        glUseProgram(0);
-        return true;
+        return false;
     }
 
     // TODO: change Mat4 to RigTForm to keep a more consistent interface?
     bool sendUniformMat4(const char *uniformName, Mat4 uniform)
     {
-        GLint i;
-        for(i = 0; i < numUniforms; i++)
+        int i = searchUniformDesc(uniformName);
+        if(i != -1)
         {
-            if(strcmp(uniformDesc[i].name, uniformName) == 0)
-                break;
+            glUseProgram(shaderProgram);
+            glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_TRUE, &(uniform[0]));
+            glUseProgram(0);
+            return true;
         }
-        if(i == numUniforms)
-        {
-            if(g_debugUniformString)
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-            return false;
-        }
-
-        glUseProgram(shaderProgram);
-        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_TRUE, &(uniform[0]));
-        glUseProgram(0);
-        return true;
+        return false;
     }
 
     /*
@@ -230,25 +199,29 @@ public:
      */
     bool sendUniformTexture(const char *uniformName, GLuint uniform)
     {
-        GLuint i;
-        for(i = 0; i < numUniforms; i++)
+        int i = searchUniformDesc(uniformName);
+        if(i != -1)
         {
-            if(strcmp(uniformDesc[i].name, uniformName) == 0)
-                break;
+            textureHandles[textureCount] = uniform;
+            textureToUniformIndex[textureCount] = i;
+            ++textureCount;
+            return true;
         }
-        if(i == numUniforms)
-        {
-            if(g_debugUniformString)
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-            return false;
-        }
-        
-        textureHandles[textureCount] = uniform;
-        textureToUniformIndex[textureCount] = i;
-        ++textureCount;
+        return false;
+    }
 
-        return true;
-    }    
+    bool sendUniformCubemap(const char *uniformName, GLuint uniform)
+    {
+        int i = searchUniformDesc(uniformName);
+
+        if(i != -1)
+        {
+            cubemapHandle = uniform;
+            cubemap = true;
+            return true;
+        }
+        return false;
+    }
 
     /*
       Draws geometry with modelview transform modelVewRbt and scaled with scaleFactor
@@ -276,14 +249,14 @@ public:
         modelViewMat = scaleMat * modelViewMat;
         glUseProgram(shaderProgram);
 
-        for(GLint i = 0; i < numUniforms; i++)
+        for(int i = 0; i < numUniforms; i++)
             if(strcmp(uniformDesc[i].name, "uModelViewMat") == 0)
             {
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
                 break;
             }
 
-        for(GLint i = 0; i < numUniforms; i++)
+        for(int i = 0; i < numUniforms; i++)
             if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
             {
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));                
@@ -294,11 +267,23 @@ public:
           Binding texture objects to texture units and binding texture units
           to uniforms
          */
-        for(GLuint i = 0; i < textureCount; i++)
+        for(int i = 0; i < textureCount; i++)
         {
             glActiveTexture(GL_TEXTURE0 + i);
             glBindTexture(GL_TEXTURE_2D, textureHandles[i]);
             glUniform1i(uniformDesc[textureToUniformIndex[i]].handle, i);
+        }
+
+        if(cubemap)
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapHandle);
+            for(int i = 0; i < numUniforms; i++)
+                if(strcmp(uniformDesc[i].name, "uCubemap") == 0)
+                {
+                    glUniform1i(uniformDesc[i].handle, 0);
+                    break;
+                }
         }
         
         // Link vertex attributes 
@@ -338,15 +323,35 @@ public:
         glUseProgram(0);
     }
 private:
+    int searchUniformDesc(const char* uniformName)
+    {
+        int i;
+        for(i = 0; i < numUniforms; i++)
+        {
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+                break;
+        }
+        if(i == numUniforms)
+        {
+            if(g_debugUniformString)
+                fprintf(stderr, "No active uniform %s.\n", uniformName);
+            return -1;
+        }
+        return i;
+    }
+    
+    
     GLuint shaderProgram;
     VertexAttrib vertexAttrib;
     UniformDesc *uniformDesc;
-    GLint numUniforms;
+    int numUniforms;
     GLuint h_aPosition, h_aNormal, h_aTexcoord;
     GLuint h_aTangent, h_aBinormal, h_aDet;
     GLuint textureToUniformIndex[MAX_TEXTURES_PER_MATERIAL];
     GLuint textureHandles[MAX_TEXTURES_PER_MATERIAL];
     unsigned int textureCount;
+    GLuint cubemapHandle;
+    bool cubemap;
     char name[20];
 };
 

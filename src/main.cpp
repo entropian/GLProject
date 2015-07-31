@@ -47,6 +47,7 @@ static GeometryNode *g_crysponzaNode;
 
 // Materials
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
+static Material *g_cubemapReflectionMat;
 static const size_t MAX_MATERIALS = 200;
 static Material *g_materials[MAX_MATERIALS];
 static int g_numMat = 0;
@@ -109,13 +110,27 @@ void draw_scene()
     for(int i = 0; i < g_numMat; i++)
         g_materials[i]->sendUniform3f("uLight", g_lightE);
 
+    RigTForm viewRbt = inputHandler.getViewTransform();
+    Mat4 invViewMat = rigTFormToMat(inv(viewRbt));
+    /*
+    for(int i = 0; i < 16; i++)
+    {
+        if(i == 0)
+            printf("Matrix\n");
+        printf("%f ", invViewMat[i]);
+        if(((i + 1) % 4) == 0)
+            printf("\n");
+    }
+    */
+    g_cubemapReflectionMat->sendUniformMat4("uInvViewMat", invViewMat);
+    
     // Draw skybox
     if(g_drawSkybox)
     {
         glDepthMask(GL_FALSE);
         glUseProgram(g_skybox.shaderProgram);
-        Mat4 viewMat = rigTFormToMat(linFact(inputHandler.getViewTransform()));
-        glUniformMatrix4fv(g_skybox.viewMatHandle, 1, GL_TRUE, &(viewMat[0]));
+        Mat4 viewRotationMat = rigTFormToMat(linFact(viewRbt));
+        glUniformMatrix4fv(g_skybox.viewMatHandle, 1, GL_TRUE, &(viewRotationMat[0]));
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, g_skybox.cubemap);
         glUniform1i(g_skybox.cubemapUniformHandle, 0);
@@ -125,6 +140,8 @@ void draw_scene()
         glBindVertexArray(0);        
         glDepthMask(GL_TRUE);  
     }
+
+
 
     // Draw scene
     Visitor visitor(inputHandler.getViewTransform());
@@ -382,7 +399,6 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 {
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
-    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
 
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
@@ -406,6 +422,11 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
     g_cubeMaterial->sendUniformMat4("uProjMat", g_proj);
+
+    g_cubemapReflectionMat = new Material(cubemapReflectionVertSrc, cubemapReflectionFragSrc, "CubemapReflection");
+    g_cubemapReflectionMat->sendUniformMat4("uProjMat", g_proj);
+    // TODO: change the source of the cubemap to something else that isn't the skybox struct
+    g_cubemapReflectionMat->sendUniformCubemap("uCubemap", g_skybox.cubemap);
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
@@ -456,7 +477,8 @@ void initScene()
     g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
-    g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
+    //g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
+    g_teapotNode = new GeometryNode(g_teapot, g_cubemapReflectionMat, modelRbt, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
@@ -470,7 +492,7 @@ void initScene()
     g_worldNode->addChild(g_terrainNode);
     //g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
-    //g_worldNode->addChild(g_teapotNode);
+    g_worldNode->addChild(g_teapotNode);
     //g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
 }
@@ -590,10 +612,12 @@ int main()
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
 
     g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
+    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
+    initSkybox(&g_skybox);            
     initMaterial(matInfoList, matCount);
     initScene();
     initRenderToBuffer(&g_rtb);
-    initSkybox(&g_skybox);
+
     
 
     //g_skyboxTexture = loadCubemap(skyboxTextureFiles);
