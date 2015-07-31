@@ -293,195 +293,6 @@ private:
     size_t numMaterials;
     size_t *materialIndex;
 };
-/*
-class GeometryNode : public TransformNode
-{
-    
-public:
-    GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
-        :TransformNode(rbt), geometry(g), m(material), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f)),
-        numGeometries(0), groups(false)
-    {
-        nt = GEOMETRY;
-    }
-
-    // Constructor for geometryNode with multiple geometries and multiple corresponding materials
-    GeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *m[], const size_t numMat,
-                 RigTForm &rbt, bool c)
-        :TransformNode(rbt), clickable(c), depthTest(true), numGeometries(groupInfo.numGroups),
-        scaleFactor(Vec3(1.0f, 1.0f, 1.0f)), groups(true)
-    {
-        geometries = (Geometry**)malloc(sizeof(Geometry*)*groupInfo.numGroups);
-        for(size_t i = 0; i < groupInfo.numGroups; i++)
-            geometries[i] = geoList[groupInfo.offset + i];
-        
-        materials = (Material**)malloc(sizeof(Material*)*groupInfo.numGroups);
-        materialIndex = (size_t*)malloc(sizeof(size_t)*groupInfo.numGroups);
-        size_t matIndex = 0;
-        for(size_t i = 0; i < groupInfo.numGroups; i++)
-        {
-            size_t j;
-            for(j = 0; strcmp(groupInfo.mtlNames[i], m[j]->getName()) != 0 && j < numMat; j++){};
-            assert(j < numMat);
-            bool duplicate = false;
-            for(size_t k = 0; k < matIndex; k++)
-            {
-                if(materials[k] == m[j])
-                {
-                    duplicate = true;
-                    materialIndex[i] = k;
-                }
-            }
-            if(!duplicate)
-            {
-                materials[matIndex] = m[j];
-                materialIndex[i] = matIndex++;
-            }
-        }
-
-        numMaterials = matIndex;
-        nt = GEOMETRY;
-    }
-
-    ~GeometryNode()
-    {
-        if(numGeometries > 0)
-        {
-            free(geometries);
-            free(materialIndex);
-        }
-    }
-    
-    Geometry* getGeometry()
-    {
-        return geometry;
-    }
-
-    void setGeometry(Geometry *g)
-    {
-        geometry = g;
-    }
-
-    Vec3 getScaleFactor()
-    {
-        return scaleFactor;
-    }
-
-    void setScaleFactor(Vec3 v)
-    {
-        scaleFactor = v;
-    }
-
-    bool hasGroups()
-    {
-        return groups;
-    }
-
-    Material* getMaterial()
-    {
-        return m;
-    }
-
-    void setMaterial(Material *material)
-    {
-        m = material;
-    }
-
-    size_t getNumMat()
-    {
-        return numMaterials;
-    }
-    
-    Material* getMatListEntry(const size_t i)
-    {
-        return materials[i];
-    }
-
-    bool getClickable()
-    {
-        return clickable;
-    }
-
-    void setClickable(bool c)
-    {
-        clickable = c;
-    }
-
-    bool getDepthTest()
-    {
-        return depthTest;
-    }
-
-    void setDepthTest(bool b)
-    {
-        depthTest = b;
-    }
-
-    void draw(RigTForm modelViewRbt)
-    {
-        if(depthTest == false)
-            glDisable(GL_DEPTH_TEST);
-        m->draw(geometry, modelViewRbt, scaleFactor);
-        if(depthTest == false)
-            glEnable(GL_DEPTH_TEST);
-    }
-
-    void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
-    {
-        if(depthTest == false)
-            glDisable(GL_DEPTH_TEST);
-        overrideMat->draw(geometry, modelViewRbt, scaleFactor);
-        if(depthTest == false)
-            glEnable(GL_DEPTH_TEST);
-    }
-
-    void drawGroup(RigTForm modelViewRbt)
-    {
-        if(depthTest == false)
-            glDisable(GL_DEPTH_TEST);
-        
-        for(int i = 0; i < numGeometries; i++)
-        {
-            materials[materialIndex[i]]->draw(geometries[i], modelViewRbt, scaleFactor);
-        }
-        
-        if(depthTest == false)
-            glEnable(GL_DEPTH_TEST);
-    }
-
-    void overrideMatDrawGroup(Material *overrideMat, RigTForm modelViewRbt)
-    {
-        if(depthTest == false)
-            glDisable(GL_DEPTH_TEST);
-        
-        for(int i = 0; i < numGeometries; i++)
-        {
-            overrideMat->draw(geometries[i], modelViewRbt, scaleFactor);
-        }
-        
-        if(depthTest == false)
-            glEnable(GL_DEPTH_TEST);
-    }
-    
-private:
-    // For drawing a single geometry with one material
-    Geometry *geometry;    
-    Material *m;
-
-    // For drawing groups of geometries, each with a corresponding material
-    Geometry **geometries;
-    size_t numGeometries;
-    Material **materials;
-    size_t numMaterials;
-    size_t *materialIndex;
-    
-    bool groups;
-    Vec3 scaleFactor;
-    bool clickable;  // Indicates whether the node can be selected by clicking
-    bool depthTest;  // Indicates whether the node can be covered by other object
-};
-*/
-
 
 class Visitor
 {
@@ -527,11 +338,6 @@ public:
                 modelViewRbt = viewRbt * rbtStack[rbtCount-1];
             }
             AbstractGeometryNode *gn = static_cast<AbstractGeometryNode*>(tn);
-            /*
-            if(gn->hasGroups())
-                gn->drawGroup(modelViewRbt);
-            else
-            */
             gn->draw(modelViewRbt);
 
             for(int i = 0; i < gn->getNumChildren(); i++)
@@ -570,22 +376,12 @@ public:
                 // NOTE: Not sure if casting changes the pointer
                 geoNodes[code] = static_cast<GeometryNode*>(tn);
                 overrideMat->sendUniform1i("uCode", ++code);
-                /*
-                if(gn->hasGroups())
-                    gn->overrideMatDrawGroup(overrideMat, modelViewRbt);
-                else
-                */
                 gn->overrideMatDraw(overrideMat, modelViewRbt);
             }else
             {
                 // TODO: render the object with background color or something like that
                 // The back ground color is black. Setting uCode to 0 makes the color black
                 overrideMat->sendUniform1i("uCode", 0);
-                /*
-                if(gn->hasGroups())
-                    gn->overrideMatDrawGroup(overrideMat, modelViewRbt);
-                else
-                */
                 gn->overrideMatDraw(overrideMat, modelViewRbt);
             }
 
@@ -606,8 +402,6 @@ public:
         }
         return geoNodes[c];
     }
-
-
     
 private:
     bool pushRbt(RigTForm rbt)

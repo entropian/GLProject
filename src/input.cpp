@@ -61,23 +61,22 @@ void InputHandler::initialize()
     arrow = arrowMesh.produceGeometryPNX();
 
     projMat = Mat4::makeProjection(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
-    Mat4 proj = transpose(projMat);
 
     // Initialize arrow materials and picking material
     arrowYMat = new Material(basicVertSrc, flatFragSrc, "arrowYMaterial");
     arrowYMat->sendUniform3f("uColor", Vec3(0.0f, 0.0f, 1.0f));
-    arrowYMat->sendUniformMat4("uProjMat", proj);
+    arrowYMat->sendUniformMat4("uProjMat", projMat);
 
     arrowZMat = new Material(basicVertSrc, flatFragSrc, "arrowZMaterial");
     arrowZMat->sendUniform3f("uColor", Vec3(0.0f, 1.0f, 0.0f));
-    arrowZMat->sendUniformMat4("uProjMat", proj);
+    arrowZMat->sendUniformMat4("uProjMat", projMat);
 
     arrowXMat = new Material(basicVertSrc, flatFragSrc, "arrowXMaterial");
     arrowXMat->sendUniform3f("uColor", Vec3(1.0f, 0.0f, 0.0f));
-    arrowXMat->sendUniformMat4("uProjMat", proj);
+    arrowXMat->sendUniformMat4("uProjMat", projMat);
 
     pickMaterial = new Material(pickVertSrc, pickFragSrc, "PickMaterial");
-    pickMaterial->sendUniformMat4("uProjMat", proj);
+    pickMaterial->sendUniformMat4("uProjMat", projMat);
 
     // Initialize arrow GeometryNodes
     RigTForm modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));

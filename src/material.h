@@ -218,7 +218,7 @@ public:
         }
 
         glUseProgram(shaderProgram);
-        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(uniform[0]));
+        glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_TRUE, &(uniform[0]));
         glUseProgram(0);
         return true;
     }

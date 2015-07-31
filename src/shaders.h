@@ -21,6 +21,20 @@ const char* RTBVertSrc = GLSL(
     }
 );
 
+const char* skyboxVertSrc = GLSL(
+    layout (location = 0) in vec3 aPosition;
+    out vec3 Texcoords;
+
+    uniform mat4 uProjMat;
+    uniform mat4 uViewMat;
+
+    void main()
+    {
+        gl_Position = uProjMat * uViewMat * vec4(aPosition, 1.0);
+        Texcoords = aPosition;
+    }
+);
+
 const char* basicVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
@@ -180,6 +194,20 @@ const char* RTBFragSrc = GLSL(
     {
         outColor = texture(uTex0, vTexcoord);
     }
+);
+
+const char* skyboxFragSrc = GLSL(
+    in vec3 Texcoords;
+
+    uniform samplerCube skybox;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        outColor = texture(skybox, Texcoords);
+        //outColor = vec4(1, 1, 1, 1);
+    } 
 );
 
 const char* fragmentSource = GLSL(

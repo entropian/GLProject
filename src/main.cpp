@@ -70,8 +70,11 @@ static GLuint RTBProgram;
 static GLuint textureHandle;
 static bool g_renderToBuffer = true;
 
-// Skybox
-GLuint g_skyboxTexture;
+// Skybox stuff
+static GLuint g_skyboxTexture;
+static GLuint skyboxvao, skyboxvbo;
+static GLuint skyboxProgram, skyboxUniformHandle, viewMatHandle;
+static bool g_skybox = true;
 
 
 InputHandler inputHandler;
@@ -105,10 +108,29 @@ void draw_scene()
 
     for(int i = 0; i < g_numMat; i++)
         g_materials[i]->sendUniform3f("uLight", g_lightE);
+
+    // Draw skybox
+    if(g_skybox)
+    {
+        glDepthMask(GL_FALSE);
+        glUseProgram(skyboxProgram);
+        Mat4 viewMat = rigTFormToMat(linFact(inputHandler.getViewTransform()));
+        glUniformMatrix4fv(viewMatHandle, 1, GL_TRUE, &(viewMat[0]));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, g_skyboxTexture);
+        glUniform1i(skyboxUniformHandle, 0);
+        glBindVertexArray(skyboxvao);
+        glBindBuffer(GL_ARRAY_BUFFER, skyboxvbo);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);        
+        glDepthMask(GL_TRUE);
+    }    
  
     // Draw scene
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
+
+
 
     // Draws the image in the framebuffer onto the screen
     if(g_renderToBuffer)
@@ -206,13 +228,75 @@ void loadAndSpecifyTexture(const char *fileName)
     SOIL_free_image_data(image);
 }
 
+GLuint loadCubemap(const char *faces[])
+{
+    GLuint textureID;
+    glGenTextures(1,&textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+
+    int width, height;
+    unsigned char* image;
+
+    char buffer[100];    
+    for(GLuint i = 0; i < 6; i++)
+    {
+        buffer[0] = '\0';
+        strcat(buffer, "../textures/");
+        strcat(buffer, faces[i]);
+        image = SOIL_load_image(buffer, &width, &height, 0, SOIL_LOAD_RGB);
+
+        if(image == NULL)
+            fprintf(stderr, "Failed to load %s.\n", faces[i]);
+        
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        SOIL_free_image_data(image);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    
+    return textureID;
+}
+
+void initSkybox()
+{
+    skyboxProgram = compileShaders(skyboxVertSrc, skyboxFragSrc);
+    glUseProgram(skyboxProgram);
+    
+    Mesh cubeMesh;
+    cubeMesh.loadOBJFile("cube.obj");
+    Geometry *cube = cubeMesh.produceGeometryPNX();    
+
+    glGenVertexArrays(1, &skyboxvao);
+    glBindVertexArray(skyboxvao);   
+    skyboxvbo = cube->vbo;
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxvbo);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+
+    const char *skyboxTextureFiles[6] = {"skybox_right.jpg", "skybox_left.jpg",
+                                "skybox_top.jpg", "skybox_bottom.jpg", "skybox_back.jpg", "skybox_front.jpg"};        
+    g_skyboxTexture = loadCubemap(skyboxTextureFiles);
+    
+    glUniformMatrix4fv(glGetUniformLocation(skyboxProgram, "uProjMat"), 1, GL_TRUE, &(g_proj[0]));
+    skyboxUniformHandle = glGetUniformLocation(skyboxProgram, "skybox");
+    viewMatHandle = glGetUniformLocation(skyboxProgram, "uViewMat");
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
+
+// Initializes textures that are used in materials
 size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames)
 {
-    char *nonMTLTextures[11] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
-                                "Ship2_Diffuse.png", "Ship2_Normal.png", "skybox_back.jpg", "skybox_bottom.jpg",
-                                "skybox_front.jpg", "skybox_left.jpg", "skybox_right.jpg", "skybox_top.jpg"};
+    char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
+                                "Ship2_Diffuse.png", "Ship2_Normal.png"};
 
-    size_t numNonMTL = 11;
+    size_t numNonMTL = 5;
     
     size_t tmp = 5 + matCount;
     textureFileNames = (char**)malloc(sizeof(char*)*tmp);
@@ -300,36 +384,35 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
     g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
-    Mat4 proj = transpose(g_proj);
 
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3f("uColor", color);
-    g_shipMaterial1->sendUniformMat4("uProjMat", proj);
+    g_shipMaterial1->sendUniformMat4("uProjMat", g_proj);
     g_shipMaterial1->sendUniformTexture("uTex0", textures[0]);
     g_shipMaterial1->sendUniformTexture("uTex1", textures[2]);
     
     g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
     g_shipMaterial2->sendUniform3f("uColor", color);
-    g_shipMaterial2->sendUniformMat4("uProjMat", proj);
+    g_shipMaterial2->sendUniformMat4("uProjMat", g_proj);
     g_shipMaterial2->sendUniformTexture("uTex0", textures[3]);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[4]);
 
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3f("uColor", color);
-    g_teapotMaterial->sendUniformMat4("uProjMat", proj);
+    g_teapotMaterial->sendUniformMat4("uProjMat", g_proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[1]);
 
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
-    g_cubeMaterial->sendUniformMat4("uProjMat", proj);
+    g_cubeMaterial->sendUniformMat4("uProjMat", g_proj);
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
         g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-        g_materials[i]->sendUniformMat4("uProjMat", proj);
+        g_materials[i]->sendUniformMat4("uProjMat", g_proj);
         g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
@@ -387,7 +470,7 @@ void initScene()
 
     //g_worldNode->addChild(g_terrainNode);
     //g_worldNode->addChild(g_ship2Node);
-    g_worldNode->addChild(g_cubeNode);
+    //g_worldNode->addChild(g_cubeNode);
     //g_worldNode->addChild(g_teapotNode);
     g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
@@ -511,6 +594,10 @@ int main()
     initMaterial(matInfoList, matCount);
     initScene();
     initRenderToBuffer();
+    initSkybox();
+    
+
+    //g_skyboxTexture = loadCubemap(skyboxTextureFiles);
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
