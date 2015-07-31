@@ -63,18 +63,23 @@ static double g_distancePerSec = 3.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
-// Render-to-buffer stuff
-static GLuint framebuffer, texColorBuffer, rbo;
-static GLuint RTBvao, RTBvbo;
-static GLuint RTBProgram;
-static GLuint textureHandle;
+// struct for Render-to-buffer 
+struct RTB{
+    GLuint framebuffer, texColorBuffer, rbo;
+    GLuint vao, vbo;
+    GLuint shaderProgram;
+    GLuint texture;
+};
+static RTB g_rtb;
 static bool g_renderToBuffer = true;
 
-// Skybox stuff
-static GLuint g_skyboxTexture;
-static GLuint skyboxvao, skyboxvbo;
-static GLuint skyboxProgram, skyboxUniformHandle, viewMatHandle;
-static bool g_skybox = true;
+// Skybox struct
+struct Skybox{
+    GLuint cubemap, cubemapUniformHandle, viewMatHandle;
+    GLuint vao, vbo, shaderProgram;    
+};
+static Skybox g_skybox;
+static bool g_drawSkybox = true;
 
 
 InputHandler inputHandler;
@@ -82,7 +87,7 @@ InputHandler inputHandler;
 void draw_scene()
 {
     if(g_renderToBuffer)
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
     
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -110,17 +115,17 @@ void draw_scene()
         g_materials[i]->sendUniform3f("uLight", g_lightE);
 
     // Draw skybox
-    if(g_skybox)
+    if(g_drawSkybox)
     {
         glDepthMask(GL_FALSE);
-        glUseProgram(skyboxProgram);
+        glUseProgram(g_skybox.shaderProgram);
         Mat4 viewMat = rigTFormToMat(linFact(inputHandler.getViewTransform()));
-        glUniformMatrix4fv(viewMatHandle, 1, GL_TRUE, &(viewMat[0]));
+        glUniformMatrix4fv(g_skybox.viewMatHandle, 1, GL_TRUE, &(viewMat[0]));
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, g_skyboxTexture);
-        glUniform1i(skyboxUniformHandle, 0);
-        glBindVertexArray(skyboxvao);
-        glBindBuffer(GL_ARRAY_BUFFER, skyboxvbo);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, g_skybox.cubemap);
+        glUniform1i(g_skybox.cubemapUniformHandle, 0);
+        glBindVertexArray(g_skybox.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, g_skybox.vbo);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);        
         glDepthMask(GL_TRUE);
@@ -139,11 +144,11 @@ void draw_scene()
         glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
-        glUseProgram(RTBProgram);
-        glBindVertexArray(RTBvao);
+        glUseProgram(g_rtb.shaderProgram);
+        glBindVertexArray(g_rtb.vao);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-        glUniform1i(textureHandle, 0);
+        glBindTexture(GL_TEXTURE_2D, g_rtb.texColorBuffer);
+        glUniform1i(g_rtb.texture, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glEnable(GL_DEPTH_TEST);
@@ -263,29 +268,29 @@ GLuint loadCubemap(const char *faces[])
     return textureID;
 }
 
-void initSkybox()
+void initSkybox(Skybox *skybox)
 {
-    skyboxProgram = compileShaders(skyboxVertSrc, skyboxFragSrc);
-    glUseProgram(skyboxProgram);
+    skybox->shaderProgram = compileShaders(skyboxVertSrc, skyboxFragSrc);
+    glUseProgram(skybox->shaderProgram);
     
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
     Geometry *cube = cubeMesh.produceGeometryPNX();    
 
-    glGenVertexArrays(1, &skyboxvao);
-    glBindVertexArray(skyboxvao);   
-    skyboxvbo = cube->vbo;
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxvbo);
+    glGenVertexArrays(1, &(skybox->vao));
+    glBindVertexArray(skybox->vao);   
+    skybox->vbo = cube->vbo;
+    glBindBuffer(GL_ARRAY_BUFFER, skybox->vbo);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
 
     const char *skyboxTextureFiles[6] = {"skybox_right.jpg", "skybox_left.jpg",
                                 "skybox_top.jpg", "skybox_bottom.jpg", "skybox_back.jpg", "skybox_front.jpg"};        
-    g_skyboxTexture = loadCubemap(skyboxTextureFiles);
+    skybox->cubemap = loadCubemap(skyboxTextureFiles);
     
-    glUniformMatrix4fv(glGetUniformLocation(skyboxProgram, "uProjMat"), 1, GL_TRUE, &(g_proj[0]));
-    skyboxUniformHandle = glGetUniformLocation(skyboxProgram, "skybox");
-    viewMatHandle = glGetUniformLocation(skyboxProgram, "uViewMat");
+    glUniformMatrix4fv(glGetUniformLocation(skybox->shaderProgram, "uProjMat"), 1, GL_TRUE, &(g_proj[0]));
+    skybox->cubemapUniformHandle = glGetUniformLocation(skybox->shaderProgram, "skybox");
+    skybox->viewMatHandle = glGetUniformLocation(skybox->shaderProgram, "uViewMat");
     glBindVertexArray(0);
     glUseProgram(0);
 }
@@ -476,10 +481,10 @@ void initScene()
     //g_worldNode->addChild(g_crysponzaNode);
 }
 
-void initRenderToBuffer()
+void initRenderToBuffer(RTB *rtb)
 {
-    RTBProgram = compileShaders(RTBVertSrc, RTBFragSrc);
-    glUseProgram(RTBProgram);
+    rtb->shaderProgram = compileShaders(RTBVertSrc, RTBFragSrc);
+    glUseProgram(rtb->shaderProgram);
     // The quad that covers the whole viewport
     GLfloat vertices[] = {
         -1.0f,  -1.0f, 0.0f, 0.0f,
@@ -491,11 +496,11 @@ void initRenderToBuffer()
     };    
 
     // Generate and bind buffer objects
-    glGenVertexArrays(1, &RTBvao);
-    glBindVertexArray(RTBvao);
+    glGenVertexArrays(1, &(rtb->vao));
+    glBindVertexArray(rtb->vao);
 
-    glGenBuffers(1, &RTBvbo);
-    glBindBuffer(GL_ARRAY_BUFFER, RTBvbo);
+    glGenBuffers(1, &(rtb->vbo));
+    glBindBuffer(GL_ARRAY_BUFFER, rtb->vbo);
     //sizeof works because vertices is an array, not a pointer.
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
@@ -508,15 +513,15 @@ void initRenderToBuffer()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
     // Setup texture handle
-    textureHandle = glGetUniformLocation(RTBProgram, "uTex0");    
+    rtb->texture = glGetUniformLocation(rtb->shaderProgram, "uTex0");    
 
     // Generate framebuffer
-    glGenFramebuffers(1, &framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glGenFramebuffers(1, &(rtb->framebuffer));
+    glBindFramebuffer(GL_FRAMEBUFFER, rtb->framebuffer);
 
     // Generate texture
-    glGenTextures(1, &texColorBuffer);
-    glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+    glGenTextures(1, &(rtb->texColorBuffer));
+    glBindTexture(GL_TEXTURE_2D, rtb->texColorBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
@@ -525,14 +530,14 @@ void initRenderToBuffer()
     glBindTexture(GL_TEXTURE_2D, 0);
 
     // Attach texture to currently bound framebuffer object
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtb->texColorBuffer, 0);
 
     // Create renderbuffer object for stencil and depth buffer
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glGenRenderbuffers(1, &(rtb->rbo));
+    glBindRenderbuffer(GL_RENDERBUFFER, rtb->rbo);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, (int)g_windowWidth, (int)g_windowHeight);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rtb->rbo);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         fprintf(stderr, "Frame buffer is not complete.\n");
@@ -593,8 +598,8 @@ int main()
     g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
     initMaterial(matInfoList, matCount);
     initScene();
-    initRenderToBuffer();
-    initSkybox();
+    initRenderToBuffer(&g_rtb);
+    initSkybox(&g_skybox);
     
 
     //g_skyboxTexture = loadCubemap(skyboxTextureFiles);
