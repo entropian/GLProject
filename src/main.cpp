@@ -105,11 +105,6 @@ void draw_scene()
     g_cubeMaterial->sendUniform3f("uLight", g_lightE);
     g_teapotMaterial->sendUniform3f("uLight", g_lightE);
 
-    /* Code for spotlight
-    Vec3 lightTargetW(1.0f, 0.0f, 0.0f);
-    Vec3 lightTargetE = inputHandler.getViewTransform() * lightTargetW;
-    g_teapotMaterial->sendUniform3f("uLightTarget", lightTargetE);
-    */
 
     for(int i = 0; i < g_numMat; i++)
         g_materials[i]->sendUniform3f("uLight", g_lightE);
@@ -128,14 +123,13 @@ void draw_scene()
         glBindBuffer(GL_ARRAY_BUFFER, g_skybox.vbo);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);        
-        glDepthMask(GL_TRUE);
-    }    
- 
+        glDepthMask(GL_TRUE);  
+    }
+
     // Draw scene
     Visitor visitor(inputHandler.getViewTransform());
     visitor.visitNode(inputHandler.getWorldNode());
-
-
+    
 
     // Draws the image in the framebuffer onto the screen
     if(g_renderToBuffer)
@@ -473,11 +467,11 @@ void initScene()
 
 
 
-    //g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_terrainNode);
     //g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
     //g_worldNode->addChild(g_teapotNode);
-    g_worldNode->addChild(g_sponzaNode);
+    //g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
 }
 
