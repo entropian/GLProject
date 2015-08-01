@@ -154,8 +154,8 @@ AbstractGeometryNode(RigTForm &rbt, bool c)
         depthTest = b;
     }
 
-    virtual void draw(RigTForm) = 0;
-    virtual void overrideMatDraw(Material*, RigTForm) = 0;
+    virtual void draw(const RigTForm&, const RigTForm&) = 0;
+    virtual void overrideMatDraw(Material*, const RigTForm&, const RigTForm&) = 0;
 protected:
     Vec3 scaleFactor;
     bool clickable;
@@ -191,20 +191,20 @@ public:
         m = material;
     }
 
-    void draw(RigTForm modelViewRbt)
+    void draw(const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        m->draw(geometry, modelViewRbt, scaleFactor);
+        m->draw(geometry, modelRbt, viewRbt, scaleFactor);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }
 
-    void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
+    void overrideMatDraw(Material *overrideMat, const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        overrideMat->draw(geometry, modelViewRbt, scaleFactor);
+        overrideMat->draw(geometry, modelRbt, viewRbt, scaleFactor);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }    
@@ -258,28 +258,28 @@ public:
         return materials[i];
     }
 
-    void draw(RigTForm modelViewRbt)
+    void draw(const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
         
         for(int i = 0; i < numGeometries; i++)
         {
-            materials[materialIndex[i]]->draw(geometries[i], modelViewRbt, scaleFactor);
+            materials[materialIndex[i]]->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
         }
         
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }
 
-    void overrideMatDraw(Material *overrideMat, RigTForm modelViewRbt)
+    void overrideMatDraw(Material *overrideMat, const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
         
         for(int i = 0; i < numGeometries; i++)
         {
-            overrideMat->draw(geometries[i], modelViewRbt, scaleFactor);
+            overrideMat->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
         }
         
         if(depthTest == false)
@@ -329,7 +329,8 @@ public:
             }
         }else if(tn->getNodeType() == GEOMETRY)
         {
-            RigTForm modelViewRbt;
+            RigTForm modelRbt;
+            /*
             if(rbtCount == 0)
             {
                 modelViewRbt = viewRbt;
@@ -337,8 +338,11 @@ public:
             {
                 modelViewRbt = viewRbt * rbtStack[rbtCount-1];
             }
+            */
+            if(rbtCount > 0)
+                modelRbt = rbtStack[rbtCount-1];
             AbstractGeometryNode *gn = static_cast<AbstractGeometryNode*>(tn);
-            gn->draw(modelViewRbt);
+            gn->draw(modelRbt, viewRbt);
 
             for(int i = 0; i < gn->getNumChildren(); i++)
             {
@@ -363,11 +367,15 @@ public:
         {
             AbstractGeometryNode *gn = static_cast<AbstractGeometryNode*>(tn);
             
-            RigTForm modelViewRbt;            
+            RigTForm modelRbt;
+            /*
             if(rbtCount == 0)
                 modelViewRbt = viewRbt;
             else
                 modelViewRbt = viewRbt * rbtStack[rbtCount-1];
+            */
+            if(rbtCount > 0)
+                modelRbt = rbtStack[rbtCount-1];
 
             if(gn->getClickable() == true)
             {
@@ -376,13 +384,13 @@ public:
                 // NOTE: Not sure if casting changes the pointer
                 geoNodes[code] = static_cast<GeometryNode*>(tn);
                 overrideMat->sendUniform1i("uCode", ++code);
-                gn->overrideMatDraw(overrideMat, modelViewRbt);
+                gn->overrideMatDraw(overrideMat, modelRbt, viewRbt);
             }else
             {
                 // TODO: render the object with background color or something like that
                 // The back ground color is black. Setting uCode to 0 makes the color black
                 overrideMat->sendUniform1i("uCode", 0);
-                gn->overrideMatDraw(overrideMat, modelViewRbt);
+                gn->overrideMatDraw(overrideMat, modelRbt, viewRbt);
             }
 
             for(int i = 0; i < gn->getNumChildren(); i++)

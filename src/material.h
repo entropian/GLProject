@@ -7,7 +7,7 @@
 #include "rigtform.h"
 #include "geometry.h"
 
-static bool g_debugUniformString = false;
+static bool g_debugUniformString = true;
 static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;                // Arbitrary
 
 enum VertexAttrib{
@@ -226,42 +226,46 @@ public:
     /*
       Draws geometry with modelview transform modelVewRbt and scaled with scaleFactor
      */
-    void draw(Geometry *geometry, RigTForm& modelViewRbt, Vec3& scaleFactor)
+    void draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm &viewRbt, Vec3& scaleFactor)
     {
         glBindVertexArray(geometry->vao);
         // NOTE: don't know why the vbo needs rebinding
-        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);             
+        glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
         Mat4 scaleMat;
         scaleMat[0] = scaleFactor[0];
         scaleMat[5] = scaleFactor[1];
         scaleMat[10] = scaleFactor[2];
 
-        Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
-        modelViewMat = transpose(modelViewMat);
-        
-        Mat4 normalMat = inv(transpose(modelViewMat));
-        /* NOTE: tacked scaleMat here, because if I do modelViewMat = rigTFormToMat(modelViewRbt) * scaleMat,
-           then Mat4 normalMat = inv(transpose(modelViewMat)), the teapot becomes really bright, and texture isn't really
-           visible anymore. So I assume something wrong happened to the normals when I do that. scaleMat doesn't need to be
-           transposed because it's a diagonal matrix.
-         */
-        modelViewMat = scaleMat * modelViewMat;
-        glUseProgram(shaderProgram);
+        glUseProgram(shaderProgram);        
 
-        for(int i = 0; i < numUniforms; i++)
-            if(strcmp(uniformDesc[i].name, "uModelViewMat") == 0)
-            {
-                glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(modelViewMat[0]));
-                break;
-            }
+        if(!cubemap)
+        {
+            RigTForm modelViewRbt = viewRbt * modelRbt;                
+            Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
+            //modelViewMat = transpose(modelViewMat);
+            Mat4 normalMat = transpose(inv(modelViewMat));
+            /* NOTE: tacked scaleMat here, because if I do modelViewMat = rigTFormToMat(modelViewRbt) * scaleMat,
+               then Mat4 normalMat = inv(transpose(modelViewMat)), the teapot becomes really bright, and texture isn't really
+               visible anymore. So I assume something wrong happened to the normals when I do that. scaleMat doesn't need to be
+               transposed because it's a diagonal matrix.
+            */
+            modelViewMat = modelViewMat * scaleMat;        
 
-        for(int i = 0; i < numUniforms; i++)
-            if(strcmp(uniformDesc[i].name, "uNormalMat") == 0)
-            {
-                glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_FALSE, &(normalMat[0]));                
-                break;
-            }
+            sendMatrix("uModelViewMat", modelViewMat);
+            sendMatrix("uNormalMat", normalMat);
+        }else
+        {
+            Mat4 modelMat = rigTFormToMat(modelRbt);
+            Mat4 viewMat = rigTFormToMat(viewRbt);
+            Mat4 normalMat = transpose(inv(modelMat));
+            modelMat = modelMat * scaleMat;
+            
+
+            sendMatrix("uModelMat", modelMat);
+            sendMatrix("uViewMat", viewMat);
+            sendMatrix("uNormalMat", normalMat);   
+        }
 
         /*
           Binding texture objects to texture units and binding texture units
@@ -332,12 +336,22 @@ private:
                 break;
         }
         if(i == numUniforms)
-        {
+        {            
             if(g_debugUniformString)
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
             return -1;
         }
         return i;
+    }
+
+    void sendMatrix(const char* uniformName, Mat4 &matrix)
+    {
+        for(int i = 0; i < numUniforms; i++)
+            if(strcmp(uniformDesc[i].name, uniformName) == 0)
+            {
+                glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_TRUE, &(matrix[0]));
+                break;
+            }
     }
     
     

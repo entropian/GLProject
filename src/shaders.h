@@ -58,25 +58,31 @@ const char* basicVertSrc = GLSL(
 );
 
 const char* cubemapReflectionVertSrc = GLSL(
-    uniform mat4 uModelViewMat;
+    uniform mat4 uModelMat;
+    uniform mat4 uViewMat;    
     uniform mat4 uNormalMat;
     uniform mat4 uProjMat;
-    uniform mat4 uInvViewMat;    
 
     in vec3 aPosition;
     in vec3 aNormal;
     in vec2 aTexcoord;
 
-    out vec3 TexVec;
+    //out vec3 TexVec;
+    out vec3 vPosition;
+    out vec3 vNormal;
+    out vec3 eyePosW;
 
     void main()
-    {        
-        vec3 vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vec3 vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
-        vec3 eyeDir = normalize(-vPosition);
-        vec3 reflectDir = 2*dot(eyeDir, vNormal)*vNormal - eyeDir;
-        TexVec = (uInvViewMat * vec4(reflectDir, 0.0)).xyz;
-        gl_Position = uProjMat * vec4(vPosition, 1.0);
+    {
+        vPosition = (uModelMat * vec4(aPosition, 1.0)).xyz;
+        vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
+        mat4 tmp = inverse(uViewMat);
+        /*
+          NOTE: changing to tranpose flag in glUniformMatrix4fv from GL_FALSE to GL_TRUE seemed to have changed
+          the matrix layout in shaders?
+        */
+        eyePosW = tmp[3].xyz;
+        gl_Position = uProjMat * uViewMat * vec4(vPosition, 1.0);
     }
 );
 
@@ -237,13 +243,19 @@ const char* skyboxFragSrc = GLSL(
 const char* cubemapReflectionFragSrc = GLSL(
     uniform samplerCube uCubemap;
 
-    in vec3 TexVec;
+    //in vec3 TexVec;
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec3 eyePosW;
 
     out vec4 outColor;
 
     void main()
     {
-        outColor = texture(uCubemap, TexVec);
+
+        vec3 eyeDir = normalize(eyePosW - vPosition);
+        vec3 reflectDir = 2*dot(eyeDir, vNormal)*vNormal - eyeDir;
+        outColor = texture(uCubemap, reflectDir);
     }
 );
 

@@ -122,7 +122,7 @@ void draw_scene()
             printf("\n");
     }
     */
-    g_cubemapReflectionMat->sendUniformMat4("uInvViewMat", invViewMat);
+    //g_cubemapReflectionMat->sendUniformMat4("uInvViewMat", invViewMat);
     
     // Draw skybox
     if(g_drawSkybox)
