@@ -25,20 +25,56 @@ const char* skyboxVertSrc = GLSL(
     layout (location = 0) in vec3 aPosition;
     out vec3 Texcoords;
 
-    uniform mat4 uProjMat;
+    layout (std140) uniform Matrices
+    {
+        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+    };            
     uniform mat4 uViewMat;
 
     void main()
     {
-        gl_Position = uProjMat * uViewMat * vec4(aPosition, 1.0);
+        gl_Position = projMat * uViewMat * vec4(aPosition, 1.0);
         Texcoords = aPosition;
     }
 );
 
 const char* basicVertSrc = GLSL(
+    
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
+
+    layout (std140) uniform Matrices
+    {
+        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+    };        
+
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    out vec3 vPosition;
+    out vec3 vNormal;
+    out vec2 vTexcoord;
+
+    void main()
+    {        
+        vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
+        vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
+        vTexcoord = aTexcoord;
+        gl_Position = projMat * vec4(vPosition, 1.0);
+    }
+);
+
+const char* arrowVertSrc = GLSL(
     uniform mat4 uProjMat;
+    uniform mat4 uModelViewMat;
+    uniform mat4 uNormalMat;
+
+
+    layout (std140) uniform Matrices
+    {
+        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+    };        
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -61,7 +97,11 @@ const char* cubemapReflectionVertSrc = GLSL(
     uniform mat4 uModelMat;
     uniform mat4 uViewMat;    
     uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
+
+    layout (std140) uniform Matrices
+    {
+        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+    };        
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -82,18 +122,26 @@ const char* cubemapReflectionVertSrc = GLSL(
           the matrix layout in shaders?
         */
         eyePosW = tmp[3].xyz;
-        gl_Position = uProjMat * uViewMat * vec4(vPosition, 1.0);
+        gl_Position = projMat * uViewMat * vec4(vPosition, 1.0);
     }
 );
 
 
 
 // Vertex shader that calculates the orthonormal basis for normal mapping
-const char* normalVertSrc = GLSL(
+const char* normalVertSrc = GLSL(    
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
-    uniform vec3 uLight;
+
+    layout (std140) uniform Matrices
+    {
+        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+    };
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -112,7 +160,7 @@ const char* normalVertSrc = GLSL(
     {
         vTexcoord = aTexcoord;
         mat4 inverseMat = inverse(uModelViewMat);
-        vec3 lightM = (inverseMat * vec4(uLight, 1.0)).xyz - aPosition;
+        vec3 lightM = (inverseMat * vec4(light1, 1.0)).xyz - aPosition;        
         vec3 eyeM = (inverseMat * vec4(0.0, 0.0, 0.0, 1.0)).xyz - aPosition;
 
         lightM = normalize(lightM);
@@ -128,7 +176,7 @@ const char* normalVertSrc = GLSL(
         vLightT.z = dot(lightM, aNormal);
         vLightT = vLightT * aDet;
 
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
+        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
     }
 );
 
@@ -137,7 +185,11 @@ const char* diffuseVertSrc = GLSL(
     uniform mat4 uNormalMat;
     uniform mat4 uProjMat;
     uniform vec3 uColor;
-    uniform vec3 uLight;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -157,7 +209,7 @@ const char* diffuseVertSrc = GLSL(
         vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         //vec3 normE = (inverse(transpose(uModelViewMat)) * vec4(aNormal, 1.0)).xyz;
         vec3 normE = (normalMat * vec4(aNormal, 1.0)).xyz;
-        vec3 lightDirE = normalize(uLight - posE);
+        vec3 lightDirE = normalize(light1 - posE);
 
         vColor = uColor * max(dot(lightDirE, normE), 0.0);
 
@@ -290,8 +342,12 @@ const char *pickFragSrc = GLSL(
 
 // Fragment shader with diffuse lighting
 const char* diffuseFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -301,7 +357,7 @@ const char* diffuseFragSrc = GLSL(
 
     void main()
     {
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 normal = normalize(vNormal);
         outColor = vec4((dot(lightDir, normal) * uColor), 1.0);
     }
@@ -324,9 +380,13 @@ const char* flatFragSrc = GLSL(
 
 // Fragment shader with diffuse lighting and texture
 const char* basicFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
     uniform sampler2D uTex0;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -337,7 +397,7 @@ const char* basicFragSrc = GLSL(
     void main()
     {
 
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 normal = normalize(vNormal);
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
         outColor = vec4((dot(lightDir, normal) * texColor.xyz), 1.0);
@@ -346,9 +406,13 @@ const char* basicFragSrc = GLSL(
 
 // Specular fragment shader with texture
 const char* specTexFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
     uniform sampler2D uTex0;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -359,7 +423,7 @@ const char* specTexFragSrc = GLSL(
     void main()
     {
 
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
@@ -374,9 +438,13 @@ const char* specTexFragSrc = GLSL(
 );
 
 const char* specTexSpotFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
     uniform sampler2D uTex0;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -387,7 +455,7 @@ const char* specTexSpotFragSrc = GLSL(
     void main()
     {
 
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
@@ -403,9 +471,13 @@ const char* specTexSpotFragSrc = GLSL(
 
 // Fragment shader with phong lighting
 const char* ADSFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
     uniform sampler2D uTex0;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -416,7 +488,7 @@ const char* ADSFragSrc = GLSL(
     void main()
     {
         
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         //vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
@@ -433,9 +505,13 @@ const char* ADSFragSrc = GLSL(
 
 // Fragment shader with phong lighting and material
 const char* OBJFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform sampler2D uTex0;
     //uniform sampler2D uTex1;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
 
     uniform vec3 Ka;
     uniform vec3 Kd;
@@ -451,7 +527,7 @@ const char* OBJFragSrc = GLSL(
     void main()
     {
         
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord);
@@ -467,10 +543,14 @@ const char* OBJFragSrc = GLSL(
 
 // Spotlight fragment shader with phong lighting
 const char* ADSSpotFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uLightTarget;
     uniform vec3 uColor;
     uniform sampler2D uTex0;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -481,7 +561,7 @@ const char* ADSSpotFragSrc = GLSL(
     void main()
     {
         
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
@@ -492,10 +572,10 @@ const char* ADSSpotFragSrc = GLSL(
 
         vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), 6) * texColor.xyz;
 
-        vec3 lightToTarget = normalize(uLight - uLightTarget);
+        vec3 lightToTarget = normalize(light1 - uLightTarget);
 
         float angleDeg = 30.0;
-        vec3 posToLight = normalize(uLight - vPosition);
+        vec3 posToLight = normalize(light1 - vPosition);
 
 
         if(dot(posToLight, lightToTarget) > cos(angleDeg/180.0*3.14159))
@@ -510,8 +590,12 @@ const char* ADSSpotFragSrc = GLSL(
 
 // Fragment shader with specular lighting
 const char* specularFragSrc = GLSL(
-    uniform vec3 uLight;
     uniform vec3 uColor;
+
+    layout (std140) uniform Lights
+    {
+        vec3 light1;
+    };
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -521,7 +605,7 @@ const char* specularFragSrc = GLSL(
 
     void main()
     {
-        vec3 lightDir = normalize(uLight - vPosition);
+        vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);
         outColor = vec4((dot(reflectDir, eyeDir) * uColor), 1.0);

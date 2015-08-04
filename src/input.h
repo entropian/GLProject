@@ -24,7 +24,7 @@ enum InputMode
 };
 
 // TODO: fix this ugly stuff below
-extern const char* basicVertSrc;
+extern const char* arrowVertSrc;
 extern const char* flatFragSrc;
 extern const char* pickVertSrc;
 extern const char* pickFragSrc;

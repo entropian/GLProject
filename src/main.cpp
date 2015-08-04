@@ -82,6 +82,9 @@ struct Skybox{
 static Skybox g_skybox;
 static bool g_drawSkybox = true;
 
+// Uniform blocks
+GLuint uniformBlock, uniformLightBlock;
+
 
 InputHandler inputHandler;
 
@@ -101,28 +104,13 @@ void draw_scene()
     // like g_lightE
     // Update some uniforms    
     g_lightE = inputHandler.getViewTransform() * g_lightW;
-    g_shipMaterial1->sendUniform3f("uLight", g_lightE);
-    g_shipMaterial2->sendUniform3f("uLight", g_lightE);    
-    g_cubeMaterial->sendUniform3f("uLight", g_lightE);
-    g_teapotMaterial->sendUniform3f("uLight", g_lightE);
 
 
-    for(int i = 0; i < g_numMat; i++)
-        g_materials[i]->sendUniform3f("uLight", g_lightE);
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformLightBlock);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, 16, &(g_lightE));
 
     RigTForm viewRbt = inputHandler.getViewTransform();
-    Mat4 invViewMat = rigTFormToMat(inv(viewRbt));
-    /*
-    for(int i = 0; i < 16; i++)
-    {
-        if(i == 0)
-            printf("Matrix\n");
-        printf("%f ", invViewMat[i]);
-        if(((i + 1) % 4) == 0)
-            printf("\n");
-    }
-    */
-    //g_cubemapReflectionMat->sendUniformMat4("uInvViewMat", invViewMat);
+
     
     // Draw skybox
     if(g_drawSkybox)
@@ -140,8 +128,6 @@ void draw_scene()
         glBindVertexArray(0);        
         glDepthMask(GL_TRUE);  
     }
-
-
 
     // Draw scene
     Visitor visitor(inputHandler.getViewTransform());
@@ -212,8 +198,8 @@ void initGeometries()
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 
     Mesh crysponzaMesh;
-    crysponzaMesh.loadOBJFile("crysponza.obj");
-    g_crysponza = crysponzaMesh.produceGeometryPNX();
+    //crysponzaMesh.loadOBJFile("crysponza.obj");
+    //g_crysponza = crysponzaMesh.produceGeometryPNX();
     //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 }
 
@@ -299,7 +285,8 @@ void initSkybox(Skybox *skybox)
                                 "skybox_top.jpg", "skybox_bottom.jpg", "skybox_back.jpg", "skybox_front.jpg"};        
     skybox->cubemap = loadCubemap(skyboxTextureFiles);
     
-    glUniformMatrix4fv(glGetUniformLocation(skybox->shaderProgram, "uProjMat"), 1, GL_TRUE, &(g_proj[0]));
+    GLuint blockIndex = glGetUniformBlockIndex(skybox->shaderProgram, "Matrices");
+    glUniformBlockBinding(skybox->shaderProgram, blockIndex, 0);    
     skybox->cubemapUniformHandle = glGetUniformLocation(skybox->shaderProgram, "skybox");
     skybox->viewMatHandle = glGetUniformLocation(skybox->shaderProgram, "uViewMat");
     glBindVertexArray(0);
@@ -399,44 +386,76 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 {
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
 
+    // Initialize Matrices uniform block
+    glGenBuffers(1, &uniformBlock);
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
+    glBufferData(GL_UNIFORM_BUFFER, 64, NULL, GL_STATIC_DRAW);
+    Mat4 proj = transpose(g_proj);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &(proj[0]));
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 
+    // Initialize Lights uniform block
+    glGenBuffers(1, &uniformLightBlock);
+    glBindBuffer(GL_UNIFORM_BUFFER, uniformLightBlock);
+    glBufferData(GL_UNIFORM_BUFFER, 16, NULL, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, uniformLightBlock);    
+    
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3f("uColor", color);
-    g_shipMaterial1->sendUniformMat4("uProjMat", g_proj);
     g_shipMaterial1->sendUniformTexture("uTex0", textures[0]);
     g_shipMaterial1->sendUniformTexture("uTex1", textures[2]);
+    GLuint shaderProgram = g_shipMaterial1->getShaderProgram();
+    GLuint blockIndex = glGetUniformBlockIndex(shaderProgram, "Matrices");
+    glUniformBlockBinding(shaderProgram, blockIndex, 0);
+    blockIndex = glGetUniformBlockIndex(shaderProgram, "Lights");
+    glUniformBlockBinding(shaderProgram, blockIndex, 1);
+
     
     g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
     g_shipMaterial2->sendUniform3f("uColor", color);
-    g_shipMaterial2->sendUniformMat4("uProjMat", g_proj);
     g_shipMaterial2->sendUniformTexture("uTex0", textures[3]);
     g_shipMaterial2->sendUniformTexture("uTex1", textures[4]);
+    shaderProgram = g_shipMaterial2->getShaderProgram();
+    blockIndex = glGetUniformBlockIndex(shaderProgram, "Matrices");
+    glUniformBlockBinding(shaderProgram, blockIndex, 0);    
 
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3f("uColor", color);
-    g_teapotMaterial->sendUniformMat4("uProjMat", g_proj);
     g_teapotMaterial->sendUniformTexture("uTex0", textures[1]);
+    shaderProgram = g_teapotMaterial->getShaderProgram();
+    blockIndex = glGetUniformBlockIndex(shaderProgram, " Matrices");
+    glUniformBlockBinding(shaderProgram, blockIndex, 0);    
 
     g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
     g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
-    g_cubeMaterial->sendUniformMat4("uProjMat", g_proj);
+    shaderProgram = g_cubeMaterial->getShaderProgram();
+    blockIndex = glGetUniformBlockIndex(shaderProgram, "Matrices");
+    glUniformBlockBinding(shaderProgram, blockIndex, 0);
 
     g_cubemapReflectionMat = new Material(cubemapReflectionVertSrc, cubemapReflectionFragSrc, "CubemapReflection");
-    g_cubemapReflectionMat->sendUniformMat4("uProjMat", g_proj);
     // TODO: change the source of the cubemap to something else that isn't the skybox struct
     g_cubemapReflectionMat->sendUniformCubemap("uCubemap", g_skybox.cubemap);
+    shaderProgram = g_cubemapReflectionMat->getShaderProgram();
+    blockIndex = glGetUniformBlockIndex(shaderProgram, "Matrices");
+    glUniformBlockBinding(shaderProgram, blockIndex, 0);
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
         g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-        g_materials[i]->sendUniformMat4("uProjMat", g_proj);
         g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
+        shaderProgram = g_materials[i]->getShaderProgram();
+        blockIndex = glGetUniformBlockIndex(shaderProgram, "Matrices");
+        glUniformBlockBinding(shaderProgram, blockIndex, 0);
+        blockIndex = glGetUniformLocation(shaderProgram, "Lights");
+        glUniformBlockBinding(shaderProgram, blockIndex, 1);
 
         if(matInfoList[i].name[0] == '\0')
             g_materials[i]->sendUniformTexture("uTex0", textures[1]);
@@ -490,10 +509,10 @@ void initScene()
 
 
     g_worldNode->addChild(g_terrainNode);
-    //g_worldNode->addChild(g_ship2Node);
+    g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
-    g_worldNode->addChild(g_teapotNode);
-    //g_worldNode->addChild(g_sponzaNode);
+    //g_worldNode->addChild(g_teapotNode);
+    g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
 }
 

@@ -326,6 +326,13 @@ public:
 
         glUseProgram(0);
     }
+
+    // TODO: temporary
+    // Move the block binding code from main.cpp into Material
+    GLuint getShaderProgram()
+    {
+        return shaderProgram;
+    }
 private:
     int searchUniformDesc(const char* uniformName)
     {

@@ -63,15 +63,15 @@ void InputHandler::initialize()
     projMat = Mat4::makeProjection(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
 
     // Initialize arrow materials and picking material
-    arrowYMat = new Material(basicVertSrc, flatFragSrc, "arrowYMaterial");
+    arrowYMat = new Material(arrowVertSrc, flatFragSrc, "arrowYMaterial");
     arrowYMat->sendUniform3f("uColor", Vec3(0.0f, 0.0f, 1.0f));
     arrowYMat->sendUniformMat4("uProjMat", projMat);
 
-    arrowZMat = new Material(basicVertSrc, flatFragSrc, "arrowZMaterial");
+    arrowZMat = new Material(arrowVertSrc, flatFragSrc, "arrowZMaterial");
     arrowZMat->sendUniform3f("uColor", Vec3(0.0f, 1.0f, 0.0f));
     arrowZMat->sendUniformMat4("uProjMat", projMat);
 
-    arrowXMat = new Material(basicVertSrc, flatFragSrc, "arrowXMaterial");
+    arrowXMat = new Material(arrowVertSrc, flatFragSrc, "arrowXMaterial");
     arrowXMat->sendUniform3f("uColor", Vec3(1.0f, 0.0f, 0.0f));
     arrowXMat->sendUniformMat4("uProjMat", projMat);
 
