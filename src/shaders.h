@@ -25,10 +25,13 @@ const char* skyboxVertSrc = GLSL(
     layout (location = 0) in vec3 aPosition;
     out vec3 Texcoords;
 
-    layout (std140) uniform Matrices
+    layout (std140) uniform UniformBlock
     {
-        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
     };            
+    
     uniform mat4 uViewMat;
 
     void main()
@@ -38,16 +41,45 @@ const char* skyboxVertSrc = GLSL(
     }
 );
 
+const char* testVertSrc = GLSL(
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };
+    uniform mat4 uModelViewMat;
+    uniform mat4 uNormalMat;
+
+    out VS_OUT {
+        vec3 normal;
+    } vs_out;
+    
+    void main()
+    {
+        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
+        vs_out.normal = normalize(vec3(projMat * uNormalMat * vec4(aNormal, 1.0)));
+    }
+);
+
+
+
 const char* basicVertSrc = GLSL(
     
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    layout (std140) uniform Matrices
+    layout (std140) uniform UniformBlock
     {
-        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
-    };        
-
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };
+    
     in vec3 aPosition;
     in vec3 aNormal;
     in vec2 aTexcoord;
@@ -70,11 +102,12 @@ const char* arrowVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-
-    layout (std140) uniform Matrices
+    layout (std140) uniform UniformBlock
     {
-        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
-    };        
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -98,10 +131,12 @@ const char* cubemapReflectionVertSrc = GLSL(
     uniform mat4 uViewMat;    
     uniform mat4 uNormalMat;
 
-    layout (std140) uniform Matrices
+    layout (std140) uniform UniformBlock
     {
-        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
-    };        
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -133,15 +168,12 @@ const char* normalVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    layout (std140) uniform Matrices
+    layout (std140) uniform UniformBlock
     {
-        mat4 projMat;    // Base alignment = 16 Aligned offset = 0
-    };
-
-    layout (std140) uniform Lights
-    {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -150,7 +182,7 @@ const char* normalVertSrc = GLSL(
     in vec3 aTangent;
     in vec3 aBinormal;
     in float aDet;
-    
+
     out vec3 vLightT;
     out vec3 vEyeT;
     out vec3 vLightTarget;
@@ -183,13 +215,14 @@ const char* normalVertSrc = GLSL(
 const char* diffuseVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
     uniform vec3 uColor;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -214,7 +247,7 @@ const char* diffuseVertSrc = GLSL(
         vColor = uColor * max(dot(lightDirE, normE), 0.0);
 
         vTexcoord = aTexcoord;
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
+        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
     }
 );
 
@@ -222,9 +255,14 @@ const char* diffuseVertSrc = GLSL(
 const char* lightVertexSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
-    uniform mat4 uProjMat;
     uniform vec3 uColor;
-    uniform vec3 uLight;
+
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -237,14 +275,14 @@ const char* lightVertexSrc = GLSL(
         // in eye space
         vec3 posE = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         vec3 normE = (uNormalMat * vec4(aNormal, 1.0)).xyz;
-        vec3 lightDirE = normalize(uLight - posE);
+        vec3 lightDirE = normalize(light1 - posE);
         vec3 eyeDirE = normalize(-posE);
         vec3 reflectDirE = 2.0*dot(lightDirE, normE)*normE - lightDirE;
 
         vColor = uColor * pow(max(dot(eyeDirE, reflectDirE), 0.0), 10);
         
         vTexcoord = aTexcoord;
-        gl_Position = uProjMat * uModelViewMat * vec4(aPosition, 1.0);
+        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
     }
 );
 
@@ -311,6 +349,16 @@ const char* cubemapReflectionFragSrc = GLSL(
     }
 );
 
+const char* basicFragSrc2 = GLSL(
+
+    out vec4 outColor;
+
+    void main()
+    {
+        outColor = vec4(1, 1, 1, 1);
+    }
+);
+
 const char* fragmentSource = GLSL(
     uniform sampler2D texKitten;
     uniform sampler2D texPuppy;
@@ -344,11 +392,14 @@ const char *pickFragSrc = GLSL(
 const char* diffuseFragSrc = GLSL(
     uniform vec3 uColor;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
-    
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
+
+
     in vec3 vPosition;
     in vec3 vNormal;
     in vec3 vTexcoord;
@@ -359,6 +410,31 @@ const char* diffuseFragSrc = GLSL(
     {
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 normal = normalize(vNormal);
+        outColor = vec4((dot(lightDir, normal) * uColor), 1.0);
+    }
+);
+
+const char* diffuseGeoFragSrc = GLSL(
+    uniform vec3 uColor;
+
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
+
+
+    in vec3 fPosition;
+    in vec3 fNormal;
+    in vec3 fTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        vec3 lightDir = normalize(light1 - fPosition);
+        vec3 normal = normalize(fNormal);
         outColor = vec4((dot(lightDir, normal) * uColor), 1.0);
     }
 );
@@ -383,10 +459,12 @@ const char* basicFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -409,10 +487,12 @@ const char* specTexFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -441,10 +521,12 @@ const char* specTexSpotFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -474,10 +556,12 @@ const char* ADSFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -508,11 +592,13 @@ const char* OBJFragSrc = GLSL(
     uniform sampler2D uTex0;
     //uniform sampler2D uTex1;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
-
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
+    
     uniform vec3 Ka;
     uniform vec3 Kd;
     uniform vec3 Ks;
@@ -547,10 +633,12 @@ const char* ADSSpotFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -591,11 +679,12 @@ const char* ADSSpotFragSrc = GLSL(
 // Fragment shader with specular lighting
 const char* specularFragSrc = GLSL(
     uniform vec3 uColor;
-
-    layout (std140) uniform Lights
+    layout (std140) uniform UniformBlock
     {
-        vec3 light1;
-    };
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+    };                
     
     in vec3 vPosition;
     in vec3 vNormal;
@@ -617,7 +706,7 @@ const char* normalFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
     uniform sampler2D uTex1;   // normal map
-    
+
     in vec3 vLightT;
     in vec3 vEyeT;
     in vec2 vTexcoord;
@@ -668,7 +757,6 @@ const char* greyScaleFragSrc = GLSL(
     uniform sampler2D uTex0;
     
     in vec2 vTexcoord;
-
     out vec4 outColor;
     
     void main()
@@ -808,6 +896,34 @@ const char* brightEdgeFragSrc = GLSL(
             col += sampleTex[i] * kernel[i];
 
         outColor = vec4(col, 1.0);
+    }
+);
+
+//--------------------- GEOMETRY SHADERS
+
+const char* exampleGeoSrc = GLSL(
+    in VS_OUT {
+        vec3 normal;
+    } gs_in[];
+    
+    //layout (points) in;
+    layout (triangles) in;
+    layout (line_strip, max_vertices = 6) out;
+
+    void GenerateLine(int index)
+    {
+        gl_Position = gl_in[index].gl_Position;
+        EmitVertex();
+
+        gl_Position = gl_in[index].gl_Position + vec4(gs_in[index].normal, 0.0f) * 0.4;
+        EmitVertex();
+        EndPrimitive();
+    }
+    
+    void main() {
+        GenerateLine(0);
+        GenerateLine(1);
+        GenerateLine(2);    
     }
 );
 

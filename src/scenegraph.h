@@ -117,10 +117,10 @@ private:
     int childrenCount;
 };
 
-class AbstractGeometryNode : public TransformNode
+class BaseGeometryNode : public TransformNode
 {
 public:
-AbstractGeometryNode(RigTForm &rbt, bool c)
+BaseGeometryNode(RigTForm &rbt, bool c)
     :TransformNode(rbt), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
     {
     }
@@ -162,11 +162,11 @@ protected:
     bool depthTest;
 };
 
-class GeometryNode : public AbstractGeometryNode
+class GeometryNode : public BaseGeometryNode
 {
 public:
     GeometryNode(Geometry *g,  Material *material, RigTForm &rbt, bool c)
-        :AbstractGeometryNode(rbt, c), geometry(g), m(material)
+        :BaseGeometryNode(rbt, c), geometry(g), m(material)
     {
         nt = GEOMETRY;
     }
@@ -214,12 +214,12 @@ private:
     Material *m;    
 };
 
-class MultiGeometryNode : public AbstractGeometryNode
+class MultiGeometryNode : public BaseGeometryNode
 {
 public:
     MultiGeometryNode(Geometry **geoList, GeoGroupInfo &groupInfo, Material *m[], const size_t numMat,
                       RigTForm &rbt, bool c)
-        :AbstractGeometryNode(rbt, c), numGeometries(groupInfo.numGroups)
+        :BaseGeometryNode(rbt, c), numGeometries(groupInfo.numGroups)
     {
         geometries = (Geometry**)malloc(sizeof(Geometry*)*groupInfo.numGroups);
         for(size_t i = 0; i < groupInfo.numGroups; i++)
@@ -341,7 +341,8 @@ public:
             */
             if(rbtCount > 0)
                 modelRbt = rbtStack[rbtCount-1];
-            AbstractGeometryNode *gn = static_cast<AbstractGeometryNode*>(tn);
+            
+            BaseGeometryNode *gn = static_cast<BaseGeometryNode*>(tn);
             gn->draw(modelRbt, viewRbt);
 
             for(int i = 0; i < gn->getNumChildren(); i++)
@@ -351,6 +352,34 @@ public:
         }
         popRbt();
     }
+
+    void visitNode(TransformNode *tn, Material *overrideMat)
+    {
+        pushRbt(tn->getRigidBodyTransform());            
+        if(tn->getNodeType() == TRANSFORM)
+        {
+            for(int i = 0; i < tn->getNumChildren(); i++)
+            {
+                this->visitNode(tn->getChild(i), overrideMat);
+            }
+        }else if(tn->getNodeType() == GEOMETRY)
+        {
+            RigTForm modelRbt;
+
+            if(rbtCount > 0)
+                modelRbt = rbtStack[rbtCount-1];
+            
+            BaseGeometryNode *gn = static_cast<BaseGeometryNode*>(tn);
+            gn->overrideMatDraw(overrideMat, modelRbt, viewRbt);
+            //gn->draw(modelRbt, viewRbt);
+
+            for(int i = 0; i < gn->getNumChildren(); i++)
+            {
+                this->visitNode(gn->getChild(i), overrideMat);
+            }
+        }
+        popRbt();
+    }    
 
    
     void visitPickNode(TransformNode *tn, Material *overrideMat)
@@ -365,7 +394,7 @@ public:
             }
         }else if(tn->getNodeType() == GEOMETRY)
         {
-            AbstractGeometryNode *gn = static_cast<AbstractGeometryNode*>(tn);
+            BaseGeometryNode *gn = static_cast<BaseGeometryNode*>(tn);
             
             RigTForm modelRbt;
             /*

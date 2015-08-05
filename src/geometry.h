@@ -10,6 +10,7 @@ struct Geometry {
     GLuint vbo;                // Vertex buffer object
     GLuint ebo;                // Index buffer object
     int vboLen = 0, eboLen = 0;                // number of vertices and number of indices
+    int vertexSize = 0;
     GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
 
     // Constructor for geometry with vertex indices
@@ -44,6 +45,8 @@ struct Geometry {
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * vertexSize, vtx, GL_STATIC_DRAW);
 
         glBindVertexArray(0);
+
+        this->vertexSize = vertexSize;
     }
 };
 
