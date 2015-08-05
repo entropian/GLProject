@@ -41,7 +41,8 @@ const char* skyboxVertSrc = GLSL(
     }
 );
 
-const char* testVertSrc = GLSL(
+
+const char* showNormalVertSrc = GLSL(
     in vec3 aPosition;
     in vec3 aNormal;
     in vec2 aTexcoord;
@@ -56,16 +57,16 @@ const char* testVertSrc = GLSL(
     uniform mat4 uNormalMat;
 
     out VS_OUT {
-        vec3 normal;
+        vec4 position;
     } vs_out;
     
     void main()
     {
-        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
-        vs_out.normal = normalize(vec3(projMat * uNormalMat * vec4(aNormal, 1.0)));
+        vec3 position = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
+        vs_out.position = projMat * uModelViewMat * vec4(aNormal * 0.4 + aPosition, 1.0);
+        gl_Position = projMat * vec4(position, 1.0);
     }
 );
-
 
 
 const char* basicVertSrc = GLSL(
@@ -349,7 +350,7 @@ const char* cubemapReflectionFragSrc = GLSL(
     }
 );
 
-const char* basicFragSrc2 = GLSL(
+const char* basicFragSrc = GLSL(
 
     out vec4 outColor;
 
@@ -414,31 +415,6 @@ const char* diffuseFragSrc = GLSL(
     }
 );
 
-const char* diffuseGeoFragSrc = GLSL(
-    uniform vec3 uColor;
-
-    layout (std140) uniform UniformBlock
-    {
-                            // Base alignment    Aligned offset
-        mat4 projMat;       // 16 (x4)           0
-        vec3 light1;        // 16                64
-    };                
-
-
-    in vec3 fPosition;
-    in vec3 fNormal;
-    in vec3 fTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-        vec3 lightDir = normalize(light1 - fPosition);
-        vec3 normal = normalize(fNormal);
-        outColor = vec4((dot(lightDir, normal) * uColor), 1.0);
-    }
-);
-
 const char* flatFragSrc = GLSL(
     uniform vec3 uColor;
       
@@ -455,7 +431,7 @@ const char* flatFragSrc = GLSL(
 );
 
 // Fragment shader with diffuse lighting and texture
-const char* basicFragSrc = GLSL(
+const char* diffuseTextureFragSrc = GLSL(
     uniform vec3 uColor;
     uniform sampler2D uTex0;
 
@@ -901,9 +877,9 @@ const char* brightEdgeFragSrc = GLSL(
 
 //--------------------- GEOMETRY SHADERS
 
-const char* exampleGeoSrc = GLSL(
+const char* showNormalGeoSrc = GLSL(
     in VS_OUT {
-        vec3 normal;
+        vec4 position;
     } gs_in[];
     
     //layout (points) in;
@@ -915,7 +891,7 @@ const char* exampleGeoSrc = GLSL(
         gl_Position = gl_in[index].gl_Position;
         EmitVertex();
 
-        gl_Position = gl_in[index].gl_Position + vec4(gs_in[index].normal, 0.0f) * 0.4;
+        gl_Position = gs_in[index].position;
         EmitVertex();
         EndPrimitive();
     }

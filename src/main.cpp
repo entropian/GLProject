@@ -437,8 +437,8 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_cubemapReflectionMat->sendUniformCubemap("uCubemap", g_skybox.cubemap);
     g_cubemapReflectionMat->bindUniformBlock("UniformBlock", 0);
 
-    g_testMaterial = new Material(testVertSrc, basicFragSrc2, exampleGeoSrc, "TestMaterial");
-    g_cubemapReflectionMat->bindUniformBlock("UniformBlock", 0);    
+    g_testMaterial = new Material(testVertSrc, basicFragSrc, showNormalGeoSrc, "TestMaterial");
+    g_testMaterial->bindUniformBlock("UniformBlock", 0);    
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
@@ -501,11 +501,11 @@ void initScene()
 
 
 
-    g_worldNode->addChild(g_terrainNode);
-    g_worldNode->addChild(g_ship2Node);
-    g_worldNode->addChild(g_cubeNode);
-    g_worldNode->addChild(g_teapotNode);
-    //g_worldNode->addChild(g_sponzaNode);
+    //g_worldNode->addChild(g_terrainNode);
+    //g_worldNode->addChild(g_ship2Node);
+    //g_worldNode->addChild(g_cubeNode);
+    //g_worldNode->addChild(g_teapotNode);
+    g_worldNode->addChild(g_sponzaNode);
     //g_worldNode->addChild(g_crysponzaNode);
 }
 
@@ -624,7 +624,7 @@ int main()
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
 
     g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
-    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
+    g_proj = Mat4::makeProjection(70.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
     initSkybox(&g_skybox);            
     initMaterial(matInfoList, matCount);
     initScene();
