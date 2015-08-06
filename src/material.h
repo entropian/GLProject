@@ -220,6 +220,7 @@ public:
         }
         textureCount = 0;
         cubemap = false;
+        depthMap = false;
     }
 
     Material(const char *vertexShader, const char *fragmentShader, const char *geometryShader, const char *materialName)
@@ -259,6 +260,7 @@ public:
         }
         textureCount = 0;
         cubemap = false;
+        depthMap = false;
     }
 
     ~Material()
@@ -391,16 +393,7 @@ public:
 
         glUseProgram(shaderProgram);        
 
-        if(!cubemap)
-        {
-            RigTForm modelViewRbt = viewRbt * modelRbt;                
-            Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
-            Mat4 normalMat = transpose(inv(modelViewMat));
-            modelViewMat = modelViewMat * scaleMat;        
-
-            sendMatrix("uModelViewMat", modelViewMat);
-            sendMatrix("uNormalMat", normalMat);
-        }else
+        if(cubemap)
         {
             Mat4 modelMat = rigTFormToMat(modelRbt);
             Mat4 viewMat = rigTFormToMat(viewRbt);            
@@ -409,7 +402,22 @@ public:
 
             sendMatrix("uModelMat", modelMat);
             sendMatrix("uViewMat", viewMat);
-            sendMatrix("uNormalMat", normalMat);   
+            sendMatrix("uNormalMat", normalMat);               
+
+
+        }else if(depthMap)
+        {
+            Mat4 modelMat = rigTFormToMat(modelRbt);
+            sendMatrix("uModelMat", modelMat);
+        }else
+        {
+            RigTForm modelViewRbt = viewRbt * modelRbt;                
+            Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
+            Mat4 normalMat = transpose(inv(modelViewMat));
+            modelViewMat = modelViewMat * scaleMat;        
+
+            sendMatrix("uModelViewMat", modelViewMat);
+            sendMatrix("uNormalMat", normalMat);
         }
 
         /*
@@ -439,11 +447,11 @@ public:
         if(geometry->shaderProgram != shaderProgram)
         {
             /*
-            GLint vertexSize;
-            if(vertexAttrib == PNX)
-                vertexSize = 8;
-            else if(vertexAttrib == PNXTBD)
-                vertexSize = 15;
+              GLint vertexSize;
+              if(vertexAttrib == PNX)
+              vertexSize = 8;
+              else if(vertexAttrib == PNXTBD)
+              vertexSize = 15;
             */
             
             glEnableVertexAttribArray(h_aPosition);
@@ -478,6 +486,12 @@ public:
     {
         GLuint blockIndex = glGetUniformLocation(shaderProgram, blockName);
         glUniformBlockBinding(shaderProgram, blockIndex, bindingPoint);
+    }
+
+    // TODO: temporary
+    void setDepthMap(bool b)
+    {
+        depthMap = b;
     }
 private:
     int searchUniformDesc(const char* uniformName)
@@ -518,7 +532,7 @@ private:
     GLuint textureHandles[MAX_TEXTURES_PER_MATERIAL];
     unsigned int textureCount;
     GLuint cubemapHandle;
-    bool cubemap;
+    bool cubemap, depthMap;    
     char name[20];
 };
 

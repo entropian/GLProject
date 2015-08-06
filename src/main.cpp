@@ -11,6 +11,8 @@
 #include <iostream>
 #include <stdlib.h>
 #include <time.h>
+#include <cstdint>
+#include <fstream>
 
 #include "fileIO.h"
 #include "shaders.h"
@@ -26,7 +28,8 @@ static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
-static Vec3 g_lightE, g_lightW(0.0f, 9.5f, 0.0f);
+static Vec3 g_lightE, g_lightW(10.0f, 10.0f, -2.0f);
+//static Vec3 g_lightE, g_lightW(1.0f, 2.5f, 0.5f);
 static Mat4 g_proj;
 
 // Geometries
@@ -42,12 +45,13 @@ static int g_groupInfoSize = 0;
 static TransformNode *g_worldNode;  // Root node
 static GeometryNode *g_terrainNode, *g_cubeArray[4], *g_cubeNode, *g_teapotNode, *g_ship2Node;
 static MultiGeometryNode *g_sponzaNode;
-static GeometryNode *g_crysponzaNode;
+//static GeometryNode *g_crysponzaNode;
+static MultiGeometryNode *g_crysponzaNode;
 
 
 // Materials
 static Material *g_shipMaterial1, *g_shipMaterial2, *g_pickMaterial, *g_cubeMaterial, *g_teapotMaterial;
-static Material *g_cubemapReflectionMat, *g_testMaterial;
+static Material *g_cubemapReflectionMat, *g_showNormalMaterial;
 static const size_t MAX_MATERIALS = 200;
 static Material *g_materials[MAX_MATERIALS];
 static int g_numMat = 0;
@@ -82,14 +86,41 @@ struct Skybox{
 static Skybox g_skybox;
 static bool g_drawSkybox = true;
 
+// Depth map struct
+struct DepthMap{
+    GLuint depthMapFBO;
+    GLuint depthMap;
+    GLuint SHADOW_WIDTH, SHADOW_HEIGHT;
+    Material *depthMapMaterial;
+};
+static DepthMap g_depthMap;
+static Mat4 g_lightMat;
+static bool g_depthMapStatus = true;
+
+
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
-
 
 InputHandler inputHandler;
 
 void draw_scene()
 {
+    RigTForm viewRbt = inputHandler.getViewTransform();        
+    if(g_depthMapStatus)
+    {
+        //simpleDepthShader.Use();
+    
+        //glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+        glViewport(0, 0, g_depthMap.SHADOW_WIDTH, g_depthMap.SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, g_depthMap.depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        //RenderScene(simpleDepthShader);
+        Visitor visitor(viewRbt);
+        visitor.visitNode(inputHandler.getWorldNode(), g_depthMap.depthMapMaterial);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    }
     if(g_renderToBuffer)
         glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
     
@@ -103,13 +134,11 @@ void draw_scene()
     // NOTE: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     // like g_lightE
     // Update some uniforms
-    RigTForm viewRbt = inputHandler.getViewTransform();        
+    //RigTForm viewRbt = inputHandler.getViewTransform();        
     g_lightE = viewRbt * g_lightW;
 
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE));    
-
-
 
     
     // Draw skybox
@@ -133,7 +162,8 @@ void draw_scene()
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
 
-    visitor.visitNode(inputHandler.getWorldNode(), g_testMaterial);
+    // Display the normal vectors
+    //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);
     
 
     // Draws the image in the framebuffer onto the screen
@@ -147,12 +177,12 @@ void draw_scene()
         glBindVertexArray(g_rtb.vao);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, g_rtb.texColorBuffer);
+        //glBindTexture(GL_TEXTURE_2D, g_depthMap.depthMap);
         glUniform1i(g_rtb.texture, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glEnable(GL_DEPTH_TEST);
     }
-    
     //glfwSwapBuffers(window);
 }
 
@@ -196,13 +226,13 @@ void initGeometries()
     Mesh sponzaMesh;
     sponzaMesh.loadOBJFile("sponza.obj");
     sponzaMesh.computeVertexNormals();
-    //sponzaMesh.computeVertexBasis();
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 
+    
     Mesh crysponzaMesh;
-    //crysponzaMesh.loadOBJFile("crysponza.obj");
+    crysponzaMesh.loadOBJFile("crysponza.obj");
     //g_crysponza = crysponzaMesh.produceGeometryPNX();
-    //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
+    getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -216,11 +246,13 @@ void loadAndSpecifyTexture(const char *fileName)
       
     */
     image = SOIL_load_image(fileName, &width, &height, 0, SOIL_LOAD_RGBA);
+    //image = SOIL_load_image(fileName, &width, &height, 0, SOIL_LOAD_RGB);    
 
     if(image == NULL)
         fprintf(stderr, "Failed to load %s.\n", fileName);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);    
 
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -294,6 +326,36 @@ void initSkybox(Skybox *skybox)
     glBindVertexArray(0);
     glUseProgram(0);
 }
+
+
+void initDepthMap(DepthMap* dm)
+{
+    glGenFramebuffers(1, &(dm->depthMapFBO));
+
+    dm->SHADOW_WIDTH = 1280;
+    dm->SHADOW_HEIGHT = 720;
+
+    glGenTextures(1, &(dm->depthMap));
+    glBindTexture(GL_TEXTURE_2D, dm->depthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+                 dm->SHADOW_WIDTH, dm->SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, dm->depthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, dm->depthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    Mat4 lightSpaceMat = g_proj * g_lightMat;
+    dm->depthMapMaterial = new Material(depthMapVertSrc, depthMapFragSrc, "DepthMapMaterial");
+    dm->depthMapMaterial->sendUniformMat4("uLightSpaceMat", lightSpaceMat);
+    dm->depthMapMaterial->setDepthMap(true);
+}
+
 
 // Initializes textures that are used in materials
 size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames)
@@ -437,8 +499,8 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_cubemapReflectionMat->sendUniformCubemap("uCubemap", g_skybox.cubemap);
     g_cubemapReflectionMat->bindUniformBlock("UniformBlock", 0);
 
-    g_testMaterial = new Material(testVertSrc, basicFragSrc, showNormalGeoSrc, "TestMaterial");
-    g_testMaterial->bindUniformBlock("UniformBlock", 0);    
+    g_showNormalMaterial = new Material(showNormalVertSrc, basicFragSrc, showNormalGeoSrc, "showNormalMaterial");
+    g_showNormalMaterial->bindUniformBlock("UniformBlock", 0);    
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
@@ -495,8 +557,8 @@ void initScene()
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, false);
-
-    g_crysponzaNode = new GeometryNode(g_crysponza, g_teapotMaterial, modelRbt, false);
+    
+    g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[1], g_materials, g_numMat, modelRbt, false);
     g_crysponzaNode->setScaleFactor(Vec3(1.0f/50.0f, 1.0f/50.0f, 1.0f/50.0f));
 
 
@@ -505,8 +567,8 @@ void initScene()
     //g_worldNode->addChild(g_ship2Node);
     //g_worldNode->addChild(g_cubeNode);
     //g_worldNode->addChild(g_teapotNode);
-    g_worldNode->addChild(g_sponzaNode);
-    //g_worldNode->addChild(g_crysponzaNode);
+    //g_worldNode->addChild(g_sponzaNode);
+    g_worldNode->addChild(g_crysponzaNode);
 }
 
 void initRenderToBuffer(RTB *rtb)
@@ -618,21 +680,22 @@ int main()
     MaterialInfo matInfoList[MAX_MATERIALS];
     MaterialInfo totalMatInfoList[MAX_MATERIALS];
 
-    const size_t numMTLFiles = 1;
-    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl"};
+    const size_t numMTLFiles = 2;
+    //char MTLFileNames[numMTLFiles][20] = {"sponza.mtl"};
+    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
     
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
-
     g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
-    g_proj = Mat4::makeProjection(70.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
-    initSkybox(&g_skybox);            
+    
+    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
+    initSkybox(&g_skybox);
+        
     initMaterial(matInfoList, matCount);
     initScene();
     initRenderToBuffer(&g_rtb);
 
-    
-
-    //g_skyboxTexture = loadCubemap(skyboxTextureFiles);
+    g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
+    initDepthMap(&g_depthMap);
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 

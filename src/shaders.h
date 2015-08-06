@@ -68,6 +68,20 @@ const char* showNormalVertSrc = GLSL(
     }
 );
 
+const char* depthMapVertSrc = GLSL(
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;    
+
+    uniform mat4 uLightSpaceMat;
+    uniform mat4 uModelMat;
+
+    void main()
+    {
+        gl_Position = uLightSpaceMat * uModelMat * vec4(aPosition, 1.0f);
+    }  
+);
+
 
 const char* basicVertSrc = GLSL(
     
@@ -305,6 +319,14 @@ const char *pickVertSrc = GLSL(
 
 //--------------------- Fragment Shaders
 
+const char* depthMapFragSrc = GLSL(
+
+    void main()
+    {
+
+    }
+);
+
 const char* RTBFragSrc = GLSL(
     uniform sampler2D uTex0;
     
@@ -316,6 +338,20 @@ const char* RTBFragSrc = GLSL(
     {
         outColor = texture(uTex0, vTexcoord);
     }
+
+    /*
+    in vec2 vTexcoord;
+
+    uniform sampler2D uTex0;
+    
+    out vec4 outColor;
+
+    void main()
+    {             
+        float depthValue = (texture(uTex0, vTexcoord)).r;
+        outColor = vec4(vec3(depthValue), 1.0);
+    }
+    */
 );
 
 const char* skyboxFragSrc = GLSL(

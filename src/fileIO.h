@@ -61,7 +61,7 @@ static int subStringNum(const char* fileContent, char buffer[], size_t fileSize,
 static int getMaterialName(const char *fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isalnum(fileContent[i]) == 0; i++)
+    for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++)
     {
         if(i >= fileSize)
             return -1;
@@ -109,9 +109,9 @@ struct MaterialInfo
     Vec3 Ka, Kd, Ks, Ke;         // Ambient color, diffuse color, specular color, and emmisive color
     float Ns = 0.0f, Ni = 0.0f;  // Specular exponent and index of reflection
     int illum = 0;               // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
-    char map_Ka[30];             // Ambient map file name
-    char map_Kd[30];             // Diffuse map file name
-    char map_bump[30];           // Bump map file name
+    char map_Ka[40];             // Ambient map file name
+    char map_Kd[40];             // Diffuse map file name
+    char map_bump[40];           // Bump map file name
 };
 
 /*
