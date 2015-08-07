@@ -79,12 +79,16 @@ public:
     */
     size_t geoListPNXTBD(Geometry ***, char ***);
 
+    size_t geoList(Geometry ***, char ***, VertexAttrib);
+
     
 private:
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
     void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);
     void initialize(OBJData*);
     Geometry* geometryFromGroupPNX(size_t);
+    Geometry* geometryFromGroupPNXTBD(size_t);
+    Geometry* geometryFromGroup(size_t, VertexAttrib);
     void flipTexcoordY();
     
     std::vector<Vec3> positions, normals;
@@ -107,11 +111,8 @@ static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo grou
     Geometry **geoList;
     char **mtlNames;
     size_t numGroups = 0;;
-    if(va == PNX)
-        numGroups = mesh.geoListPNX(&geoList, &mtlNames);
-    else if(va == PNXTBD)
-        numGroups = mesh.geoListPNXTBD(&geoList, &mtlNames);
 
+    numGroups = mesh.geoList(&geoList, &mtlNames, va);
     if(groupSize + numGroups > MAX_GEOMETRY_GROUPS)
     {
         fprintf(stderr, "Too many groups\n");

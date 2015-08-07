@@ -30,6 +30,7 @@ const char* skyboxVertSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80        
     };            
     
     uniform mat4 uViewMat;
@@ -52,6 +53,7 @@ const char* showNormalVertSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80        
     };
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
@@ -63,7 +65,7 @@ const char* showNormalVertSrc = GLSL(
     void main()
     {
         vec3 position = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vs_out.position = projMat * uModelViewMat * vec4(aNormal * 0.4 + aPosition, 1.0);
+        vs_out.position = projMat * uModelViewMat * vec4(aNormal * 50 + aPosition, 1.0);
         gl_Position = projMat * vec4(position, 1.0);
     }
 );
@@ -71,20 +73,25 @@ const char* showNormalVertSrc = GLSL(
 const char* depthMapVertSrc = GLSL(
     in vec3 aPosition;
     in vec3 aNormal;
-    in vec2 aTexcoord;    
+    in vec2 aTexcoord;
 
-    uniform mat4 uLightSpaceMat;
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };    
+
     uniform mat4 uModelMat;
 
     void main()
     {
-        gl_Position = uLightSpaceMat * uModelMat * vec4(aPosition, 1.0f);
+        gl_Position = lightSpaceMat * uModelMat * vec4(aPosition, 1.0f);
     }  
 );
 
-
-const char* basicVertSrc = GLSL(
-    
+const char* basicVertSrc = GLSL(    
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
@@ -93,6 +100,7 @@ const char* basicVertSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80
     };
     
     in vec3 aPosition;
@@ -109,6 +117,43 @@ const char* basicVertSrc = GLSL(
         vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
         vTexcoord = aTexcoord;
         gl_Position = projMat * vec4(vPosition, 1.0);
+    }
+);
+
+const char* shadowVertSrc = GLSL(
+    uniform mat4 uModelMat;
+    uniform mat4 uViewMat;
+    
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };
+    
+    in vec3 aPosition;
+    in vec3 aNormal;
+    in vec2 aTexcoord;
+
+    // vPosition and vNormal are in world space.
+    out vec3 vPosition;
+    out vec3 vNormal;
+    out vec2 vTexcoord;
+    out vec4 vFragPosLightSpace;
+    out vec3 vLightW;
+    out vec3 vEyeW;
+
+    void main()
+    {        
+        vPosition = (uModelMat * vec4(aPosition, 1.0)).xyz;
+        vNormal = (transpose(inverse(uModelMat)) * vec4(aNormal, 1.0)).xyz;
+        vTexcoord = aTexcoord;
+        vFragPosLightSpace = lightSpaceMat * vec4(vPosition, 1.0);
+        mat4 invViewMat = inverse(uViewMat);
+        vLightW = (invViewMat * vec4(light1, 1.0)).xyz;
+        vEyeW = (invViewMat * vec4(0, 0, 0, 1)).xyz;
+        gl_Position = projMat * uViewMat * vec4(vPosition, 1.0);
     }
 );
 
@@ -328,6 +373,7 @@ const char* depthMapFragSrc = GLSL(
 );
 
 const char* RTBFragSrc = GLSL(
+
     uniform sampler2D uTex0;
     
     in vec2 vTexcoord;
@@ -360,7 +406,7 @@ const char* skyboxFragSrc = GLSL(
     uniform samplerCube skybox;
 
     out vec4 outColor;
-
+ 
     void main()
     {
         outColor = texture(skybox, Texcoords);
@@ -393,6 +439,82 @@ const char* basicFragSrc = GLSL(
     void main()
     {
         outColor = vec4(1, 1, 1, 1);
+    }
+);
+
+const char* shadowFragSrc = GLSL(
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };
+
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+    in vec4 vFragPosLightSpace;
+    in vec3 vLightW;
+    in vec3 vEyeW;
+
+    uniform sampler2D uTex0;        // diffuse map
+    uniform sampler2D uTex1;        // shadow map
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;    
+    
+    out vec4 outColor;
+
+    float ShadowCalculation(vec4 fragPosLightSpace)
+    {
+        // perform perspective divide
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        
+        // Transform to [0,1] range
+        projCoords = projCoords * 0.5 + 0.5;
+        
+        // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+        float closestDepth = texture(uTex1, projCoords.xy).r;
+        
+        // Get depth of current fragment from light's perspective
+        float currentDepth = projCoords.z;
+        
+        // Check whether current frag pos is in shadow
+        float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+
+        return shadow;
+    }
+    
+    void main()
+    {
+        vec3 texColor = texture(uTex0, vTexcoord).rgb;
+        vec3 normal = normalize(vNormal);
+        vec3 lightColor = vec3(1.0);
+        
+        // Ambient
+        vec3 ambContrib = 0.15 * texColor * Ka;
+        
+        // Diffuse
+        vec3 lightDir = normalize(vLightW - vPosition);
+        vec3 diffContrib = max(dot(lightDir, normal), 0.0) * texColor * Kd;
+
+        // Specular
+        vec3 eyeDir = normalize(vEyeW - vPosition);
+        //vec3 reflectDir = reflect(-lightDir, normal);
+        vec3 reflectDir = 2*dot(lightDir, normal)*normal - lightDir;
+
+        //vec3 halfwayDir = normalize(lightDir + viewDir);  
+        //spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
+        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), Ns) * texColor * Ks;    
+        // Calculate shadow
+        float shadow = ShadowCalculation(vFragPosLightSpace);       
+        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);    
+    
+        outColor = vec4(lighting, 1.0f);
+        //outColor = vec4(vec3(shadow), 1.0f);        
     }
 );
 
@@ -434,6 +556,7 @@ const char* diffuseFragSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
     };                
 
 
@@ -573,6 +696,7 @@ const char* ADSFragSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
     };                
     
     in vec3 vPosition;
@@ -599,16 +723,15 @@ const char* ADSFragSrc = GLSL(
     }
 );
 
-// Fragment shader with phong lighting and material
+// OBJ material and Phong lighting.
 const char* OBJFragSrc = GLSL(
     uniform sampler2D uTex0;
-    //uniform sampler2D uTex1;
-
     layout (std140) uniform UniformBlock
     {
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80?
     };                
     
     uniform vec3 Ka;
@@ -630,11 +753,58 @@ const char* OBJFragSrc = GLSL(
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord);
 
-        vec3 ambContrib = Ka * texColor.xyz;
+        vec3 ambContrib = 0.5 * Ka * texColor.xyz;
 
         vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
 
         vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Ks;
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+// Normal mapping, OBJ material, and Phong lighting.
+const char* OBJNormalFragSrc = GLSL(
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D uTex0;
+    uniform sampler2D uTex1;   // normal map
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;    
+
+    void main()
+    {
+        //vec4 texColor = texture(uTex0, vTexcoord);
+        //vec4 texColor = texture(uTex1, vTexcoord);
+        vec4 texColor = vec4(vLightT, 1.0);
+        
+        vec3 ambContrib = 0.5 * Ka * texColor.xyz;
+        
+        vec3 lightT = normalize(vLightT);
+
+
+        vec3 normal = (texture(uTex1, vTexcoord)).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(dot(normal, lightT), 0) * texColor.xyz * Kd;
+
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*dot(lightT, normal)*normal - lightT;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Ks;
+        
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
@@ -726,9 +896,7 @@ const char* normalFragSrc = GLSL(
     out vec4 outColor;
 
     void main()
-    {
-
-        
+    {        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
         
         vec3 ambContrib = 0.1 * texColor.xyz;
@@ -738,12 +906,12 @@ const char* normalFragSrc = GLSL(
         vec3 normal = (texture(uTex1, vTexcoord)).xyz;
         
         float intensity = dot(normal, lightT);
-        vec3 diffContrib = max(dot(normal, lightT), 0) * texColor.xyz;
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz;
 
         vec3 eyeT = normalize(vEyeT);
-        vec3 reflectDir = 2*dot(lightT, normal)*normal - lightT;
+        vec3 reflectDir = 2*intensity*normal - lightT;
         vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), 4.0) * texColor.xyz;
-        
+                
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );

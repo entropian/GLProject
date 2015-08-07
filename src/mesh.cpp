@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <ctime>
 #include "mesh.h"
 #include "fileIO.h"
 
@@ -63,15 +64,14 @@ void Mesh::initialize(OBJData *objData)
 
 void Mesh::loadOBJFile(const char* fileName)
 {
+    printf("Loading %s...\t", fileName);
+    time_t startTime, endTime;
+    time(&startTime);
     OBJData objData;
     parseOBJFile(fileName, &objData);
     
     // if normArray is empty, normals vector will also be empty
     // the normal index in the faces entries will be a place holder
-    /*
-    initialize(posArray, normArray, texcoordArray, faceArray, groupFaceIndexArray, mtlNameArray, posArraySize, normArraySize,
-               texcoordArraySize, faceIndex, groupCount);
-    */
     initialize(&objData);
 
     // Clean up
@@ -88,11 +88,16 @@ void Mesh::loadOBJFile(const char* fileName)
             free(objData.mtlNames[i]);
         free(objData.mtlNames);
     }
+    time(&endTime);
+    double sec = difftime(endTime, startTime);
+    printf("%f seconds\n", sec);
 }
 
 
 void Mesh::computeVertexNormals()
 {
+    time_t startTime, endTime;
+    time(&startTime);
     std::vector<Vec3> faceNorms;
     for(size_t i = 0; i < faces.size(); i++)
     {
@@ -149,6 +154,9 @@ void Mesh::computeVertexNormals()
             face[j].normIndex = face[j].posIndex;
     }
     normalsComputed = true;
+    time(&endTime);
+    double sec = difftime(endTime, startTime);
+    printf("Normal calculations took %f seconds.\n", sec);
 }
 
 
@@ -158,6 +166,8 @@ void Mesh::computeVertexNormals()
  */
 void Mesh::computeVertexBasis()
 {
+    time_t startTime, endTime;
+    time(&startTime);
     tangents.clear();
     binormals.clear();
     determinants.clear();
@@ -210,6 +220,9 @@ void Mesh::computeVertexBasis()
         else
             determinants[i] = 1.0f;    // not mirrored
     }
+    time(&endTime);
+    double sec = difftime(endTime, startTime);
+    printf("Orthonormal basis calculations took %f seconds.\n", sec);           
 }
 
 void Mesh::vertexAttribPNX(GLfloat *vertexArray, size_t *vertexIndex, const size_t i, const size_t j)
@@ -316,11 +329,7 @@ Geometry* Mesh::produceGeometryPNXTBD()
     return geometry;
 }
 
-/*
-  Returns an array of Geoemetry* with their VBO in the format of:
-  position, normal, and texcoord.
- */
-Geometry* Mesh::geometryFromGroupPNX(size_t groupNum)
+Geometry* Mesh::geometryFromGroup(size_t groupNum, VertexAttrib va)
 {
     if(groupNum >= groups.size())
     {
@@ -329,7 +338,7 @@ Geometry* Mesh::geometryFromGroupPNX(size_t groupNum)
     }
     size_t startFaceIndex = groups[groupNum].first;
     size_t endFaceIndex;
-
+    
     if(groupNum == groups.size() - 1)
         endFaceIndex = faces.size();
     else
@@ -340,28 +349,39 @@ Geometry* Mesh::geometryFromGroupPNX(size_t groupNum)
         fprintf(stderr, "Invalid face index interval\n");
         return NULL;
     }
-
-    size_t vertexCount = size_t((float)(endFaceIndex - startFaceIndex + 1) * 3 * 3 * (2.0f + 2.0f/3.0f));
+    int vertSize = 8;
+    if(va == PNXTBD)
+        vertSize = 15;
+    
+    size_t vertexCount = size_t((float)(endFaceIndex - startFaceIndex + 1) * 3 * vertSize);
     GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
 
     size_t vertexIndex = 0;
-    for(size_t i = startFaceIndex; i < endFaceIndex; i++)
-    {            
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 1);
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 2);
+    if(va == PNX)
+    {
+        for(size_t i = startFaceIndex; i < endFaceIndex; i++)
+        {
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 1);
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 2);        
+        }        
+    }else
+    {
+        for(size_t i = startFaceIndex; i < endFaceIndex; i++)
+        {
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 0);
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 1);
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 2);        
+        }
     }
-    assert((vertexIndex % 8) == 0);
-    size_t numVertices = vertexIndex / 8;
-    int vertSizePNX = 8;
+    assert((vertexIndex % vertSize) == 0);
+    size_t numVertices = vertexIndex / vertSize;
 
-    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNX);
-    free(vertexArray);
-
+    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSize);
     return geometry;    
 }
 
-size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)    
+size_t Mesh::geoList(Geometry ***GeoList, char ***mtlNames, VertexAttrib vertexAttrib)
 {
     if(groups.size() == 0)
     {
@@ -371,21 +391,14 @@ size_t Mesh::geoListPNX(Geometry ***GeoList, char ***mtlNames)
 
     *GeoList = (Geometry**)malloc(sizeof(Geometry*)*groups.size());
     *mtlNames = (char**)malloc(sizeof(char*)*groups.size());
-
     for(size_t i = 0; i < groups.size(); i++)
     {
-        (*GeoList)[i] = geometryFromGroupPNX(i);
+        (*GeoList)[i] = geometryFromGroup(i, vertexAttrib);
         (*mtlNames)[i] = (char*)malloc(sizeof(char)*groups[i].second.length());
         strcpy((*mtlNames)[i], groups[i].second.c_str());
     }
-
-    return groups.size();
-}
-
-// TODO
-size_t Mesh::geoListPNXTBD(Geometry ***GeoList, char ***mtlNames)
-{
-    return 0;
+    
+    return groups.size();    
 }
 
 void Mesh::flipTexcoordY()

@@ -222,6 +222,38 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
     return matCount;
 }
 
+// Loads the data from MTL files specified by MTLFileNames into matInfoList
+static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
+{
+    MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
+    size_t numMat = 0;
+
+    for(size_t i = 0; i < numMTLFiles; i++)
+    {
+        size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
+
+        if(matCount == 0)
+        {
+            fprintf(stderr, "Error parsing %s.\n", MTLFileNames[i]);
+            continue;
+        }
+        
+        if(matCount + numMat >= infoListSize)
+        {
+            fprintf(stderr, "Not enough space for %s.\n", MTLFileNames[i]);
+            continue;
+        }
+
+        for(size_t j = 0; j < matCount; j++)
+            matInfoList[numMat + j] = tmpList[j];
+
+        numMat += matCount;
+    }
+
+    free(tmpList);
+    return numMat;
+}
+
 // Struct for temporarily storing data from an OBJ file
 struct OBJData
 {

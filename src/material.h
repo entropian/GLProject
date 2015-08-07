@@ -24,33 +24,33 @@ struct UniformDesc
     GLsizei size;
 };
 
-static void compileVertFragShaders(const char *vs, const char *fs, GLuint &vertexShader, GLuint &fragmentShader)
+static void compileShader(const char* shaderSrc, GLuint &shaderHandle, GLenum shaderType)
 {
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vs, NULL);
-    glCompileShader(vertexShader);
+    shaderHandle = glCreateShader(shaderType);
+    glShaderSource(shaderHandle, 1, &shaderSrc, NULL);
+    glCompileShader(shaderHandle);
 
     GLint status;
     GLchar infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+    glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, &status);
 
     if(status != GL_TRUE)
     {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-        fprintf(stderr, "%s\n", infoLog);
-    }
-
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fs, NULL);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-
-    if(status != GL_TRUE)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        fprintf(stderr, "Fragment shader compiled incorrectly.\n");
+        char str[10];
+        switch(shaderType)
+        {
+        case GL_VERTEX_SHADER:
+            strcpy(str, "Vertex");
+            break;
+        case GL_FRAGMENT_SHADER:
+            strcpy(str, "Fragment");            
+            break;
+        case GL_GEOMETRY_SHADER:
+            strcpy(str, "Geometry");            
+            break;
+        }
+        glGetShaderInfoLog(shaderHandle, 512, NULL, infoLog);
+        fprintf(stderr, "%s shader compiled incorrectly.\n", str);
         fprintf(stderr, "%s\n", infoLog);
     }    
 }
@@ -58,7 +58,8 @@ static void compileVertFragShaders(const char *vs, const char *fs, GLuint &verte
 static GLuint compileAndLinkShaders(const char *vs, const char *fs)
 {
     GLuint vertexShader, fragmentShader;
-    compileVertFragShaders(vs, fs, vertexShader, fragmentShader);
+    compileShader(vs, vertexShader, GL_VERTEX_SHADER);
+    compileShader(fs, fragmentShader, GL_FRAGMENT_SHADER);        
 
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -73,6 +74,7 @@ static GLuint compileAndLinkShaders(const char *vs, const char *fs)
     {
         glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
         fprintf(stderr, "Shaders linked incorrectly.\n");
+        //printf("%s\n%s", vs, fs);
         fprintf(stderr, "%s\n", infoLog);
     }
     
@@ -84,23 +86,10 @@ static GLuint compileAndLinkShaders(const char *vs, const char *fs)
 
 static GLuint compileAndLinkShaders(const char *vs, const char *fs, const char *gs)
 {
-    GLuint vertexShader, fragmentShader;
-    compileVertFragShaders(vs, fs, vertexShader, fragmentShader);
-
-    GLuint geometryShader = glCreateShader(GL_GEOMETRY_SHADER);
-    glShaderSource(geometryShader, 1, &gs, NULL);
-    glCompileShader(geometryShader);
-
-    GLint status;
-    GLchar infoLog[512];
-    glGetShaderiv(geometryShader, GL_COMPILE_STATUS, &status);
-
-    if(status != GL_TRUE)
-    {
-        glGetShaderInfoLog(geometryShader, 512, NULL, infoLog);
-        fprintf(stderr, "Geometry shader compiled incorrectly.\n");
-        fprintf(stderr, "%s\n", infoLog);
-    }
+    GLuint vertexShader, fragmentShader, geometryShader;
+    compileShader(vs, vertexShader, GL_VERTEX_SHADER);
+    compileShader(fs, fragmentShader, GL_FRAGMENT_SHADER);
+    compileShader(gs, geometryShader, GL_GEOMETRY_SHADER);    
 
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -108,7 +97,9 @@ static GLuint compileAndLinkShaders(const char *vs, const char *fs, const char *
     glAttachShader(shaderProgram, geometryShader);
     glBindFragDataLocation(shaderProgram, 0, "outColor");
     glLinkProgram(shaderProgram);
-    
+
+    GLint status;
+    GLchar infoLog[512];
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &status);
     if(status != GL_TRUE)
     {
@@ -122,62 +113,6 @@ static GLuint compileAndLinkShaders(const char *vs, const char *fs, const char *
 
     return shaderProgram;
 }
-
-/*
-// Compile vertex shader vs and fragment shader fs, and attach them to a shader program
-// Returns the handle to the shader program
-static GLuint compileAndLinkShaders(const char *vs, const char *fs)
-{
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vs, NULL);
-    glCompileShader(vertexShader);
-
-    GLint status;
-    GLchar infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-
-    if(status != GL_TRUE)
-    {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        fprintf(stderr, "Vertex shader compiled incorrectly.\n");
-        fprintf(stderr, "%s\n", infoLog);
-    }
-        
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fs, NULL);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-
-    if(status != GL_TRUE)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        fprintf(stderr, "Fragment shader compiled incorrectly.\n");
-        fprintf(stderr, "%s\n", infoLog);
-    }
-
-
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glBindFragDataLocation(shaderProgram, 0, "outColor");
-    glLinkProgram(shaderProgram);
-
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &status);
-    if(status != GL_TRUE)
-    {
-        glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
-        fprintf(stderr, "Shaders linked incorrectly.\n");
-        fprintf(stderr, "%s\n", infoLog);
-    }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    return shaderProgram;
-}
-*/
-
 
 
 class Material
@@ -411,6 +346,17 @@ public:
             sendMatrix("uModelMat", modelMat);
         }else
         {
+            // TODO: only for shadow map testing.
+            Mat4 modelMat = rigTFormToMat(modelRbt);
+            Mat4 viewMat = rigTFormToMat(viewRbt);            
+            Mat4 normalMat = transpose(inv(modelMat));
+            modelMat = modelMat * scaleMat;
+
+            sendMatrix("uModelMat", modelMat);
+            sendMatrix("uViewMat", viewMat);
+            sendMatrix("uNormalMat", normalMat);               
+            
+            /*
             RigTForm modelViewRbt = viewRbt * modelRbt;                
             Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
             Mat4 normalMat = transpose(inv(modelViewMat));
@@ -418,6 +364,7 @@ public:
 
             sendMatrix("uModelViewMat", modelViewMat);
             sendMatrix("uNormalMat", normalMat);
+            */
         }
 
         /*
@@ -505,7 +452,10 @@ private:
         if(i == numUniforms)
         {            
             if(g_debugUniformString)
+            {
                 fprintf(stderr, "No active uniform %s.\n", uniformName);
+                printf("%s\n", name);
+            }
             return -1;
         }
         return i;
