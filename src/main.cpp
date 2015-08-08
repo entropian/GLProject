@@ -14,6 +14,10 @@
 #include <math.h>
 #include <ctime>
 
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+
 #include "fileIO.h"
 #include "shaders.h"
 
@@ -21,14 +25,13 @@
 #include "input.h"
 #include "mesh.h"
 
-#define GLSL(src) "#version 150 core\n" #src
 
 static float g_windowWidth = 1280.0f;
 static float g_windowHeight = 720.0f;
 
 // some of the shader uniforms
 static RigTForm g_view;
-static Vec3 g_lightE, g_lightW(1.0f, 10.0f, 0.0f);
+static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
 //static Vec3 g_lightE, g_lightW(1.0f, 2.5f, 0.5f);
 static Mat4 g_proj;
 
@@ -90,12 +93,12 @@ static bool g_drawSkybox = true;
 struct DepthMap{
     GLuint depthMapFBO;
     GLuint depthMap;
-    GLuint SHADOW_WIDTH, SHADOW_HEIGHT;
+    GLsizei SHADOW_WIDTH, SHADOW_HEIGHT;
     Material *depthMapMaterial;
 };
 static DepthMap g_depthMap;
 static Mat4 g_lightMat;
-static bool g_depthMapStatus = true;
+static bool g_depthMapStatus = false;
 
 
 
@@ -119,16 +122,20 @@ void draw_scene()
         //Mat4 viewMat = rigTFormToMat(inputHandler.getViewTransform());
         //viewMat = g_proj * viewMat;
         //g_depthMap.depthMapMaterial->sendUniformMat4("uLightSpaceMat", viewMat);
+        glCullFace(GL_FRONT);
         Visitor visitor(viewRbt);
         visitor.visitNode(inputHandler.getWorldNode(), g_depthMap.depthMapMaterial);
+        glCullFace(GL_BACK);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+        
         for(int i = 0; i < g_numMat; i++)
         {
             g_materials[i]->sendUniformTexture("uTex1", g_depthMap.depthMap);
         }
+
     }
     
+    glViewport(0, 0, (GLsizei)g_windowWidth, (GLsizei)g_windowHeight);
     if(g_renderToBuffer)
         glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
     
@@ -148,7 +155,7 @@ void draw_scene()
     g_lightE = viewRbt * g_lightW;
 
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
-    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE));    
+    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));    
 
     
     // Draw skybox
@@ -343,17 +350,23 @@ void initDepthMap(DepthMap* dm)
 {
     glGenFramebuffers(1, &(dm->depthMapFBO));
 
-    dm->SHADOW_WIDTH = 1280;
-    dm->SHADOW_HEIGHT = 720;
+    dm->SHADOW_WIDTH = 2048;
+    dm->SHADOW_HEIGHT = 3072;
 
     glGenTextures(1, &(dm->depthMap));
     glBindTexture(GL_TEXTURE_2D, dm->depthMap);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
                  dm->SHADOW_WIDTH, dm->SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);      
 
     glBindFramebuffer(GL_FRAMEBUFFER, dm->depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, dm->depthMap, 0);
@@ -361,7 +374,7 @@ void initDepthMap(DepthMap* dm)
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    //Mat4 lightSpaceMat = g_proj * g_lightMat;
+    //Mat4 lightSpaceMat = g_proj * g_lightMat;    
     dm->depthMapMaterial = new Material(depthMapVertSrc, depthMapFragSrc, "DepthMapMaterial");
     //dm->depthMapMaterial->sendUniformMat4("uLightSpaceMat", lightSpaceMat);
     dm->depthMapMaterial->setDepthMap(true);
@@ -464,6 +477,8 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
 void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 {
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
+    //inputHandler.setViewTransform(RigTForm::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0, 0.0f)));
+    //g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
 
     // Initialize Matrices uniform block
     /* Block layout
@@ -483,8 +498,11 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     Mat4 proj = transpose(g_proj);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Mat4), &(proj[0]));
     // Light space matrix
-    Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
-    glBufferSubData(GL_UNIFORM_BUFFER, 80, sizeof(Mat4), &(lightSpaceMat[0]));
+    Mat4 tmp = Mat4::makeOrtho(-10.0f, 10.0f, -20.0f, 20.0f, 1.0f, 60.0f);
+    Mat4 ortho = tmp;
+    //Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
+    Mat4 lightSpaceMat = transpose(ortho * g_lightMat);
+    glBufferSubData(GL_UNIFORM_BUFFER, 80, 64, &(lightSpaceMat[0]));
     
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
@@ -534,8 +552,8 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
             normalMap = true;
         }else
         {
-            //g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-            g_materials[i] = new Material(shadowVertSrc, shadowFragSrc, matInfoList[i].name);
+            g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            //g_materials[i] = new Material(shadowVertSrc, shadowFragSrc, matInfoList[i].name);
             normalMap = false;            
         }
 
@@ -589,16 +607,18 @@ void initScene()
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
     g_ship2Node = new GeometryNode(g_ship2, g_shipMaterial2, modelRbt, true);
     
-    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
+    modelRbt = RigTForm(g_lightW);
     g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);
+    //g_cubeNode->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     //g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
     g_teapotNode = new GeometryNode(g_teapot, g_cubemapReflectionMat, modelRbt, true);
     g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
 
+    //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, false);
+    g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, true);
 
     g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[1], g_materials, g_numMat, modelRbt, true);
     g_crysponzaNode->setScaleFactor(Vec3(1.0f/55.0f, 1.0f/55.0f, 1.0f/55.0f));
@@ -727,8 +747,16 @@ int main()
     
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
     g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
-    
-    g_proj = Mat4::makeProjection(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
+
+    /*
+    // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()
+    Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, .05f, 25.0f);
+    g_proj = ortho2;
+    */
+    g_proj = Mat4::makePerspective(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
+    //Mat4 tmp = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 35.0f);
+    //g_proj = tmp;
+
     g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
     initSkybox(&g_skybox);
         

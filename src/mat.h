@@ -169,7 +169,28 @@ public:
         return r;
     }
 
-    static Mat4 makeProjection(const float fovy, const float aspectRatio, const float near, const float far)
+    static Mat4 makeOrtho(const float &left, const float &right, const float &bottom, const float &top,
+                          const float &near, const float &far)
+    {
+        Mat4 r;
+        /*
+        r(0, 0) = (right - left) * 0.5;
+        r(1, 1) = (top - bottom) * 0.5;
+        r(2, 2) = (far - near) * 0.5;
+        r(2, 2) = -((far + near) / (far - near));
+        */
+
+        r(0, 0) = 2.0f / (right - left);
+        r(1, 1) = 2.0f / (top - bottom);
+        r(2, 2) = -2.0f / (far - near) ;
+        r(0, 3) = - (right + left) / (right - left);
+        r(1, 3) = - (top + bottom) / (top - bottom);
+        r(2, 3) = -((far + near) / (far - near));
+        return r;
+    }
+
+    // NOTE: is it supposed to be transposed?
+    static Mat4 makePerspective(const float fovy, const float aspectRatio, const float near, const float far)
     {
         Mat4 r(0);
         float ang = (float)(fovy*0.5*PI/180.0);
@@ -183,7 +204,6 @@ public:
         {
             // TODO: figure out why the matrix4.h version is positive
             //       and figure out how the glm version works
-            //       and read the books
             r(2, 2) = -(far + near)/(far - near);
             r(2, 3) = (float)(-2.0*far*near/(far-near));
         }

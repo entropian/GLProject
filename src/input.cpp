@@ -60,7 +60,7 @@ void InputHandler::initialize()
     arrowMesh.loadOBJFile("arrow.obj");
     arrow = arrowMesh.produceGeometryPNX();
 
-    projMat = Mat4::makeProjection(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
+    projMat = Mat4::makePerspective(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
 
     // Initialize arrow materials and picking material
     arrowYMat = new Material(arrowVertSrc, flatFragSrc, "arrowYMaterial");

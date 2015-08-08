@@ -122,80 +122,14 @@ public:
     {
         strcpy(name, materialName);
         shaderProgram = compileAndLinkShaders(vertexShader, fragmentShader);             // Compile shaders
-
-        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);          // Get the number of uniforms in shaderProgram
-        uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
-
-        // Populate uniformDesc with uniform information
-        GLsizei lengthWritten;
-        for(GLint i = 0; i < numUniforms; i++)
-        {
-            uniformDesc[i].index = i;
-            glGetActiveUniform(shaderProgram, uniformDesc[i].index, 20, &lengthWritten,
-                               &(uniformDesc[i].size), &(uniformDesc[i].type), uniformDesc[i].name);
-            assert((lengthWritten + 1) < 20);
-            uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
-        }
-
-        // Retrieve handles to the basic vertex attributes
-        h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
-        h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
-        h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
-        vertexAttrib = PNX;            
-
-        // Retrieve handles to optional vertex attributes
-        GLint numActiveAttrib;
-        glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
-        if(numActiveAttrib == 6)
-        {
-            h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
-            h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
-            h_aDet = glGetAttribLocation(shaderProgram, "aDet");
-            vertexAttrib = PNXTBD;
-        }
-        textureCount = 0;
-        cubemap = false;
-        depthMap = false;
+        initialize();
     }
 
     Material(const char *vertexShader, const char *fragmentShader, const char *geometryShader, const char *materialName)
     {
         strcpy(name, materialName);
         shaderProgram = compileAndLinkShaders(vertexShader, fragmentShader, geometryShader);    // Compile shaders
-
-        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);          // Get the number of uniforms in shaderProgram
-        uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
-
-        // Populate uniformDesc with uniform information
-        GLsizei lengthWritten;
-        for(GLint i = 0; i < numUniforms; i++)
-        {
-            uniformDesc[i].index = i;
-            glGetActiveUniform(shaderProgram, uniformDesc[i].index, 20, &lengthWritten,
-                               &(uniformDesc[i].size), &(uniformDesc[i].type), uniformDesc[i].name);
-            assert((lengthWritten + 1) < 20);
-            uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
-        }
-
-        // Retrieve handles to the basic vertex attributes
-        h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
-        h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
-        h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
-        vertexAttrib = PNX;            
-
-        // Retrieve handles to optional vertex attributes
-        GLint numActiveAttrib;
-        glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
-        if(numActiveAttrib == 6)
-        {
-            h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
-            h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
-            h_aDet = glGetAttribLocation(shaderProgram, "aDet");
-            vertexAttrib = PNXTBD;
-        }
-        textureCount = 0;
-        cubemap = false;
-        depthMap = false;
+        initialize();
     }
 
     ~Material()
@@ -346,6 +280,7 @@ public:
             sendMatrix("uModelMat", modelMat);
         }else
         {
+            /*
             // TODO: only for shadow map testing.
             Mat4 modelMat = rigTFormToMat(modelRbt);
             Mat4 viewMat = rigTFormToMat(viewRbt);            
@@ -354,9 +289,9 @@ public:
 
             sendMatrix("uModelMat", modelMat);
             sendMatrix("uViewMat", viewMat);
-            sendMatrix("uNormalMat", normalMat);               
-            
-            /*
+            sendMatrix("uNormalMat", normalMat);
+            */
+
             RigTForm modelViewRbt = viewRbt * modelRbt;                
             Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
             Mat4 normalMat = transpose(inv(modelViewMat));
@@ -364,7 +299,7 @@ public:
 
             sendMatrix("uModelViewMat", modelViewMat);
             sendMatrix("uNormalMat", normalMat);
-            */
+
         }
 
         /*
@@ -452,10 +387,8 @@ private:
         if(i == numUniforms)
         {            
             if(g_debugUniformString)
-            {
-                fprintf(stderr, "No active uniform %s.\n", uniformName);
-                printf("%s\n", name);
-            }
+                fprintf(stderr, "No active uniform %s in %s.\n", uniformName, name);
+
             return -1;
         }
         return i;
@@ -469,6 +402,43 @@ private:
                 glUniformMatrix4fv(uniformDesc[i].handle, 1, GL_TRUE, &(matrix[0]));
                 break;
             }
+    }
+
+    void initialize()
+    {
+        glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);          // Get the number of uniforms in shaderProgram
+        uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
+
+        // Populate uniformDesc with uniform information
+        GLsizei lengthWritten;
+        for(GLint i = 0; i < numUniforms; i++)
+        {
+            uniformDesc[i].index = i;
+            glGetActiveUniform(shaderProgram, uniformDesc[i].index, 20, &lengthWritten,
+                               &(uniformDesc[i].size), &(uniformDesc[i].type), uniformDesc[i].name);
+            assert((lengthWritten + 1) < 20);
+            uniformDesc[i].handle = glGetUniformLocation(shaderProgram, uniformDesc[i].name);
+        }
+
+        // Retrieve handles to the basic vertex attributes
+        h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
+        h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
+        h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
+        vertexAttrib = PNX;            
+
+        // Retrieve handles to optional vertex attributes
+        GLint numActiveAttrib;
+        glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
+        if(numActiveAttrib == 6)
+        {
+            h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
+            h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
+            h_aDet = glGetAttribLocation(shaderProgram, "aDet");
+            vertexAttrib = PNXTBD;
+        }
+        textureCount = 0;
+        cubemap = false;
+        depthMap = false;
     }
     
     

@@ -90,7 +90,9 @@ void Mesh::loadOBJFile(const char* fileName)
     }
     time(&endTime);
     double sec = difftime(endTime, startTime);
-    printf("%f seconds\n", sec);
+    if(sec > 0.0)
+        printf("%f seconds", sec);
+    printf("\n");
 }
 
 
@@ -156,7 +158,9 @@ void Mesh::computeVertexNormals()
     normalsComputed = true;
     time(&endTime);
     double sec = difftime(endTime, startTime);
-    printf("Normal calculations took %f seconds.\n", sec);
+    if(sec > 0.0)
+        printf("Normal calculations took %f seconds.", sec);
+    printf("\n");    
 }
 
 
@@ -222,7 +226,9 @@ void Mesh::computeVertexBasis()
     }
     time(&endTime);
     double sec = difftime(endTime, startTime);
-    printf("Orthonormal basis calculations took %f seconds.\n", sec);           
+    if(sec > 0.0)
+        printf("Orthonormal basis calculations took %f seconds.", sec);
+    printf("\n");
 }
 
 void Mesh::vertexAttribPNX(GLfloat *vertexArray, size_t *vertexIndex, const size_t i, const size_t j)
@@ -328,6 +334,7 @@ Geometry* Mesh::produceGeometryPNXTBD()
 
     return geometry;
 }
+
 
 Geometry* Mesh::geometryFromGroup(size_t groupNum, VertexAttrib va)
 {

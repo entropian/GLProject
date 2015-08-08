@@ -65,7 +65,7 @@ const char* showNormalVertSrc = GLSL(
     void main()
     {
         vec3 position = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
-        vs_out.position = projMat * uModelViewMat * vec4(aNormal * 50 + aPosition, 1.0);
+        vs_out.position = projMat * uModelViewMat * vec4(aNormal * 0.4 + aPosition, 1.0);
         gl_Position = projMat * vec4(position, 1.0);
     }
 );
@@ -464,7 +464,7 @@ const char* shadowFragSrc = GLSL(
     uniform vec3 Ka;
     uniform vec3 Kd;
     uniform vec3 Ks;
-    uniform float Ns;    
+    uniform float Ns;
     
     out vec4 outColor;
 
@@ -483,7 +483,21 @@ const char* shadowFragSrc = GLSL(
         float currentDepth = projCoords.z;
         
         // Check whether current frag pos is in shadow
-        float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+        float bias = 0.005;
+        //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+        float shadow = 0.0;
+        vec2 texelSize = 1.0 / textureSize(uTex1, 0);
+        for(int x = -1; x <= 1; ++x)
+        {
+            for(int y = -1; y <= 1; ++y)
+            {
+                float pcfDepth = texture(uTex1, projCoords.xy + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;        
+        //float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
 
         return shadow;
     }
@@ -492,7 +506,6 @@ const char* shadowFragSrc = GLSL(
     {
         vec3 texColor = texture(uTex0, vTexcoord).rgb;
         vec3 normal = normalize(vNormal);
-        vec3 lightColor = vec3(1.0);
         
         // Ambient
         vec3 ambContrib = 0.15 * texColor * Ka;
@@ -642,13 +655,7 @@ const char* specTexFragSrc = GLSL(
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
-        if(dot(lightDir, vNormal) > 0.0f)
-        {
-            outColor = vec4((dot(reflectDir, eyeDir) * texColor.xyz), 1.0);
-        }else
-        {
-            outColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        }
+        outColor =vec4( max(dot(lightDir, vNormal), 0) * texColor.xyz, 1.0);
     }
 );
 
@@ -676,13 +683,7 @@ const char* specTexSpotFragSrc = GLSL(
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
-        if(dot(lightDir, vNormal) > 0.0f)
-        {
-            outColor = vec4((dot(reflectDir, eyeDir) * texColor.xyz), 1.0);
-        }else
-        {
-            outColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        }
+        outColor = vec4(max(dot(lightDir, vNormal), 0) * texColor.xyz, 1.0);
     }
 );
 
@@ -787,9 +788,9 @@ const char* OBJNormalFragSrc = GLSL(
 
     void main()
     {
-        //vec4 texColor = texture(uTex0, vTexcoord);
+        vec4 texColor = texture(uTex0, vTexcoord);
         //vec4 texColor = texture(uTex1, vTexcoord);
-        vec4 texColor = vec4(vLightT, 1.0);
+        //vec4 texColor = vec4(vLightT, 1.0);
         
         vec3 ambContrib = 0.5 * Ka * texColor.xyz;
         
@@ -803,7 +804,7 @@ const char* OBJNormalFragSrc = GLSL(
 
         vec3 eyeT = normalize(vEyeT);
         vec3 reflectDir = 2*dot(lightT, normal)*normal - lightT;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Ks;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd;
         
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
@@ -846,7 +847,6 @@ const char* ADSSpotFragSrc = GLSL(
 
         float angleDeg = 30.0;
         vec3 posToLight = normalize(light1 - vPosition);
-
 
         if(dot(posToLight, lightToTarget) > cos(angleDeg/180.0*3.14159))
         {
