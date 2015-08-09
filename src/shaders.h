@@ -233,6 +233,7 @@ const char* normalVertSrc = GLSL(
                             // Base alignment    Aligned offset
         mat4 projMat;       // 16 (x4)           0
         vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
     };                
 
     in vec3 aPosition;
@@ -245,7 +246,6 @@ const char* normalVertSrc = GLSL(
 
     out vec3 vLightT;
     out vec3 vEyeT;
-    out vec3 vLightTarget;
     out vec2 vTexcoord;
     
     void main()
@@ -255,18 +255,17 @@ const char* normalVertSrc = GLSL(
         vec3 lightM = (inverseMat * vec4(light1, 1.0)).xyz - aPosition;        
         vec3 eyeM = (inverseMat * vec4(0.0, 0.0, 0.0, 1.0)).xyz - aPosition;
 
-        lightM = normalize(lightM);
-        eyeM = normalize(eyeM);
+        //lightM = normalize(lightM);
+        //eyeM = normalize(eyeM);
 
         vEyeT.x = dot(eyeM, aTangent);
-        vEyeT.y = dot(eyeM, aBinormal);
+        vEyeT.y = dot(eyeM, aBinormal * aDet);
         vEyeT.z = dot(eyeM, aNormal);
-        vEyeT = vEyeT * aDet;
-        
+
         vLightT.x = dot(lightM, aTangent);
-        vLightT.y = dot(lightM, aBinormal);
+        vLightT.y = dot(lightM, aBinormal * aDet);
         vLightT.z = dot(lightM, aNormal);
-        vLightT = vLightT * aDet;
+     
 
         gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
     }
@@ -754,12 +753,20 @@ const char* OBJFragSrc = GLSL(
         vec3 eyeDir = normalize(-vPosition);        
         vec4 texColor = texture(uTex0, vTexcoord);
 
-        vec3 ambContrib = 0.5 * Ka * texColor.xyz;
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;
 
         vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
 
-        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Ks;
+        vec3 specContrib;
+        if(dot(reflectDir, eyeDir) > 0.0)
+        {
+            specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
+        }else
+        {
+            specContrib = vec3(0, 0, 0);
+        }
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        //outColor = vec4(ambContrib + diffContrib, 1.0);
     }
 );
 
@@ -789,22 +796,19 @@ const char* OBJNormalFragSrc = GLSL(
     void main()
     {
         vec4 texColor = texture(uTex0, vTexcoord);
-        //vec4 texColor = texture(uTex1, vTexcoord);
-        //vec4 texColor = vec4(vLightT, 1.0);
-        
-        vec3 ambContrib = 0.5 * Ka * texColor.xyz;
         
         vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-
-        vec3 normal = (texture(uTex1, vTexcoord)).xyz;
+        vec3 normal = texture(uTex1, vTexcoord).xyz;
 
         float intensity = dot(normal, lightT);
-        vec3 diffContrib = max(dot(normal, lightT), 0) * texColor.xyz * Kd;
-
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
         vec3 eyeT = normalize(vEyeT);
-        vec3 reflectDir = 2*dot(lightT, normal)*normal - lightT;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd;
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
         
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
@@ -899,7 +903,7 @@ const char* normalFragSrc = GLSL(
     {        
         vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
         
-        vec3 ambContrib = 0.1 * texColor.xyz;
+        vec3 ambContrib = 0.2 * texColor.xyz;
         
         vec3 lightT = normalize(vLightT);
 

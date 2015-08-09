@@ -223,6 +223,8 @@ void Mesh::computeVertexBasis()
             determinants[i] = -1.0f;   // mirrored
         else
             determinants[i] = 1.0f;    // not mirrored
+
+        //binormals[i] *= determinants[i];
     }
     time(&endTime);
     double sec = difftime(endTime, startTime);

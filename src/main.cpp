@@ -13,11 +13,11 @@
 #include <time.h>
 #include <math.h>
 #include <ctime>
-
+/*
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
-
+*/
 #include "fileIO.h"
 #include "shaders.h"
 
@@ -529,9 +529,9 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_teapotMaterial->sendUniformTexture("uTex0", textures[1]);
     g_teapotMaterial->bindUniformBlock("UniformBlock", 0);    
 
-    g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, "CubeMaterial");
+    g_cubeMaterial = new Material(basicVertSrc, basicFragSrc, "CubeMaterial");
     //g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, exampleGeoSrc, "CubeMaterial");    
-    g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 0.0f));
+    //g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 1.0f));
     g_cubeMaterial->bindUniformBlock("UniformBlock", 0);    
 
     g_cubemapReflectionMat = new Material(cubemapReflectionVertSrc, cubemapReflectionFragSrc, "CubemapReflection");
@@ -548,18 +548,24 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
         bool normalMap;
         if(strstr(matInfoList[i].map_bump, "ddn"))
         {
-            g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
-            normalMap = true;
-        }else
+            if(matInfoList[i].map_d[0] != '\0')
+            {
+                // TODO: write shader for alpha mask
+                g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+            }else
+                g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+
+                normalMap = true;                            
+        }else 
         {
             g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
             //g_materials[i] = new Material(shadowVertSrc, shadowFragSrc, matInfoList[i].name);
             normalMap = false;            
         }
 
-        g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
+        //g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
-        g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
+        //g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
         g_materials[i]->bindUniformBlock("UniformBlock", 0);                
     
@@ -609,7 +615,7 @@ void initScene()
     
     modelRbt = RigTForm(g_lightW);
     g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);
-    //g_cubeNode->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
+    g_cubeNode->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     //g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
@@ -627,10 +633,10 @@ void initScene()
 
     //g_worldNode->addChild(g_terrainNode);
     //g_worldNode->addChild(g_ship2Node);
-    //g_worldNode->addChild(g_cubeNode);
+    g_worldNode->addChild(g_cubeNode);
     //g_worldNode->addChild(g_teapotNode);
-    g_worldNode->addChild(g_sponzaNode);
-    //g_worldNode->addChild(g_crysponzaNode);
+    //g_worldNode->addChild(g_sponzaNode);
+    g_worldNode->addChild(g_crysponzaNode);
 }
 
 void initRenderToBuffer(RTB *rtb)
@@ -808,7 +814,15 @@ int main()
     glDeleteVertexArrays(1, &(g_teapot->vao));
 
     free(g_shipMaterial1);
+    free(g_shipMaterial2);
     free(g_cubeMaterial);
+    free(g_cubemapReflectionMat);
+    free(g_showNormalMaterial);
+    free(g_depthMap.depthMapMaterial);
+    free(g_teapotMaterial);
+    for(size_t i = 0; i < g_numMat; i++)
+        free(g_materials[i]);
+    
     free(g_cube);
     free(g_ship1);
     free(g_ship2);

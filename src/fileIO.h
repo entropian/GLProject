@@ -111,6 +111,7 @@ struct MaterialInfo
     int illum = 0;               // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
     char map_Ka[40];             // Ambient map file name
     char map_Kd[40];             // Diffuse map file name
+    char map_d[40];              // Alpha mask(?) file name    
     char map_bump[40];           // Bump map file name
 };
 
@@ -150,6 +151,7 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         infoList[i].name[0] = '\0';
         infoList[i].map_Ka[0] = '\0';
         infoList[i].map_Kd[0] = '\0';
+        infoList[i].map_d[0] = '\0';        
         infoList[i].map_bump[0] = '\0';
     }
 
@@ -212,6 +214,9 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         }else if(strcmp(buffer, "map_Ka") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_Ka, readResult, index);
+        }else if(strcmp(buffer, "map_d") == 0)
+        {
+            index = getMaterialName(fileContent, infoList[infoIndex-1].map_d, readResult, index);
         }else if(strcmp(buffer, "map_bump") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
