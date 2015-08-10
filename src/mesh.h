@@ -65,6 +65,8 @@ public:
     // Returns a Geometry* with positions, normals, texcoords, tangent, bitangent, and determinant as its vertex attributes    
     Geometry* produceGeometryPNXTBD();
 
+    Geometry* produceGeometry(VertexAttrib);
+
     /*
       Store an array of Geometry objects in Geometry***, each with the vertex attributes
       position, normal, and texcoord. char*** will contain the material name for each Geometry

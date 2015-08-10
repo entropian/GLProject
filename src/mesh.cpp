@@ -264,10 +264,9 @@ void Mesh::vertexAttribPNXTBD(GLfloat *vertexArray, size_t *vertexIndex, const s
 }
 
 /*
-  Returns a Geoemetry* with its VBO in the format of:
-  position, normal, texcoord
+  Returns a Geoemetry* with its VBO in the format specified by VertexAttrib va
  */
-Geometry* Mesh::produceGeometryPNX()
+Geometry* Mesh::produceGeometry(VertexAttrib va)
 {
     if(((positions.size() == 0 || normals.size() == 0) || texcoords.size() == 0) || faces.size() == 0)
     {
@@ -281,62 +280,42 @@ Geometry* Mesh::produceGeometryPNX()
       What it caused, in addition to not having the correct geometry, is heap corruption (not sure how).
       In the function that called this one, freeing unrelated memory would cause a heap corruption error.
     */
-    size_t vertexCount = size_t((float)faces.size() * 3 * 3 * (2.0f + 2.0f/3.0f));
+    size_t vertexCount, vertSize;
+    if(va == PNX)
+        vertSize = 8;
+    else if(va == PNXTBD)
+        vertSize=  15;
+
+    vertexCount = size_t((float)faces.size() * 3 * vertSize);        
     GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
 
     size_t vertexIndex = 0;
-    for(size_t i = 0; i < faces.size(); i++)
+    if(va == PNX)
     {
+        for(size_t i = 0; i < faces.size(); i++)
+        {
             
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 1);
-        vertexAttribPNX(vertexArray, &vertexIndex, i, 2);
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 0);
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 1);
+            vertexAttribPNX(vertexArray, &vertexIndex, i, 2);
+        }
+    }else if(va == PNXTBD)
+    {
+        for(size_t i = 0; i < faces.size(); i++)
+        {
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 0);
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 1);
+            vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 2);            
+        }
     }
-    assert((vertexIndex % 8) == 0);
-    size_t numVertices = vertexIndex / 8;
-    int vertSizePNX = 8;
+    assert((vertexIndex % vertSize) == 0);
+    size_t numVertices = vertexIndex / vertSize;
 
-    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNX);
+    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSize);
     free(vertexArray);
 
     return geometry;
 }
-
-/*
-  Returns a Geoemetry* with its VBO in the format of:
-  position, normal, texcoord, tangent, binormal, determinant
- */
-Geometry* Mesh::produceGeometryPNXTBD()
-{
-    if(((positions.size() == 0 || normals.size() == 0) || texcoords.size() == 0) || faces.size() == 0)
-    {
-        fprintf(stderr, "Mesh doesn't contain necessary data to produce a Geometry object.\n");
-        return NULL;
-    }
-
-    //unsigned int vertexCount = int((float)faces.size() * 3 * 3 * (2.0f + 2.0f/3.0f));
-    // (3 + 3 + 2 + 3 + 3 + 1) = size per vertex
-    // position + normal + texcoord + tangent + binormal + determinant
-    size_t vertexCount = size_t((float)faces.size() * 3 * (3 + 3 + 2 + 3 + 3 + 1));
-    GLfloat *vertexArray = (GLfloat*)malloc(sizeof(GLfloat)*vertexCount);
-
-    size_t vertexIndex = 0;
-    for(size_t i = 0; i < faces.size(); i++)
-    {
-        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 0);
-        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 1);
-        vertexAttribPNXTBD(vertexArray, &vertexIndex, i, 2);            
-    }
-    assert((vertexIndex % 15) == 0);
-    size_t numVertices = vertexIndex / 15;
-    int vertSizePNXTBD = 15;
-
-    Geometry *geometry = new Geometry(vertexArray, numVertices, vertSizePNXTBD);
-    free(vertexArray);
-
-    return geometry;
-}
-
 
 Geometry* Mesh::geometryFromGroup(size_t groupNum, VertexAttrib va)
 {

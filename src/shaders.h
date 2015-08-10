@@ -367,13 +367,13 @@ const char* depthMapFragSrc = GLSL(
 
     void main()
     {
-
+        discard;
     }
 );
 
 const char* RTBFragSrc = GLSL(
 
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
 
@@ -381,19 +381,19 @@ const char* RTBFragSrc = GLSL(
 
     void main()
     {
-        outColor = texture(uTex0, vTexcoord);
+        outColor = texture(screenTexture, vTexcoord);
     }
 
     /*
     in vec2 vTexcoord;
 
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     out vec4 outColor;
 
     void main()
     {             
-        float depthValue = (texture(uTex0, vTexcoord)).r;
+        float depthValue = (texture(screenTexture, vTexcoord)).r;
         outColor = vec4(vec3(depthValue), 1.0);
     }
     */
@@ -458,8 +458,8 @@ const char* shadowFragSrc = GLSL(
     in vec3 vLightW;
     in vec3 vEyeW;
 
-    uniform sampler2D uTex0;        // diffuse map
-    uniform sampler2D uTex1;        // shadow map
+    uniform sampler2D diffuseMap;        // diffuse map
+    uniform sampler2D shadowMap;        // shadow map
     uniform vec3 Ka;
     uniform vec3 Kd;
     uniform vec3 Ks;
@@ -476,7 +476,7 @@ const char* shadowFragSrc = GLSL(
         projCoords = projCoords * 0.5 + 0.5;
         
         // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-        float closestDepth = texture(uTex1, projCoords.xy).r;
+        float closestDepth = texture(shadowMap, projCoords.xy).r;
         
         // Get depth of current fragment from light's perspective
         float currentDepth = projCoords.z;
@@ -486,12 +486,12 @@ const char* shadowFragSrc = GLSL(
         //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
 
         float shadow = 0.0;
-        vec2 texelSize = 1.0 / textureSize(uTex1, 0);
+        vec2 texelSize = 1.0 / textureSize(diffuseMap, 0);
         for(int x = -1; x <= 1; ++x)
         {
             for(int y = -1; y <= 1; ++y)
             {
-                float pcfDepth = texture(uTex1, projCoords.xy + vec2(x, y) * texelSize).r; 
+                float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
                 shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
             }    
         }
@@ -503,7 +503,7 @@ const char* shadowFragSrc = GLSL(
     
     void main()
     {
-        vec3 texColor = texture(uTex0, vTexcoord).rgb;
+        vec3 texColor = texture(diffuseMap, vTexcoord).rgb;
         vec3 normal = normalize(vNormal);
         
         // Ambient
@@ -604,7 +604,7 @@ const char* flatFragSrc = GLSL(
 // Fragment shader with diffuse lighting and texture
 const char* diffuseTextureFragSrc = GLSL(
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
 
     layout (std140) uniform UniformBlock
     {
@@ -624,7 +624,7 @@ const char* diffuseTextureFragSrc = GLSL(
 
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 normal = normalize(vNormal);
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
         outColor = vec4((dot(lightDir, normal) * texColor.xyz), 1.0);
     }
 );
@@ -632,7 +632,7 @@ const char* diffuseTextureFragSrc = GLSL(
 // Specular fragment shader with texture
 const char* specTexFragSrc = GLSL(
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
 
     layout (std140) uniform UniformBlock
     {
@@ -653,14 +653,14 @@ const char* specTexFragSrc = GLSL(
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
         outColor =vec4( max(dot(lightDir, vNormal), 0) * texColor.xyz, 1.0);
     }
 );
 
 const char* specTexSpotFragSrc = GLSL(
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
 
     layout (std140) uniform UniformBlock
     {
@@ -681,7 +681,7 @@ const char* specTexSpotFragSrc = GLSL(
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
         outColor = vec4(max(dot(lightDir, vNormal), 0) * texColor.xyz, 1.0);
     }
 );
@@ -689,7 +689,7 @@ const char* specTexSpotFragSrc = GLSL(
 // Fragment shader with phong lighting
 const char* ADSFragSrc = GLSL(
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
 
     layout (std140) uniform UniformBlock
     {
@@ -712,7 +712,7 @@ const char* ADSFragSrc = GLSL(
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         //vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
 
         vec3 ambContrib = 0.1 * texColor.xyz;
 
@@ -725,7 +725,8 @@ const char* ADSFragSrc = GLSL(
 
 // OBJ material and Phong lighting.
 const char* OBJFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
+    
     layout (std140) uniform UniformBlock
     {
                             // Base alignment    Aligned offset
@@ -751,22 +752,154 @@ const char* OBJFragSrc = GLSL(
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(uTex0, vTexcoord);
+        vec4 texColor = texture(diffuseMap, vTexcoord);
 
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;
 
         vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
 
-        vec3 specContrib;
-        if(dot(reflectDir, eyeDir) > 0.0)
-        {
-            specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
-        }else
-        {
-            specContrib = vec3(0, 0, 0);
-        }
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
+        
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
-        //outColor = vec4(ambContrib + diffContrib, 1.0);
+    }
+);
+
+// OBJ material and Phong lighting.
+const char* OBJSpecFragSrc = GLSL(
+    uniform sampler2D diffuseMap;
+    uniform sampler2D specularMap;
+    
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80?
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        
+        vec3 lightDir = normalize(light1 - vPosition);
+        vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
+        vec3 eyeDir = normalize(-vPosition);
+        
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        vec4 specular = texture(specularMap, vTexcoord);
+
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;
+
+        vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
+
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb * 0.005;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+// OBJ material and Phong lighting.
+const char* OBJAlphaFragSrc = GLSL(
+    uniform sampler2D diffuseMap;
+    uniform sampler2D alphaMap; 
+    
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80?
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    //uniform vec3 Ks;
+    uniform float Ns;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        
+        vec3 lightDir = normalize(light1 - vPosition);
+        vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
+        vec3 eyeDir = normalize(-vPosition);        
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        vec4 alpha = texture(alphaMap, vTexcoord);
+
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;
+
+        vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
+
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
+        if(alpha.r < 0.1)
+            discard;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+// OBJ material and Phong lighting.
+const char* OBJAlphaSpecFragSrc = GLSL(
+    uniform sampler2D diffuseMap;
+    uniform sampler2D alphaMap;
+    uniform sampler2D specularMap;
+    
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat; // 16 (x4)           80?
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    //uniform vec3 Ks;
+    uniform float Ns;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;
+
+    void main()
+    {
+        
+        vec3 lightDir = normalize(light1 - vPosition);
+        vec3 reflectDir = 2*max(dot(lightDir, vNormal), 0)*vNormal - lightDir;
+        vec3 eyeDir = normalize(-vPosition);
+        
+        vec4 texColor = texture(diffuseMap, vTexcoord);        
+        vec4 alpha = texture(alphaMap, vTexcoord);
+        vec4 specular = texture(specularMap, vTexcoord);
+
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;
+
+        vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
+
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb * 0.005;
+        if(alpha.r < 0.1)
+            discard;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 
@@ -784,8 +917,8 @@ const char* OBJNormalFragSrc = GLSL(
     uniform vec3 Kd;
     uniform vec3 Ks;
     uniform float Ns;
-    uniform sampler2D uTex0;
-    uniform sampler2D uTex1;   // normal map
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
 
     in vec3 vLightT;
     in vec3 vEyeT;
@@ -795,13 +928,13 @@ const char* OBJNormalFragSrc = GLSL(
 
     void main()
     {
-        vec4 texColor = texture(uTex0, vTexcoord);
+        vec4 texColor = texture(diffuseMap, vTexcoord);
         
         vec3 lightT = normalize(vLightT);
         
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-        vec3 normal = texture(uTex1, vTexcoord).xyz;
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
 
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
@@ -814,11 +947,157 @@ const char* OBJNormalFragSrc = GLSL(
     }
 );
 
+// Normal mapping, OBJ material, and Phong lighting.
+const char* OBJNormalSpecFragSrc = GLSL(
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+    uniform sampler2D specularMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;    
+
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        vec4 specular = texture(specularMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.xyz * 0.005;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+// Normal mapping, OBJ material, and Phong lighting.
+const char* OBJNormalAlphaFragSrc = GLSL(
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;    // diffuse map
+    uniform sampler2D normalMap;    // normal map
+    uniform sampler2D alphaMap;    // alpha mask
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;    
+
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        vec4 alpha = texture(alphaMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
+        if(alpha.r < 0.1)
+            discard;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+// Normal mapping, OBJ material, and Phong lighting.
+const char* OBJNormalAlphaSpecFragSrc = GLSL(
+    layout (std140) uniform UniformBlock
+    {
+                            // Base alignment    Aligned offset
+        mat4 projMat;       // 16 (x4)           0
+        vec3 light1;        // 16                64
+        mat4 lightSpaceMat;
+    };                
+    
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;    // diffuse map
+    uniform sampler2D normalMap;    // normal map
+    uniform sampler2D alphaMap;    // alpha mask
+    uniform sampler2D specularMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+
+    out vec4 outColor;    
+
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        vec4 alpha = texture(alphaMap, vTexcoord);
+        vec4 specular = texture(specularMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.rgb * 0.005;
+        if(alpha.r < 0.1)
+            discard;
+        
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
 // Spotlight fragment shader with phong lighting
 const char* ADSSpotFragSrc = GLSL(
     uniform vec3 uLightTarget;
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
+    uniform sampler2D diffuseMap;
 
     layout (std140) uniform UniformBlock
     {
@@ -839,7 +1118,7 @@ const char* ADSSpotFragSrc = GLSL(
         vec3 lightDir = normalize(light1 - vPosition);
         vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
         vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
 
         vec3 ambContrib = 0.1 * texColor.xyz;
 
@@ -890,8 +1169,8 @@ const char* specularFragSrc = GLSL(
 // Normal mapping fragment shader
 const char* normalFragSrc = GLSL(
     uniform vec3 uColor;
-    uniform sampler2D uTex0;
-    uniform sampler2D uTex1;   // normal map
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
 
     in vec3 vLightT;
     in vec3 vEyeT;
@@ -901,13 +1180,13 @@ const char* normalFragSrc = GLSL(
 
     void main()
     {        
-        vec4 texColor = texture(uTex0, vTexcoord) * vec4(uColor, 1.0);
+        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
         
         vec3 ambContrib = 0.2 * texColor.xyz;
         
         vec3 lightT = normalize(vLightT);
 
-        vec3 normal = (texture(uTex1, vTexcoord)).xyz;
+        vec3 normal = (texture(normalMap, vTexcoord)).xyz;
         
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz;
@@ -924,7 +1203,7 @@ const char* normalFragSrc = GLSL(
 
 // Inverts the color of the image
 const char* invertFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
 
@@ -932,20 +1211,20 @@ const char* invertFragSrc = GLSL(
     
     void main()
     {
-        outColor = vec4(vec3(1.0 - texture(uTex0, vTexcoord)), 1.0);
+        outColor = vec4(vec3(1.0 - texture(screenTexture, vTexcoord)), 1.0);
     }
 );
 
 // Turns the image to grey scale
 const char* greyScaleFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
     out vec4 outColor;
     
     void main()
     {
-        outColor = texture(uTex0, vTexcoord);
+        outColor = texture(screenTexture, vTexcoord);
         float average = 0.2126 * outColor.r + 0.7152 * outColor.g + 0.0722 * outColor.b;
         outColor = vec4(average, average, average, 1.0);
     }
@@ -953,7 +1232,7 @@ const char* greyScaleFragSrc = GLSL(
 
 // Sharpens the edges in the scene
 const char* sharpenFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
 
@@ -984,7 +1263,7 @@ const char* sharpenFragSrc = GLSL(
         vec3 sampleTex[9];
         for(int i = 0; i < 9; i++)
         {
-            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+            sampleTex[i] = vec3(texture(screenTexture, vTexcoord.st + offsets[i]));
         }
 
         vec3 col;
@@ -997,7 +1276,7 @@ const char* sharpenFragSrc = GLSL(
 
 // Blurs everything
 const char* blurFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
 
@@ -1028,7 +1307,7 @@ const char* blurFragSrc = GLSL(
         vec3 sampleTex[9];
         for(int i = 0; i < 9; i++)
         {
-            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+            sampleTex[i] = vec3(texture(screenTexture, vTexcoord.st + offsets[i]));
         }
 
         vec3 col;
@@ -1041,7 +1320,7 @@ const char* blurFragSrc = GLSL(
 
 // Brighten the edges and darken everything else
 const char* brightEdgeFragSrc = GLSL(
-    uniform sampler2D uTex0;
+    uniform sampler2D screenTexture;
     
     in vec2 vTexcoord;
 
@@ -1072,7 +1351,7 @@ const char* brightEdgeFragSrc = GLSL(
         vec3 sampleTex[9];
         for(int i = 0; i < 9; i++)
         {
-            sampleTex[i] = vec3(texture(uTex0, vTexcoord.st + offsets[i]));
+            sampleTex[i] = vec3(texture(screenTexture, vTexcoord.st + offsets[i]));
         }
 
         vec3 col;

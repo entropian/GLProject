@@ -100,6 +100,22 @@ static DepthMap g_depthMap;
 static Mat4 g_lightMat;
 static bool g_depthMapStatus = false;
 
+// Shader type flags
+enum ShaderFlag
+{
+    DIFFUSE = 1,
+    NORMAL = 2,
+    SPECULAR = 4,
+    ALPHA = 8,
+    DIFFUSE_NORMAL = 3,
+    DIFFUSE_SPECULAR = 5,
+    DIFFUSE_NORMAL_SPECULAR = 7,
+    DIFFUSE_ALPHA = 9,    
+    DIFFUSE_NORMAL_ALPHA = 11,
+    DIFFUSE_SPECULAR_ALPHA = 13,
+    DIFFUSE_NORMAL_SPECULAR_ALPHA = 15    
+};
+
 
 
 // Uniform blocks
@@ -130,7 +146,7 @@ void draw_scene()
         
         for(int i = 0; i < g_numMat; i++)
         {
-            g_materials[i]->sendUniformTexture("uTex1", g_depthMap.depthMap);
+            g_materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
         }
 
     }
@@ -224,26 +240,26 @@ void initGeometries()
     Mesh ship1Mesh;
     ship1Mesh.loadOBJFile("Ship.obj");
     ship1Mesh.computeVertexBasis();
-    g_ship1 = ship1Mesh.produceGeometryPNXTBD();
+    g_ship1 = ship1Mesh.produceGeometry(PNXTBD);
 
     Mesh ship2Mesh;
     ship2Mesh.loadOBJFile("Ship2.obj");
     ship2Mesh.computeVertexBasis();
-    g_ship2 = ship2Mesh.produceGeometryPNXTBD();
+    g_ship2 = ship2Mesh.produceGeometry(PNXTBD);
 
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
-    g_cube = cubeMesh.produceGeometryPNX();
+    g_cube = cubeMesh.produceGeometry(PNX);
 
     Mesh teapotMesh;
     teapotMesh.loadOBJFile("teapot.obj");
     teapotMesh.computeVertexNormals();
-    g_teapot = teapotMesh.produceGeometryPNX();
+    g_teapot = teapotMesh.produceGeometry(PNX);
 
     Mesh sponzaMesh;
     sponzaMesh.loadOBJFile("sponza.obj");
     sponzaMesh.computeVertexNormals();
-    //sponzaMesh.computeVertexBasis();
+    //sponzaMesh.computeVertexBasis();    
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);    
     //getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
     
@@ -270,7 +286,8 @@ void loadAndSpecifyTexture(const char *fileName)
     if(image == NULL)
         fprintf(stderr, "Failed to load %s.\n", fileName);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -374,9 +391,7 @@ void initDepthMap(DepthMap* dm)
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    //Mat4 lightSpaceMat = g_proj * g_lightMat;    
     dm->depthMapMaterial = new Material(depthMapVertSrc, depthMapFragSrc, "DepthMapMaterial");
-    //dm->depthMapMaterial->sendUniformMat4("uLightSpaceMat", lightSpaceMat);
     dm->depthMapMaterial->setDepthMap(true);
 }
 
@@ -397,7 +412,11 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
         if(matInfoList[i].map_Kd[0] != '\0')
             mapCount++;
         if(matInfoList[i].map_bump[0] != '\0')
-            mapCount++;        
+            mapCount++;
+        if(matInfoList[i].map_d[0] != '\0')
+            mapCount++;
+        if(matInfoList[i].map_spec[0] != '\0')
+            mapCount++;                
     }
     
     //size_t tmp = 5 + matCount;
@@ -419,10 +438,8 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
         {
             bool duplicate = false;
             for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-            {
                 if(strcmp(matInfoList[i].map_Kd, textureFileNames[j]) == 0)
                     duplicate = true;
-            }
 
             if(!duplicate)
             {
@@ -436,17 +453,45 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
         {
             bool duplicate = false;
             for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-            {
                 if(strcmp(matInfoList[i].map_bump, textureFileNames[j]) == 0)
                     duplicate = true;
-            }
 
             if(!duplicate)
             {
                 strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_bump);
                 tfIndex++;
             }
-        }                    
+        }
+
+        // Alpha map
+        if(matInfoList[i].map_d[0] != '\0')
+        {
+            bool duplicate = false;
+            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
+                if(strcmp(matInfoList[i].map_d, textureFileNames[j]) == 0)
+                    duplicate = true;
+
+            if(!duplicate)
+            {
+                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_d);
+                tfIndex++;
+            }            
+        }
+
+        // Specular map
+        if(matInfoList[i].map_spec[0] != '\0')
+        {
+            bool duplicate = false;
+            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
+                if(strcmp(matInfoList[i].map_spec, textureFileNames[j]) == 0)
+                    duplicate = true;
+
+            if(!duplicate)
+            {
+                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_spec);
+                tfIndex++;
+            }            
+        }                                    
     }
                                                                                   
     size_t numTextureFiles = tfIndex + numNonMTL;
@@ -457,6 +502,7 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
     glActiveTexture(GL_TEXTURE0);
     for(size_t i = 0; i < numTextureFiles; i++)
     {
+        printf("%s\n", textureFileNames[i]);
         char buffer[100];
         buffer[0] = '\0';
         strcat(buffer, "../textures/");
@@ -472,7 +518,19 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
     return numTextureFiles;
 }
 
+void initMaterialTexture(Material *mat, const char* fileName, const char* uniformName,
+                         char** textureFileNames, GLuint* textureArray, size_t numTextures)
+{
+    size_t i;
+    for(i = 0; i < numTextures; i++)
+        if(strcmp(fileName, textureFileNames[i]) == 0)
+            break;
 
+    if(i == numTextures)
+        mat->sendUniformTexture(uniformName, textureArray[1]);
+    else
+        mat->sendUniformTexture(uniformName, textureArray[i]);    
+}
 
 void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
 {
@@ -513,20 +571,20 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     //g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, exampleGeoSrc, "ShipMaterial1");    
     Vec3 color(1.0f, 1.0f, 1.0f);
     g_shipMaterial1->sendUniform3f("uColor", color);
-    g_shipMaterial1->sendUniformTexture("uTex0", textures[0]);
-    g_shipMaterial1->sendUniformTexture("uTex1", textures[2]);
+    g_shipMaterial1->sendUniformTexture("diffuseMap", textures[0]);
+    g_shipMaterial1->sendUniformTexture("normalMap", textures[2]);
     g_shipMaterial1->bindUniformBlock("UniformBlock", 0);
 
     
     g_shipMaterial2 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial2");
     g_shipMaterial2->sendUniform3f("uColor", color);
-    g_shipMaterial2->sendUniformTexture("uTex0", textures[3]);
-    g_shipMaterial2->sendUniformTexture("uTex1", textures[4]);
+    g_shipMaterial2->sendUniformTexture("diffuseMap", textures[3]);
+    g_shipMaterial2->sendUniformTexture("normalMap", textures[4]);
     g_shipMaterial2->bindUniformBlock("UniformBlock", 0);    
 
     g_teapotMaterial = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
     g_teapotMaterial->sendUniform3f("uColor", color);
-    g_teapotMaterial->sendUniformTexture("uTex0", textures[1]);
+    g_teapotMaterial->sendUniformTexture("diffuseMap", textures[1]);
     g_teapotMaterial->bindUniformBlock("UniformBlock", 0);    
 
     g_cubeMaterial = new Material(basicVertSrc, basicFragSrc, "CubeMaterial");
@@ -545,59 +603,66 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
-        bool normalMap;
-        if(strstr(matInfoList[i].map_bump, "ddn"))
-        {
-            if(matInfoList[i].map_d[0] != '\0')
-            {
-                // TODO: write shader for alpha mask
-                g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
-            }else
-                g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+        ShaderFlag sf = DIFFUSE;
+        if(matInfoList[i].map_spec[0] != '\0')
+            sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(SPECULAR));
+        if(matInfoList[i].map_bump[0] != '\0')
+            sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(NORMAL));
+        if(matInfoList[i].map_d[0] != '\0')
+            sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(ALPHA));
 
-                normalMap = true;                            
-        }else 
+        switch(sf)
         {
+        case DIFFUSE:
             g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-            //g_materials[i] = new Material(shadowVertSrc, shadowFragSrc, matInfoList[i].name);
-            normalMap = false;            
+            break;
+        case DIFFUSE_NORMAL:
+            g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_SPECULAR:
+            g_materials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_NORMAL_SPECULAR:
+            g_materials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_ALPHA:
+            g_materials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_NORMAL_ALPHA:
+            g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_SPECULAR_ALPHA:
+            g_materials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
+            break;
+        case DIFFUSE_NORMAL_SPECULAR_ALPHA:
+            g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
+            break;
         }
-
+        
         //g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         //g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
-        g_materials[i]->bindUniformBlock("UniformBlock", 0);                
-    
+        g_materials[i]->bindUniformBlock("UniformBlock", 0);
+
         if(matInfoList[i].name[0] == '\0')
-            g_materials[i]->sendUniformTexture("uTex0", textures[1]);
+            g_materials[i]->sendUniformTexture("diffuseMap", textures[1]);
         else
         {
             // Diffuse map
-            size_t j;
-            for(j = 0; j < g_numTextures; j++)
-                if(strcmp(matInfoList[i].map_Kd, g_textureFileNames[j]) == 0)
-                    break;
-
-            if(j == g_numTextures)
-                g_materials[i]->sendUniformTexture("uTex0", textures[1]);
-            else
-                g_materials[i]->sendUniformTexture("uTex0", textures[j]);
-
-            if(normalMap)
-            {
-                // Normal map
-                for(j = 0; j < g_numTextures; j++)
-                    if(strcmp(matInfoList[i].map_bump, g_textureFileNames[j]) == 0)
-                        break;
-
-                if(j == g_numTextures)
-                    g_materials[i]->sendUniformTexture("uTex1", textures[1]);
-                else
-                    g_materials[i]->sendUniformTexture("uTex1", textures[j]);
-            }
+            initMaterialTexture(g_materials[i], matInfoList[i].map_Kd, "diffuseMap", g_textureFileNames, textures, g_numTextures);
+            // Normal map
+            if(sf & NORMAL)
+                initMaterialTexture(g_materials[i], matInfoList[i].map_bump, "normalMap", g_textureFileNames, textures, g_numTextures);
+            // Alpha map
+            if(sf & ALPHA)
+                initMaterialTexture(g_materials[i], matInfoList[i].map_d, "alphaMap", g_textureFileNames, textures, g_numTextures);
+            // Specular map
+            if(sf & SPECULAR)
+                initMaterialTexture(g_materials[i], matInfoList[i].map_spec, "specularMap", g_textureFileNames, textures, g_numTextures);
         }
     }
+
     g_numMat += matCount;
 }
 
@@ -631,12 +696,12 @@ void initScene()
 
 
 
-    //g_worldNode->addChild(g_terrainNode);
-    //g_worldNode->addChild(g_ship2Node);
+    g_worldNode->addChild(g_terrainNode);
+    g_worldNode->addChild(g_ship2Node);
     g_worldNode->addChild(g_cubeNode);
-    //g_worldNode->addChild(g_teapotNode);
+    g_worldNode->addChild(g_teapotNode);
     //g_worldNode->addChild(g_sponzaNode);
-    g_worldNode->addChild(g_crysponzaNode);
+    //g_worldNode->addChild(g_crysponzaNode);
 }
 
 void initRenderToBuffer(RTB *rtb)
@@ -671,7 +736,7 @@ void initRenderToBuffer(RTB *rtb)
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
     // Setup texture handle
-    rtb->texture = glGetUniformLocation(rtb->shaderProgram, "uTex0");    
+    rtb->texture = glGetUniformLocation(rtb->shaderProgram, "screenTexture");    
 
     // Generate framebuffer
     glGenFramebuffers(1, &(rtb->framebuffer));
@@ -778,6 +843,9 @@ int main()
     // ---------------------------- RENDERING ------------------------------ //
     
     glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_ALPHA_TEST);
+    //glEnable(GL_BLEND);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     draw_scene();
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
