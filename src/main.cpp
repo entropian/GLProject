@@ -106,16 +106,8 @@ enum ShaderFlag
     DIFFUSE = 1,
     NORMAL = 2,
     SPECULAR = 4,
-    ALPHA = 8,
-    DIFFUSE_NORMAL = 3,
-    DIFFUSE_SPECULAR = 5,
-    DIFFUSE_NORMAL_SPECULAR = 7,
-    DIFFUSE_ALPHA = 9,    
-    DIFFUSE_NORMAL_ALPHA = 11,
-    DIFFUSE_SPECULAR_ALPHA = 13,
-    DIFFUSE_NORMAL_SPECULAR_ALPHA = 15    
+    ALPHA = 8
 };
-
 
 
 // Uniform blocks
@@ -128,9 +120,6 @@ void draw_scene()
     RigTForm viewRbt = inputHandler.getViewTransform();        
     if(g_depthMapStatus)
     {
-        //simpleDepthShader.Use();
-    
-        //glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
 
         glViewport(0, 0, g_depthMap.SHADOW_WIDTH, g_depthMap.SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, g_depthMap.depthMapFBO);
@@ -259,14 +248,13 @@ void initGeometries()
     Mesh sponzaMesh;
     sponzaMesh.loadOBJFile("sponza.obj");
     sponzaMesh.computeVertexNormals();
-    //sponzaMesh.computeVertexBasis();    
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);    
     //getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
+
     
     Mesh crysponzaMesh;
     crysponzaMesh.loadOBJFile("crysponza.obj");
     crysponzaMesh.computeVertexBasis();
-    //g_crysponza = crysponzaMesh.produceGeometryPNX();
     //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
     getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
 
@@ -299,6 +287,7 @@ void loadAndSpecifyTexture(const char *fileName)
     SOIL_free_image_data(image);
 }
 
+// Loads texture files specified by faces and returns handle to the resulting cubemap
 GLuint loadCubemap(const char *faces[])
 {
     GLuint textureID;
@@ -324,6 +313,7 @@ GLuint loadCubemap(const char *faces[])
         SOIL_free_image_data(image);
     }
 
+    // Texture parameters
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -336,12 +326,27 @@ GLuint loadCubemap(const char *faces[])
 
 void initSkybox(Skybox *skybox)
 {
+    GLfloat vertices[] = {
+        -1, -1, -1, -1, 1, -1, 1, 1, -1,    // front
+        -1, -1, -1, 1, 1, -1, 1, -1, -1,
+        -1, -1, 1, -1, 1, 1, 1, 1, 1,       // back
+        -1, 1, 1, 1, 1, 1, 1, -1, 1,
+        -1, -1, 1, -1, 1, 1, -1, 1, -1,     // left
+        -1, -1, 1, -1, 1, -1, -1, -1, -1,
+        1, -1, 1, 1, 1, -1, 1, -1, -1,      // right
+        1, -1, 1, 1, 1, -1, 1, -1, -1,
+        -1, 1, -1, -1, 1, 1, 1, 1, 1,       // top
+        -1, 1, -1, 1, 1, 1, 1, 1, -1,
+        -1, -1, -1, -1, -1, 1, 1, -1, 1,    // bottom
+        -1, -1, -1, 1, -1, 1, 1, -1, -1        
+    };
+    
     skybox->shaderProgram = compileAndLinkShaders(skyboxVertSrc, skyboxFragSrc);
     glUseProgram(skybox->shaderProgram);
     
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
-    Geometry *cube = cubeMesh.produceGeometryPNX();    
+    Geometry *cube = cubeMesh.produceGeometry(PNX);    
 
     glGenVertexArrays(1, &(skybox->vao));
     glBindVertexArray(skybox->vao);   
@@ -517,8 +522,11 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
     printf("Texture loading took %f seconds.\n", sec);
     return numTextureFiles;
 }
-
-void initMaterialTexture(Material *mat, const char* fileName, const char* uniformName,
+/*
+  Find the texture handle specified by fileName in textureArray and send it to mat
+  If the texture handle is not found, textureArray[i] is sent instead.
+*/
+void setMaterialTexture(Material *mat, const char* fileName, const char* uniformName,
                          char** textureFileNames, GLuint* textureArray, size_t numTextures)
 {
     size_t i;
@@ -532,7 +540,7 @@ void initMaterialTexture(Material *mat, const char* fileName, const char* unifor
         mat->sendUniformTexture(uniformName, textureArray[i]);    
 }
 
-void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
+void initUniformBlock()
 {
     inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
     //inputHandler.setViewTransform(RigTForm::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0, 0.0f)));
@@ -564,8 +572,10 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
+}
 
-    
+void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
+{    
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     //g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, exampleGeoSrc, "ShipMaterial1");    
@@ -616,25 +626,25 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
         case DIFFUSE:
             g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
             break;
-        case DIFFUSE_NORMAL:
+        case DIFFUSE|NORMAL:
             g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_SPECULAR:
+        case DIFFUSE|SPECULAR:
             g_materials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_NORMAL_SPECULAR:
+        case DIFFUSE|NORMAL|SPECULAR:
             g_materials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_ALPHA:
+        case DIFFUSE|ALPHA:
             g_materials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_NORMAL_ALPHA:
+        case DIFFUSE|NORMAL|ALPHA:
             g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_SPECULAR_ALPHA:
+        case DIFFUSE|SPECULAR|ALPHA:
             g_materials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
             break;
-        case DIFFUSE_NORMAL_SPECULAR_ALPHA:
+        case DIFFUSE|NORMAL|SPECULAR|ALPHA:
             g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
             break;
         }
@@ -650,16 +660,16 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
         else
         {
             // Diffuse map
-            initMaterialTexture(g_materials[i], matInfoList[i].map_Kd, "diffuseMap", g_textureFileNames, textures, g_numTextures);
+            setMaterialTexture(g_materials[i], matInfoList[i].map_Kd, "diffuseMap", g_textureFileNames, textures, g_numTextures);
             // Normal map
             if(sf & NORMAL)
-                initMaterialTexture(g_materials[i], matInfoList[i].map_bump, "normalMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(g_materials[i], matInfoList[i].map_bump, "normalMap", g_textureFileNames, textures, g_numTextures);
             // Alpha map
             if(sf & ALPHA)
-                initMaterialTexture(g_materials[i], matInfoList[i].map_d, "alphaMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(g_materials[i], matInfoList[i].map_d, "alphaMap", g_textureFileNames, textures, g_numTextures);
             // Specular map
             if(sf & SPECULAR)
-                initMaterialTexture(g_materials[i], matInfoList[i].map_spec, "specularMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(g_materials[i], matInfoList[i].map_spec, "specularMap", g_textureFileNames, textures, g_numTextures);
         }
     }
 
@@ -872,6 +882,7 @@ int main()
 
 
     glDeleteTextures(g_numTextures, textures);
+    /*
     glDeleteBuffers(1, &(g_cube->vbo));
     glDeleteBuffers(1, &(g_ship1->vbo));
     glDeleteBuffers(1, &(g_ship2->vbo));
@@ -880,22 +891,27 @@ int main()
     glDeleteVertexArrays(1, &(g_ship1->vao));
     glDeleteVertexArrays(1, &(g_ship2->vao));
     glDeleteVertexArrays(1, &(g_teapot->vao));
+    */
+    delete g_cube;
+    delete g_ship1;
+    delete g_ship2;
+    delete g_teapot;
 
-    free(g_shipMaterial1);
-    free(g_shipMaterial2);
-    free(g_cubeMaterial);
-    free(g_cubemapReflectionMat);
-    free(g_showNormalMaterial);
-    free(g_depthMap.depthMapMaterial);
-    free(g_teapotMaterial);
+    delete g_shipMaterial1;
+    delete g_shipMaterial2;
+    delete g_cubeMaterial;
+    delete g_cubemapReflectionMat;
+    delete g_showNormalMaterial;
+    delete g_depthMap.depthMapMaterial;
+    delete g_teapotMaterial;
     for(size_t i = 0; i < g_numMat; i++)
-        free(g_materials[i]);
+        delete g_materials[i];
     
-    free(g_cube);
-    free(g_ship1);
-    free(g_ship2);
 
-
+    for(size_t i = 0; i < g_groupInfoSize; i++)
+        delete g_geometryGroups[i];
+    for(size_t i = 0; i < g_numMat; i++)
+        delete g_materials[i];
     // ---------------------------- TERMINATE ----------------------------- //
 
     // Terminate GLFW

@@ -120,10 +120,15 @@ private:
 class BaseGeometryNode : public TransformNode
 {
 public:
-BaseGeometryNode(RigTForm &rbt, bool c)
+    BaseGeometryNode(RigTForm &rbt, bool c)
     :TransformNode(rbt), clickable(c), depthTest(true), scaleFactor(Vec3(1.0f, 1.0f, 1.0f))
     {
     }
+
+    virtual ~BaseGeometryNode()
+    {
+    }
+        
     Vec3 getScaleFactor()
     {
         return scaleFactor;
@@ -251,6 +256,13 @@ public:
 
         numMaterials = matIndex;
         nt = GEOMETRY;
+    }
+
+    ~MultiGeometryNode()
+    {
+        free(geometries);
+        free(materials);
+        free(materialIndex);
     }
 
     Material* getMatListEntry(const size_t i)

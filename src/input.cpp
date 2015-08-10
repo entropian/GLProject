@@ -58,7 +58,7 @@ void InputHandler::initialize()
     // Loads the arrow model
     Mesh arrowMesh;
     arrowMesh.loadOBJFile("arrow.obj");
-    arrow = arrowMesh.produceGeometryPNX();
+    arrow = arrowMesh.produceGeometry(PNX);
 
     projMat = Mat4::makePerspective(60.0f, windowWidth/windowHeight, 0.1f, 30.0f);
 

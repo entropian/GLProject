@@ -48,6 +48,35 @@ struct Geometry {
 
         this->vertexSize = vertexSize;
     }
+
+    ~Geometry()
+     {
+         glDeleteVertexArrays(1, &vao);
+         glDeleteBuffers(1, &vbo);
+         if(eboLen > 0)
+             glDeleteBuffers(1, &ebo);
+     }
+
+    Geometry(const Geometry &g)
+    {
+        vao = g.vao;
+        vbo = g.vbo;
+        ebo = g.ebo;
+        vboLen = g.vboLen;
+        eboLen = g.eboLen;
+        shaderProgram = g.shaderProgram;
+    }
+
+    Geometry& operator= (const Geometry &rhs)
+    {
+        vao = rhs.vao;
+        vbo = rhs.vbo;
+        ebo = rhs.ebo;
+        vboLen = rhs.vboLen;
+        eboLen = rhs.eboLen;
+        shaderProgram = rhs.shaderProgram;
+        return *this;
+    }
 };
 
 struct GeoGroupInfo
