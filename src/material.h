@@ -11,6 +11,7 @@ static bool g_debugUniformString = true;
 static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;                // Arbitrary
 static const unsigned MAX_NUM_UNIFORMS = 30;
 
+
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
     PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
@@ -178,7 +179,7 @@ private:
     GLuint textureHandles[MAX_TEXTURES_PER_MATERIAL];
     unsigned int textureCount;
     GLuint cubemapHandle;
-    bool cubemap, depthMap;    
+    bool cubemap, depthMap;
     char name[20];
 };
 

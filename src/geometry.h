@@ -77,6 +77,7 @@ struct Geometry {
         shaderProgram = rhs.shaderProgram;
         return *this;
     }
+
 };
 
 struct GeoGroupInfo

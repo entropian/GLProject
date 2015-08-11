@@ -24,15 +24,16 @@
 //#include "scenegraph.h"
 #include "input.h"
 #include "mesh.h"
+#include "renderToBuffer.h"
+#include "skybox.h"
 
 
 static float g_windowWidth = 1280.0f;
 static float g_windowHeight = 720.0f;
 
-// some of the shader uniforms
-static RigTForm g_view;
+
+static RigTForm g_view;                // View transform
 static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
-//static Vec3 g_lightE, g_lightW(1.0f, 2.5f, 0.5f);
 static Mat4 g_proj;
 
 // Geometries
@@ -71,21 +72,12 @@ static double g_distancePerSec = 3.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
-// struct for Render-to-buffer 
-struct RTB{
-    GLuint framebuffer, texColorBuffer, rbo;
-    GLuint vao, vbo;
-    GLuint shaderProgram;
-    GLuint texture;
-};
+// Render-to-buffer
 static RTB g_rtb;
 static bool g_renderToBuffer = true;
 
 // Skybox struct
-struct Skybox{
-    GLuint cubemap, cubemapUniformHandle, viewMatHandle;
-    GLuint vao, vbo, shaderProgram;    
-};
+
 static Skybox g_skybox;
 static bool g_drawSkybox = true;
 
@@ -100,14 +92,7 @@ static DepthMap g_depthMap;
 static Mat4 g_lightMat;
 static bool g_depthMapStatus = false;
 
-// Shader type flags
-enum ShaderFlag
-{
-    DIFFUSE = 1,
-    NORMAL = 2,
-    SPECULAR = 4,
-    ALPHA = 8
-};
+
 
 
 // Uniform blocks
@@ -137,10 +122,10 @@ void draw_scene()
         {
             g_materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
         }
-
     }
     
     glViewport(0, 0, (GLsizei)g_windowWidth, (GLsizei)g_windowHeight);
+    
     if(g_renderToBuffer)
         glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
     
@@ -166,18 +151,8 @@ void draw_scene()
     // Draw skybox
     if(g_drawSkybox)
     {
-        glDepthMask(GL_FALSE);
-        glUseProgram(g_skybox.shaderProgram);
-        Mat4 viewRotationMat = rigTFormToMat(linFact(viewRbt));
-        glUniformMatrix4fv(g_skybox.viewMatHandle, 1, GL_TRUE, &(viewRotationMat[0]));
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, g_skybox.cubemap);
-        glUniform1i(g_skybox.cubemapUniformHandle, 0);
-        glBindVertexArray(g_skybox.vao);
-        glBindBuffer(GL_ARRAY_BUFFER, g_skybox.vbo);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);        
-        glDepthMask(GL_TRUE);  
+        Mat4 viewRotationMat = rigTFormToMat(linFact(viewRbt));        
+        drawSkybox(g_skybox, viewRotationMat);
     }
 
     // Draw scene
@@ -190,21 +165,8 @@ void draw_scene()
 
     // Draws the image in the framebuffer onto the screen
     if(g_renderToBuffer)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);                
-        glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDisable(GL_DEPTH_TEST);
-        glUseProgram(g_rtb.shaderProgram);
-        glBindVertexArray(g_rtb.vao);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, g_rtb.texColorBuffer);
-        //glBindTexture(GL_TEXTURE_2D, g_depthMap.depthMap);
-        glUniform1i(g_rtb.texture, 0);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glBindVertexArray(0);
-        glEnable(GL_DEPTH_TEST);
-    }
+        drawBufferToScreen(g_rtb);
+
     //glfwSwapBuffers(window);
 }
 
@@ -285,86 +247,6 @@ void loadAndSpecifyTexture(const char *fileName)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     SOIL_free_image_data(image);
-}
-
-// Loads texture files specified by faces and returns handle to the resulting cubemap
-GLuint loadCubemap(const char *faces[])
-{
-    GLuint textureID;
-    glGenTextures(1,&textureID);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-
-    int width, height;
-    unsigned char* image;
-
-    char buffer[100];    
-    for(GLuint i = 0; i < 6; i++)
-    {
-        buffer[0] = '\0';
-        strcat(buffer, "../textures/");
-        strcat(buffer, faces[i]);
-        image = SOIL_load_image(buffer, &width, &height, 0, SOIL_LOAD_RGB);
-
-        if(image == NULL)
-            fprintf(stderr, "Failed to load %s.\n", faces[i]);
-        
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        SOIL_free_image_data(image);
-    }
-
-    // Texture parameters
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-    
-    return textureID;
-}
-
-void initSkybox(Skybox *skybox)
-{
-    GLfloat vertices[] = {
-        -1, -1, -1, -1, 1, -1, 1, 1, -1,    // front
-        -1, -1, -1, 1, 1, -1, 1, -1, -1,
-        -1, -1, 1, -1, 1, 1, 1, 1, 1,       // back
-        -1, 1, 1, 1, 1, 1, 1, -1, 1,
-        -1, -1, 1, -1, 1, 1, -1, 1, -1,     // left
-        -1, -1, 1, -1, 1, -1, -1, -1, -1,
-        1, -1, 1, 1, 1, -1, 1, -1, -1,      // right
-        1, -1, 1, 1, 1, -1, 1, -1, -1,
-        -1, 1, -1, -1, 1, 1, 1, 1, 1,       // top
-        -1, 1, -1, 1, 1, 1, 1, 1, -1,
-        -1, -1, -1, -1, -1, 1, 1, -1, 1,    // bottom
-        -1, -1, -1, 1, -1, 1, 1, -1, -1        
-    };
-    
-    skybox->shaderProgram = compileAndLinkShaders(skyboxVertSrc, skyboxFragSrc);
-    glUseProgram(skybox->shaderProgram);
-    
-    Mesh cubeMesh;
-    cubeMesh.loadOBJFile("cube.obj");
-    Geometry *cube = cubeMesh.produceGeometry(PNX);    
-
-    glGenVertexArrays(1, &(skybox->vao));
-    glBindVertexArray(skybox->vao);   
-    skybox->vbo = cube->vbo;
-    glBindBuffer(GL_ARRAY_BUFFER, skybox->vbo);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-
-    const char *skyboxTextureFiles[6] = {"skybox_right.jpg", "skybox_left.jpg",
-                                "skybox_top.jpg", "skybox_bottom.jpg", "skybox_back.jpg", "skybox_front.jpg"};        
-    skybox->cubemap = loadCubemap(skyboxTextureFiles);
-    
-    GLuint blockIndex = glGetUniformBlockIndex(skybox->shaderProgram, "UniformBlock");
-    glUniformBlockBinding(skybox->shaderProgram, blockIndex, 0);    
-    skybox->cubemapUniformHandle = glGetUniformLocation(skybox->shaderProgram, "skybox");
-    skybox->viewMatHandle = glGetUniformLocation(skybox->shaderProgram, "uViewMat");
-    glBindVertexArray(0);
-    glUseProgram(0);
 }
 
 
@@ -527,7 +409,7 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
   If the texture handle is not found, textureArray[i] is sent instead.
 */
 void setMaterialTexture(Material *mat, const char* fileName, const char* uniformName,
-                         char** textureFileNames, GLuint* textureArray, size_t numTextures)
+                         char** textureFileNames, GLuint* textureHandles, size_t numTextures)
 {
     size_t i;
     for(i = 0; i < numTextures; i++)
@@ -535,9 +417,9 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
             break;
 
     if(i == numTextures)
-        mat->sendUniformTexture(uniformName, textureArray[1]);
+        mat->sendUniformTexture(uniformName, textureHandles[1]);
     else
-        mat->sendUniformTexture(uniformName, textureArray[i]);    
+        mat->sendUniformTexture(uniformName, textureHandles[i]);    
 }
 
 void initUniformBlock()
@@ -574,7 +456,7 @@ void initUniformBlock()
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
 
-void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
+void initMaterials()
 {    
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
@@ -608,7 +490,20 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
     g_cubemapReflectionMat->bindUniformBlock("UniformBlock", 0);
 
     g_showNormalMaterial = new Material(showNormalVertSrc, basicFragSrc, showNormalGeoSrc, "showNormalMaterial");
-    g_showNormalMaterial->bindUniformBlock("UniformBlock", 0);    
+    g_showNormalMaterial->bindUniformBlock("UniformBlock", 0);
+}
+
+
+void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material *materials[], int &numMat,
+                      char **textureFileNames, const GLuint *textureHandles, const size_t numTextures)
+{
+    enum ShaderFlag
+    {
+        DIFFUSE = 1,
+        NORMAL = 2,
+        SPECULAR = 4,
+        ALPHA = 8
+    };    
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
@@ -624,56 +519,55 @@ void initMaterial(const MaterialInfo *matInfoList, const size_t matCount)
         switch(sf)
         {
         case DIFFUSE:
-            g_materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|NORMAL:
-            g_materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR:
-            g_materials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-            g_materials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|ALPHA:
-            g_materials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|ALPHA:
-            g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-            g_materials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-            g_materials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
+            materials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
             break;
         }
-        
-        //g_materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
-        g_materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
-        //g_materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
-        g_materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
-        g_materials[i]->bindUniformBlock("UniformBlock", 0);
+       
+        //materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
+        materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
+        //materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
+        materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
+        materials[i]->bindUniformBlock("UniformBlock", 0);
 
         if(matInfoList[i].name[0] == '\0')
-            g_materials[i]->sendUniformTexture("diffuseMap", textures[1]);
+            materials[i]->sendUniformTexture("diffuseMap", textures[1]);
         else
         {
             // Diffuse map
-            setMaterialTexture(g_materials[i], matInfoList[i].map_Kd, "diffuseMap", g_textureFileNames, textures, g_numTextures);
+            setMaterialTexture(materials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textures, numTextures);
             // Normal map
             if(sf & NORMAL)
-                setMaterialTexture(g_materials[i], matInfoList[i].map_bump, "normalMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(materials[i], matInfoList[i].map_bump, "normalMap", textureFileNames, textures, numTextures);
             // Alpha map
             if(sf & ALPHA)
-                setMaterialTexture(g_materials[i], matInfoList[i].map_d, "alphaMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(materials[i], matInfoList[i].map_d, "alphaMap", textureFileNames, textures, numTextures);
             // Specular map
             if(sf & SPECULAR)
-                setMaterialTexture(g_materials[i], matInfoList[i].map_spec, "specularMap", g_textureFileNames, textures, g_numTextures);
+                setMaterialTexture(materials[i], matInfoList[i].map_spec, "specularMap", textureFileNames, textures, numTextures);
         }
     }
-
-    g_numMat += matCount;
+    numMat += matCount;
 }
 
 void initScene()
@@ -714,68 +608,7 @@ void initScene()
     //g_worldNode->addChild(g_crysponzaNode);
 }
 
-void initRenderToBuffer(RTB *rtb)
-{
-    rtb->shaderProgram = compileAndLinkShaders(RTBVertSrc, RTBFragSrc);
-    glUseProgram(rtb->shaderProgram);
-    // The quad that covers the whole viewport
-    GLfloat vertices[] = {
-        -1.0f,  -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0, -1.0, 1.0f, 0.0f,
-        -1.0, 1.0, 0.0f, 1.0f,
-        1.0, 1.0, 1.0f, 1.0f
-    };    
 
-    // Generate and bind buffer objects
-    glGenVertexArrays(1, &(rtb->vao));
-    glBindVertexArray(rtb->vao);
-
-    glGenBuffers(1, &(rtb->vbo));
-    glBindBuffer(GL_ARRAY_BUFFER, rtb->vbo);
-    //sizeof works because vertices is an array, not a pointer.
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Setup vertex attributes
-    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-
-    // Setup texture handle
-    rtb->texture = glGetUniformLocation(rtb->shaderProgram, "screenTexture");    
-
-    // Generate framebuffer
-    glGenFramebuffers(1, &(rtb->framebuffer));
-    glBindFramebuffer(GL_FRAMEBUFFER, rtb->framebuffer);
-
-    // Generate texture
-    glGenTextures(1, &(rtb->texColorBuffer));
-    glBindTexture(GL_TEXTURE_2D, rtb->texColorBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);    
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    // Attach texture to currently bound framebuffer object
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtb->texColorBuffer, 0);
-
-    // Create renderbuffer object for stencil and depth buffer
-    glGenRenderbuffers(1, &(rtb->rbo));
-    glBindRenderbuffer(GL_RENDERBUFFER, rtb->rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, (int)g_windowWidth, (int)g_windowHeight);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rtb->rbo);
-
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        fprintf(stderr, "Frame buffer is not complete.\n");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
 
 int main()
 {
@@ -813,17 +646,17 @@ int main()
     glfwSetKeyCallback(window, keyCallback);
     glFrontFace(GL_CCW);
 
-    // ----------------------------- RESOURCES ----------------------------- //
     int a;
     glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &a);
-    printf("Max texture image units = %d\n", a);
+    printf("Max texture image units = %d\n", a);    
+
+    // ----------------------------- RESOURCES ----------------------------- //
 
     inputHandler.initialize();    
     initGeometries();        
     MaterialInfo matInfoList[MAX_MATERIALS];
 
     const size_t numMTLFiles = 2;
-    //char MTLFileNames[numMTLFiles][20] = {"sponza.mtl"};
     char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
     
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
@@ -839,13 +672,13 @@ int main()
     //g_proj = tmp;
 
     g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
-    initSkybox(&g_skybox);
-        
-    initMaterial(matInfoList, matCount);
+    initSkybox(g_skybox);
+
+    initUniformBlock();
+    initMaterials();
+    initMTLMaterials(matInfoList, matCount, g_materials, g_numMat, g_textureFileNames, textures, g_numTextures);
     initScene();
-    initRenderToBuffer(&g_rtb);
-
-
+    initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
@@ -853,9 +686,6 @@ int main()
     // ---------------------------- RENDERING ------------------------------ //
     
     glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_ALPHA_TEST);
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     draw_scene();
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
@@ -904,9 +734,6 @@ int main()
     delete g_showNormalMaterial;
     delete g_depthMap.depthMapMaterial;
     delete g_teapotMaterial;
-    for(size_t i = 0; i < g_numMat; i++)
-        delete g_materials[i];
-    
 
     for(size_t i = 0; i < g_groupInfoSize; i++)
         delete g_geometryGroups[i];

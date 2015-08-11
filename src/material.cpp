@@ -1,8 +1,8 @@
 #include "material.h"
 Material::Material(const char *vertexShader, const char *fragmentShader, const char *materialName)
-{
+ {
     strcpy(name, materialName);
-    shaderProgram = compileAndLinkShaders(vertexShader, fragmentShader);             // Compile shaders
+    shaderProgram = compileAndLinkShaders(vertexShader, fragmentShader);             // Compile shaders    
     initialize();
 }
 
@@ -45,7 +45,8 @@ void Material::assign(Material &dest, const Material &src)
     }
     dest.textureCount = src.textureCount;
     dest.cubemap = src.cubemap;
-    dest.depthMap = src.depthMap;
+    dest.depthMap = src.depthMap;    
+    
     if(dest.cubemap)
         dest.cubemapHandle = src.cubemapHandle;
     strcpy(dest.name, src.name);
@@ -59,6 +60,7 @@ Material::Material(const Material &mat)
 Material& Material::operator= (const Material &rhs)
 {
     assign(*this, rhs);
+    return *this;
 }
 
 char* Material::getName()
@@ -192,8 +194,6 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
         sendMatrix("uModelMat", modelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);               
-
-
     }else if(depthMap)
     {
         Mat4 modelMat = rigTFormToMat(modelRbt);
@@ -248,21 +248,12 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
     // Link vertex attributes 
     if(geometry->shaderProgram != shaderProgram)
     {
-        /*
-          GLint vertexSize;
-          if(vertexAttrib == PNX)
-          vertexSize = 8;
-          else if(vertexAttrib == PNXTBD)
-          vertexSize = 15;
-        */
-            
         glEnableVertexAttribArray(h_aPosition);
         glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), 0);
         glEnableVertexAttribArray(h_aNormal);
         glVertexAttribPointer(h_aNormal, 3, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
         glEnableVertexAttribArray(h_aTexcoord);
         glVertexAttribPointer(h_aTexcoord, 2, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
-
         if(vertexAttrib == PNXTBD)
         {
             glEnableVertexAttribArray(h_aTangent);
@@ -272,7 +263,7 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
             glEnableVertexAttribArray(h_aDet);
             glVertexAttribPointer(h_aDet, 1, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), (void*)(14 * sizeof(GLfloat)));
         }
-            
+                
         geometry->shaderProgram = shaderProgram;
     }
 
@@ -288,12 +279,6 @@ void Material::bindUniformBlock(const char* blockName, GLuint bindingPoint)
 {
     GLuint blockIndex = glGetUniformLocation(shaderProgram, blockName);
     glUniformBlockBinding(shaderProgram, blockIndex, bindingPoint);
-}
-
-// TODO: temporary
-void Material::setDepthMap(bool b)
-{
-    depthMap = b;
 }
 
 
@@ -313,6 +298,11 @@ int Material::searchUniformDesc(const char* uniformName)
         return -1;
     }
     return i;
+}
+
+void Material::setDepthMap(bool b)
+{
+    depthMap = b;
 }
 
 void Material::sendMatrix(const char* uniformName, Mat4 &matrix)
@@ -359,7 +349,7 @@ void Material::initialize()
         h_aDet = glGetAttribLocation(shaderProgram, "aDet");
         vertexAttrib = PNXTBD;
     }
-    textureCount = 0;
     cubemap = false;
     depthMap = false;
+    textureCount = 0;
 }
