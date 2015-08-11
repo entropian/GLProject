@@ -12,11 +12,6 @@ static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;                // Arbitrar
 static const unsigned MAX_NUM_UNIFORMS = 30;
 
 
-enum VertexAttrib{
-    PNX,                      // position, normal, texcoord
-    PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
-};
-
 struct UniformDesc
 {
     char name[20];

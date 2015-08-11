@@ -303,6 +303,7 @@ inline Mat4 transFact(const Mat4& m)
         for(int j = 0; j < 3; j++)
             r(i, j) = m(i, j);
     }
+    return r;
 }
 
 inline Mat4 linFact(const Mat4& m)
@@ -311,6 +312,7 @@ inline Mat4 linFact(const Mat4& m)
     r(0, 3) = m(0, 3);
     r(1, 3) = m(1, 3);
     r(2, 3) = m(2, 3);
+    return r;
 }
 
 #endif

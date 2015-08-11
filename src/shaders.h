@@ -42,7 +42,6 @@ const char* skyboxVertSrc = GLSL(
     }
 );
 
-
 const char* showNormalVertSrc = GLSL(
     in vec3 aPosition;
     in vec3 aNormal;
@@ -363,14 +362,6 @@ const char *pickVertSrc = GLSL(
 
 //--------------------- Fragment Shaders
 
-const char* depthMapFragSrc = GLSL(
-
-    void main()
-    {
-        discard;
-    }
-);
-
 const char* RTBFragSrc = GLSL(
 
     uniform sampler2D screenTexture;
@@ -411,6 +402,15 @@ const char* skyboxFragSrc = GLSL(
         outColor = texture(skybox, Texcoords);
     } 
 );
+
+const char* depthMapFragSrc = GLSL(
+
+    void main()
+    {
+        discard;
+    }
+);
+
 
 const char* cubemapReflectionFragSrc = GLSL(
     uniform samplerCube uCubemap;

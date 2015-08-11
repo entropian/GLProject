@@ -6,15 +6,12 @@
 #include "material.h"
 #include "mesh.h"
 
-
-
 #include <GL/glew.h>
 #if __GNUG__
 #   include <GLFW/glfw3.h>
 #else
 #   include <GL/glfw3.h>
 #endif
-
 
 enum InputMode
 {

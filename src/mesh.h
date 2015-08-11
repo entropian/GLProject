@@ -2,9 +2,10 @@
 #define MESH_H
 #include <GL/glew.h>
 #include <vector>
+#include <string>
 #include "vec.h"
-//#include "geometry.h"
-#include "scenegraph.h"
+#include "geometry.h"
+//#include "scenegraph.h"
 #include "fileIO.h"
 
 class Mesh

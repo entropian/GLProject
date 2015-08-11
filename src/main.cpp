@@ -93,8 +93,6 @@ static Mat4 g_lightMat;
 static bool g_depthMapStatus = false;
 
 
-
-
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
 
@@ -119,9 +117,8 @@ void draw_scene()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         
         for(int i = 0; i < g_numMat; i++)
-        {
             g_materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
-        }
+
     }
     
     glViewport(0, 0, (GLsizei)g_windowWidth, (GLsizei)g_windowHeight);
@@ -137,8 +134,6 @@ void draw_scene()
     inputHandler.setViewTransform(trans * inputHandler.getViewTransform());
 
     // NOTE: since visitor already passes the view matrix, let it carry other often updated uniforms too,
-    // like g_lightE
-    // Update some uniforms
     //RigTForm viewRbt = inputHandler.getViewTransform();
     //double currentTime = glfwGetTime();
     //g_lightW[0] = g_lightW[0] + sin(currentTime) * 1;
@@ -213,13 +208,11 @@ void initGeometries()
     getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);    
     //getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
 
-    
     Mesh crysponzaMesh;
     crysponzaMesh.loadOBJFile("crysponza.obj");
     crysponzaMesh.computeVertexBasis();
     //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
     getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
-
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -237,7 +230,7 @@ void loadAndSpecifyTexture(const char *fileName)
         fprintf(stderr, "Failed to load %s.\n", fileName);
 
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB , width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -284,14 +277,11 @@ void initDepthMap(DepthMap* dm)
 
 
 // Initializes textures that are used in materials
-size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames)
+size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames, char *nonMTLTextures[], const int numNonMTL)
 {
     time_t startTime, endTime;
     time(&startTime);
-    char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
-                                "Ship2_Diffuse.png", "Ship2_Normal.png"};
 
-    size_t numNonMTL = 5;
     
     size_t mapCount = 0;
     for(size_t i = 0; i < matCount; i++)
@@ -660,7 +650,11 @@ int main()
     char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
     
     size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
-    g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames);
+
+    char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
+                                "Ship2_Diffuse.png", "Ship2_Normal.png"};
+    int numNonMTL = 5;    
+    g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames, nonMTLTextures, numNonMTL);
 
     /*
     // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()

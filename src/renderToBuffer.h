@@ -3,6 +3,15 @@
 
 #include <GL/glew.h>
 
+#if __GNUG__
+#   include "SOIL/SOIL.h"
+#else
+#   include "SOIL.h"
+#endif
+
+#include "material.h"
+#include "shaders.h"
+
 // struct for Render-to-buffer 
 struct RTB{
     GLuint framebuffer, texColorBuffer, rbo;

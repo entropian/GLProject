@@ -4,6 +4,15 @@
 #include <GL/glew.h>
 #include "mat.h"
 
+#if __GNUG__
+#   include "SOIL/SOIL.h"
+#else
+#   include "SOIL.h"
+#endif
+
+#include "material.h"
+#include "shaders.h"
+
 struct Skybox{
     GLuint cubemap, cubemapUniformHandle, viewMatHandle;
     GLuint vao, vbo, shaderProgram;    
@@ -53,7 +62,7 @@ void initSkybox(Skybox &skybox)
         -1, -1, -1, -1, 1, -1, 1, 1, -1,    // front
         -1, -1, -1, 1, 1, -1, 1, -1, -1,
         -1, -1, 1, -1, 1, 1, 1, 1, 1,       // back
-        -1, 1, 1, 1, 1, 1, 1, -1, 1,
+        -1, -1, 1, 1, 1, 1, 1, -1, 1,
         -1, -1, 1, -1, 1, 1, -1, 1, -1,     // left
         -1, -1, 1, -1, 1, -1, -1, -1, -1,
         1, -1, 1, 1, 1, -1, 1, -1, -1,      // right
@@ -66,17 +75,21 @@ void initSkybox(Skybox &skybox)
     
     skybox.shaderProgram = compileAndLinkShaders(skyboxVertSrc, skyboxFragSrc);
     glUseProgram(skybox.shaderProgram);
-    
+    /*
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
-    Geometry *cube = cubeMesh.produceGeometry(PNX);    
+    Geometry *cube = cubeMesh.produceGeometry(PNX);
+    */
+    
 
     glGenVertexArrays(1, &(skybox.vao));
-    glBindVertexArray(skybox.vao);   
-    skybox.vbo = cube->vbo;
+    glBindVertexArray(skybox.vao);
+    glGenBuffers(1, &(skybox.vbo));                 
+    //skybox.vbo = cube->vbo;
     glBindBuffer(GL_ARRAY_BUFFER, skybox.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 36, vertices, GL_STATIC_DRAW);    
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
 
     const char *skyboxTextureFiles[6] = {"skybox_right.jpg", "skybox_left.jpg",
                                 "skybox_top.jpg", "skybox_bottom.jpg", "skybox_back.jpg", "skybox_front.jpg"};        

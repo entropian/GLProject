@@ -19,7 +19,7 @@ class TransformNode
 {
 public:
     TransformNode()
-        :parent(NULL), parentToLocal(), childrenCount(0), nt(TRANSFORM)
+        :parent(NULL), childrenCount(0), parentToLocal(), nt(TRANSFORM)
     {}
 
     TransformNode(RigTForm& rbt)
@@ -112,8 +112,8 @@ protected:
     NodeType nt;
 
 private:
+    TransformNode *parent, *children[MAX_CHILDREN];
     RigTForm parentToLocal;
-    TransformNode *children[MAX_CHILDREN], *parent;;
     int childrenCount;
 };
 

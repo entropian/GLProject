@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+enum VertexAttrib{
+    PNX,                      // position, normal, texcoord
+    PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
+};
+
 struct Geometry {
     GLuint vao;                // Vertex array object
     GLuint vbo;                // Vertex buffer object
