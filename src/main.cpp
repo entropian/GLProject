@@ -93,6 +93,18 @@ static Mat4 g_lightMat;
 static bool g_depthMapStatus = false;
 
 
+struct Geometries{
+    Geometry *singleGeo[MAX_NUM_SINGLE_GEOMETRY];
+    const int singeLen = MAX_NUM_SINGLE_GEOMETRY;
+    int numSingleGeo = 0;
+    Geometry *groupGeo[MAX_GEOMETRY_GROUPS];
+    int numGroupGeo = 0;
+    GeoGroupInfo groupInfoList[MAX_GEOMETRY_GROUPS];
+    const int groupLen = MAX_GEOMETRY_GROUPS;
+    int numGroupInfo = 0;
+};
+
+
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
 
@@ -180,7 +192,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     inputHandler.handleKey(window, key, scancode, action, mods);
 }
 
-
+// TODO: check for array length
 void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
 {
     Mesh ship1Mesh;
@@ -221,6 +233,13 @@ void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const
     crysponzaMesh.computeVertexBasis();
     //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
     getGeoList(crysponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNXTBD);   
+}
+
+void initGeometries(Geometries &geometries)
+{
+    initSingleGeometries(geometries.singleGeo, geometries.numSingleGeo);
+    initGroupGeometries(geometries.groupGeo, geometries.groupInfoList, geometries.groupLen,
+                        geometries.numGroupGeo, geometries.numGroupInfo);
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -639,9 +658,14 @@ Material* getMaterialFromArray(Material *materials[], const int numMat, const ch
 }
 
 // TODO: fix this so it's not using global variables
+/*
 void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *groupArray[],
                const size_t numGroupGeo, GeoGroupInfo infoList[], const int numGroupInfo,
                Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
+*/
+// singlesArray, numSingleGeo, groupArray, numgroupgeo, infoList, numGroupInfo
+void initScene(Geometries &geometries, Material *materials[], const int numMat, Material *MTLMaterials[],
+               const int numMTLMat)
 {
     g_worldNode = new TransformNode();
     inputHandler.setWorldNode(g_worldNode);
@@ -649,7 +673,7 @@ void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *group
     RigTForm modelRbt;
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
     //g_terrainNode = new GeometryNode(g_ship1, g_shipMaterial1, modelRbt, true);
-    Geometry *g = getSingleGeoFromArray(singlesArray, numSingleGeo, "Ship1");
+    Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship1");
     Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
     if(g && m)
         g_terrainNode = new GeometryNode(g, m, modelRbt, true);
@@ -657,14 +681,14 @@ void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *group
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
     //g_ship2Node = new GeometryNode(g_ship2, g_shipMaterial2, modelRbt, true);    
-    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "Ship2");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship2");
     m = getMaterialFromArray(materials, numMat, "Ship2Material");
     if(g && m)
         g_ship2Node = new GeometryNode(g, g_shipMaterial2, modelRbt, true);    
     
     modelRbt = RigTForm(g_lightW);
     //g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);    
-    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "cube");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube");
     m = getMaterialFromArray(materials, numMat, "CubeMaterial");
     if(g && m)
     {
@@ -675,7 +699,7 @@ void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *group
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     //g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
     //g_teapotNode = new GeometryNode(g_teapot, g_cubemapReflectionMat, modelRbt, true);
-    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "teapot");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot");
     m = getMaterialFromArray(materials, numMat, "CubemapReflectionMat");
     if(g && m)
     {
@@ -685,15 +709,17 @@ void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *group
 
     //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    int index = getGroupInfoFromArray(infoList, numGroupInfo, "sponza");
-    //g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, true);
-    
-    g_sponzaNode = new MultiGeometryNode(g_geometryGroups, infoList[index], MTLMaterials, numMTLMat, modelRbt, true);
+    // TODO: check if index is -1.
+    int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "sponza");
+    //g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, true);    
+    g_sponzaNode = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
+                                         numMTLMat, modelRbt, true);
 
-    index = getGroupInfoFromArray(infoList, numGroupInfo, "crysponza");
+    index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza");
     //g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[1], g_materials, g_numMat, modelRbt, true);
     
-    g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, infoList[index], MTLMaterials, numMTLMat, modelRbt, true);
+    g_crysponzaNode = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
+                                            numMTLMat, modelRbt, true);
     g_crysponzaNode->setScaleFactor(Vec3(1.0f/55.0f, 1.0f/55.0f, 1.0f/55.0f));
 
 
@@ -751,8 +777,12 @@ int main()
     // ----------------------------- RESOURCES ----------------------------- //
 
     inputHandler.initialize();
+    Geometries geometries;
 
     // Geometries
+    initGeometries(geometries);
+    
+    /*
     Geometry *singleGeometries[MAX_NUM_SINGLE_GEOMETRY];
     int numSingleGeo = 0;
     initSingleGeometries(singleGeometries, numSingleGeo);
@@ -761,6 +791,7 @@ int main()
     GeoGroupInfo grpGeoInfoList[MAX_GEOMETRY_GROUPS];
     int numGroupInfo = 0;
     initGroupGeometries(groupGeometries, grpGeoInfoList, MAX_GEOMETRY_GROUPS, numGroupGeo, numGroupInfo);
+    */
 
     
     MaterialInfo matInfoList[MAX_MATERIALS];
@@ -792,8 +823,11 @@ int main()
     initMaterials(materials, MAX_MATERIALS, numMat);
     
     initMTLMaterials(matInfoList, MTLMatCount, g_materials, g_numMat, g_textureFileNames, textures, g_numTextures);
+    /*
     initScene(singleGeometries, numSingleGeo, groupGeometries, numGroupInfo, grpGeoInfoList, numGroupInfo,
               materials, numMat, g_materials, MTLMatCount);
+    */
+    initScene(geometries, materials, numMat, g_materials, MTLMatCount);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
 
