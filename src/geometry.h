@@ -17,6 +17,7 @@ struct Geometry {
     int vboLen = 0, eboLen = 0;                // number of vertices and number of indices
     int vertexSize = 0;
     GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
+    char name[20];
 
     // Constructor for geometry with vertex indices
     Geometry(GLfloat vtx[], GLuint edx[], int vboLen, int eboLen, int vertexSize) {
@@ -87,7 +88,7 @@ struct Geometry {
 
 struct GeoGroupInfo
 {
-    // NOTE: object name?
+    char name[20];
     size_t offset;
     size_t numGroups;
     char **mtlNames;  // Since each group has a corresponding material, mtlNames should have numGroups number of entries

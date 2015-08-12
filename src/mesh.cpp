@@ -67,6 +67,12 @@ void Mesh::loadOBJFile(const char* fileName)
     printf("Loading %s...\t", fileName);
     time_t startTime, endTime;
     time(&startTime);
+
+    char tmp[30];
+    strcpy(tmp, fileName);
+    char* c = strstr(tmp, ".");
+    strncpy(tmp, fileName, c - tmp);
+    name = std::string(tmp);
     OBJData objData;
     parseOBJFile(fileName, &objData);
     
@@ -312,6 +318,7 @@ Geometry* Mesh::produceGeometry(VertexAttrib va)
     size_t numVertices = vertexIndex / vertSize;
 
     Geometry *geometry = new Geometry(vertexArray, numVertices, vertSize);
+    strcpy(geometry->name, name.c_str());
     free(vertexArray);
 
     return geometry;
@@ -393,6 +400,11 @@ void Mesh::flipTexcoordY()
 {
     for(size_t i = 0; i < texcoords.size(); i++)
         texcoords[i][1] = 1.0f - texcoords[i][1];
+}
+
+std::string Mesh::getName()
+{
+    return name;
 }
 
 

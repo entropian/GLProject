@@ -84,7 +84,8 @@ public:
 
     size_t geoList(Geometry ***, char ***, VertexAttrib);
 
-    
+    std::string getName();
+
 private:
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
     void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);
@@ -101,6 +102,7 @@ private:
     std::vector<std::pair<unsigned int, std::string> > groups;
     std::vector<float> determinants;
     bool normalsComputed;
+    std::string name;
 };
 
 /*
@@ -108,8 +110,8 @@ private:
   grouping info in the mesh. The Geometry objects are stored in geometryGrousp[].
   Additional information about the groups of Geometry objects are stored in groupInfoList.
  */
-static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], size_t MAX_GEOMETRY_GROUPS,
-                       size_t &groupSize, int &groupInfoSize, VertexAttrib va)
+static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo groupInfoList[], const size_t MAX_GEOMETRY_GROUPS,
+                       int &groupSize, int &groupInfoSize, VertexAttrib va)
 {
     Geometry **geoList;
     char **mtlNames;
@@ -132,7 +134,8 @@ static bool getGeoList(Mesh &mesh, Geometry *geometryGroups[], GeoGroupInfo grou
         for(size_t i = 0; i < numGroups; i++)
             geometryGroups[groupSize + i] = geoList[i];
 
-        free(geoList);        
+        free(geoList);
+        strcpy(groupInfoList[groupInfoSize].name, mesh.getName().c_str());
         groupInfoList[groupInfoSize].mtlNames = mtlNames;
         groupInfoList[groupInfoSize].offset = groupSize;
         groupInfoList[groupInfoSize].numGroups = numGroups;

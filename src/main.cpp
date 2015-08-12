@@ -27,7 +27,6 @@
 #include "renderToBuffer.h"
 #include "skybox.h"
 
-
 static float g_windowWidth = 1280.0f;
 static float g_windowHeight = 720.0f;
 
@@ -37,6 +36,7 @@ static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
 static Mat4 g_proj;
 
 // Geometries
+static const size_t MAX_NUM_SINGLE_GEOMETRY = 40;
 static Geometry *g_cube, *g_floor, *g_wall, *g_ship1, *g_ship2, *g_terrain, *g_teapot, *g_sponza, *g_crysponza;
 static const size_t MAX_GEOMETRY_GROUPS = 1000;
 static Geometry *g_geometryGroups[MAX_GEOMETRY_GROUPS];
@@ -181,38 +181,46 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 }
 
 
-void initGeometries()
+void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
 {
     Mesh ship1Mesh;
     ship1Mesh.loadOBJFile("Ship.obj");
     ship1Mesh.computeVertexBasis();
-    g_ship1 = ship1Mesh.produceGeometry(PNXTBD);
+    //g_ship1 = ship1Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo++] = ship1Mesh.produceGeometry(PNXTBD);
 
     Mesh ship2Mesh;
     ship2Mesh.loadOBJFile("Ship2.obj");
     ship2Mesh.computeVertexBasis();
-    g_ship2 = ship2Mesh.produceGeometry(PNXTBD);
+    //g_ship2 = ship2Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo++] = ship2Mesh.produceGeometry(PNXTBD);
 
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
-    g_cube = cubeMesh.produceGeometry(PNX);
+    //g_cube = cubeMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo++] = cubeMesh.produceGeometry(PNX);
 
     Mesh teapotMesh;
     teapotMesh.loadOBJFile("teapot.obj");
     teapotMesh.computeVertexNormals();
-    g_teapot = teapotMesh.produceGeometry(PNX);
+    //g_teapot = teapotMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo++] = teapotMesh.produceGeometry(PNX);
+}
 
+void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const size_t arrayLen, int &numGroupGeo,
+    int &numGroupInfo)
+{
     Mesh sponzaMesh;
     sponzaMesh.loadOBJFile("sponza.obj");
     sponzaMesh.computeVertexNormals();
-    getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);    
+    getGeoList(sponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNX);    
     //getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
 
     Mesh crysponzaMesh;
     crysponzaMesh.loadOBJFile("crysponza.obj");
     crysponzaMesh.computeVertexBasis();
     //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
-    getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
+    getGeoList(crysponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNXTBD);   
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -281,8 +289,6 @@ size_t initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&t
 {
     time_t startTime, endTime;
     time(&startTime);
-
-    
     size_t mapCount = 0;
     for(size_t i = 0; i < matCount; i++)
     {
@@ -446,8 +452,9 @@ void initUniformBlock()
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
 
-void initMaterials()
-{    
+void initMaterials(Material *materials[], const size_t arrayLen, int &numMat)
+{
+    /*
     // TODO: what if two materials have the same name?
     g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, "ShipMaterial1");
     //g_shipMaterial1 = new Material(normalVertSrc, normalFragSrc, exampleGeoSrc, "ShipMaterial1");    
@@ -481,10 +488,48 @@ void initMaterials()
 
     g_showNormalMaterial = new Material(showNormalVertSrc, basicFragSrc, showNormalGeoSrc, "showNormalMaterial");
     g_showNormalMaterial->bindUniformBlock("UniformBlock", 0);
+    */
+    materials[numMat] = new Material(normalVertSrc, normalFragSrc, "Ship1Material");
+    Vec3 color(1.0f, 1.0f, 1.0f);
+    materials[numMat]->sendUniform3f("uColor", color);
+    materials[numMat]->sendUniformTexture("diffuseMap", textures[0]);
+    materials[numMat]->sendUniformTexture("normalMap", textures[2]);
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);
+    ++numMat;
+
+    materials[numMat] = new Material(normalVertSrc, normalFragSrc, "Ship2Material");
+    materials[numMat]->sendUniform3f("uColor", color);
+    materials[numMat]->sendUniformTexture("diffuseMap", textures[3]);
+    materials[numMat]->sendUniformTexture("normalMap", textures[4]);
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);
+    ++numMat;
+    
+    materials[numMat] = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
+    materials[numMat]->sendUniform3f("uColor", color);
+    materials[numMat]->sendUniformTexture("diffuseMap", textures[1]);
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);
+    ++numMat;
+    
+    
+    materials[numMat] = new Material(basicVertSrc, basicFragSrc, "CubeMaterial");
+    //g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, exampleGeoSrc, "CubeMaterial");    
+    //g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 1.0f));
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);
+    ++numMat;
+    
+    materials[numMat] = new Material(cubemapReflectionVertSrc, cubemapReflectionFragSrc, "CubemapReflectionMat");
+    // TODO: change the source of the cubemap to something else that isn't the skybox struct
+    materials[numMat]->sendUniformCubemap("uCubemap", g_skybox.cubemap);
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);    
+    ++numMat;
+
+    materials[numMat] = new Material(showNormalVertSrc, basicFragSrc, showNormalGeoSrc, "ShowNormalMaterial");
+    materials[numMat]->bindUniformBlock("UniformBlock", 0);
+    ++numMat;
 }
 
 
-void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material *materials[], int &numMat,
+void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material *MTLMaterials[], int &numMTLMat,
                       char **textureFileNames, const GLuint *textureHandles, const size_t numTextures)
 {
     enum ShaderFlag
@@ -509,83 +554,146 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         switch(sf)
         {
         case DIFFUSE:
-            materials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|NORMAL:
-            materials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR:
-            materials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-            materials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|ALPHA:
-            materials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|ALPHA:
-            materials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-            materials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-            materials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
+            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
             break;
         }
        
-        //materials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
-        materials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
-        //materials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
-        materials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
-        materials[i]->bindUniformBlock("UniformBlock", 0);
+        //MTLMaterials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
+        MTLMaterials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
+        //MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
+        MTLMaterials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
+        MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
         if(matInfoList[i].name[0] == '\0')
-            materials[i]->sendUniformTexture("diffuseMap", textures[1]);
+            MTLMaterials[i]->sendUniformTexture("diffuseMap", textures[1]);
         else
         {
             // Diffuse map
-            setMaterialTexture(materials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textures, numTextures);
+            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textures, numTextures);
             // Normal map
             if(sf & NORMAL)
-                setMaterialTexture(materials[i], matInfoList[i].map_bump, "normalMap", textureFileNames, textures, numTextures);
+                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_bump, "normalMap", textureFileNames, textures, numTextures);
             // Alpha map
             if(sf & ALPHA)
-                setMaterialTexture(materials[i], matInfoList[i].map_d, "alphaMap", textureFileNames, textures, numTextures);
+                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_d, "alphaMap", textureFileNames, textures, numTextures);
             // Specular map
             if(sf & SPECULAR)
-                setMaterialTexture(materials[i], matInfoList[i].map_spec, "specularMap", textureFileNames, textures, numTextures);
+                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_spec, "specularMap", textureFileNames, textures, numTextures);
         }
     }
-    numMat += matCount;
+    numMTLMat += matCount;
 }
 
-void initScene()
+
+//Returns the element in singlesArray that has the name geoName and NULL if the element isn't found.
+Geometry* getSingleGeoFromArray(Geometry *singlesArray[], const int numSingleGeo, const char *geoName)
+{
+    int i;
+    for(i = 0; i < numSingleGeo; i++)
+        if(strcmp(singlesArray[i]->name, geoName) == 0)
+            break;
+    if(i < numSingleGeo)
+        return singlesArray[i];
+    fprintf(stderr, "Geometry %s not found.\n", geoName);
+    return NULL;
+}
+
+//Returns the element in infoList that has the name geoName and NULL if the element isn't found.
+int getGroupInfoFromArray(const GeoGroupInfo infoList[], const int numGroupInfo, const char* groupName)
+{
+    int i = 0;
+    for(i = 0; i < numGroupInfo; i++)
+        if(strcmp(infoList[i].name, groupName) == 0)
+            break;
+    if(i < numGroupInfo)
+        return i;
+    fprintf(stderr, "Geometry group %s not found.\n", groupName);
+    return -1;
+}
+
+Material* getMaterialFromArray(Material *materials[], const int numMat, const char* matName)
+{
+    Material *m;
+    return m;
+}
+
+// TODO: fix this so it's not using global variables
+void initScene(Geometry *singlesArray[], const int numSingleGeo, Geometry *groupArray[],
+               const size_t numGroupGeo, GeoGroupInfo infoList[], const int numGroupInfo,
+               Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
 {
     g_worldNode = new TransformNode();
     inputHandler.setWorldNode(g_worldNode);
 
     RigTForm modelRbt;
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
-    g_terrainNode = new GeometryNode(g_ship1, g_shipMaterial1, modelRbt, true);
+    //g_terrainNode = new GeometryNode(g_ship1, g_shipMaterial1, modelRbt, true);
+    Geometry *g = getSingleGeoFromArray(singlesArray, numSingleGeo, "Ship1");
+    Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
+    if(g && m)
+        g_terrainNode = new GeometryNode(g, m, modelRbt, true);
+        
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
-    g_ship2Node = new GeometryNode(g_ship2, g_shipMaterial2, modelRbt, true);
+    //g_ship2Node = new GeometryNode(g_ship2, g_shipMaterial2, modelRbt, true);    
+    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "Ship2");
+    m = getMaterialFromArray(materials, numMat, "Ship2Material");
+    if(g && m)
+        g_ship2Node = new GeometryNode(g, g_shipMaterial2, modelRbt, true);    
     
     modelRbt = RigTForm(g_lightW);
-    g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);
-    g_cubeNode->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
+    //g_cubeNode = new GeometryNode(g_cube, g_cubeMaterial, modelRbt, true);    
+    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "cube");
+    m = getMaterialFromArray(materials, numMat, "CubeMaterial");
+    if(g && m)
+    {
+        g_cubeNode = new GeometryNode(g, m, modelRbt, true);
+        g_cubeNode->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
+    }
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     //g_teapotNode = new GeometryNode(g_teapot, g_teapotMaterial, modelRbt, true);
-    g_teapotNode = new GeometryNode(g_teapot, g_cubemapReflectionMat, modelRbt, true);
-    g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
+    //g_teapotNode = new GeometryNode(g_teapot, g_cubemapReflectionMat, modelRbt, true);
+    g = getSingleGeoFromArray(singlesArray, numSingleGeo, "teapot");
+    m = getMaterialFromArray(materials, numMat, "CubemapReflectionMat");
+    if(g && m)
+    {
+        g_teapotNode = new GeometryNode(g, m, modelRbt, true);
+        g_teapotNode->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
+    }
 
     //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, true);
+    int index = getGroupInfoFromArray(infoList, numGroupInfo, "sponza");
+    //g_sponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[0], g_materials, g_numMat, modelRbt, true);
+    
+    g_sponzaNode = new MultiGeometryNode(g_geometryGroups, infoList[index], MTLMaterials, numMTLMat, modelRbt, true);
 
-    g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[1], g_materials, g_numMat, modelRbt, true);
+    index = getGroupInfoFromArray(infoList, numGroupInfo, "crysponza");
+    //g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, g_groupInfoList[1], g_materials, g_numMat, modelRbt, true);
+    
+    g_crysponzaNode = new MultiGeometryNode(g_geometryGroups, infoList[index], MTLMaterials, numMTLMat, modelRbt, true);
     g_crysponzaNode->setScaleFactor(Vec3(1.0f/55.0f, 1.0f/55.0f, 1.0f/55.0f));
 
 
@@ -642,19 +750,30 @@ int main()
 
     // ----------------------------- RESOURCES ----------------------------- //
 
-    inputHandler.initialize();    
-    initGeometries();        
+    inputHandler.initialize();
+
+    // Geometries
+    Geometry *singleGeometries[MAX_NUM_SINGLE_GEOMETRY];
+    int numSingleGeo = 0;
+    initSingleGeometries(singleGeometries, numSingleGeo);
+    Geometry *groupGeometries[MAX_GEOMETRY_GROUPS];
+    int numGroupGeo = 0;    
+    GeoGroupInfo grpGeoInfoList[MAX_GEOMETRY_GROUPS];
+    int numGroupInfo = 0;
+    initGroupGeometries(groupGeometries, grpGeoInfoList, MAX_GEOMETRY_GROUPS, numGroupGeo, numGroupInfo);
+
+    
     MaterialInfo matInfoList[MAX_MATERIALS];
 
     const size_t numMTLFiles = 2;
     char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
     
-    size_t matCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
-
+    size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
+    
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
                                 "Ship2_Diffuse.png", "Ship2_Normal.png"};
     int numNonMTL = 5;    
-    g_numTextures = initTextures(matInfoList, matCount, g_textureFileNames, nonMTLTextures, numNonMTL);
+    g_numTextures = initTextures(matInfoList, MTLMatCount, g_textureFileNames, nonMTLTextures, numNonMTL);
 
     /*
     // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()
@@ -662,16 +781,19 @@ int main()
     g_proj = ortho2;
     */
     g_proj = Mat4::makePerspective(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
-    //Mat4 tmp = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 35.0f);
-    //g_proj = tmp;
 
     g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
     initSkybox(g_skybox);
 
     initUniformBlock();
-    initMaterials();
-    initMTLMaterials(matInfoList, matCount, g_materials, g_numMat, g_textureFileNames, textures, g_numTextures);
-    initScene();
+
+    Material *materials[MAX_MATERIALS];
+    int numMat = 0;
+    initMaterials(materials, MAX_MATERIALS, numMat);
+    
+    initMTLMaterials(matInfoList, MTLMatCount, g_materials, g_numMat, g_textureFileNames, textures, g_numTextures);
+    initScene(singleGeometries, numSingleGeo, groupGeometries, numGroupInfo, grpGeoInfoList, numGroupInfo,
+              materials, numMat, g_materials, MTLMatCount);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
 
