@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static const size_t MAX_NUM_SINGLE_GEOMETRY = 40;
+static const size_t MAX_GEOMETRY_GROUPS = 1000;
+
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
     PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
@@ -93,6 +96,17 @@ struct GeoGroupInfo
     size_t numGroups;
     char **mtlNames;  // Since each group has a corresponding material, mtlNames should have numGroups number of entries
                       // once the struct is populated
+};
+
+struct Geometries{
+    Geometry *singleGeo[MAX_NUM_SINGLE_GEOMETRY];
+    const int singeLen = MAX_NUM_SINGLE_GEOMETRY;
+    int numSingleGeo = 0;
+    Geometry *groupGeo[MAX_GEOMETRY_GROUPS];
+    int numGroupGeo = 0;
+    GeoGroupInfo groupInfoList[MAX_GEOMETRY_GROUPS];
+    const int groupLen = MAX_GEOMETRY_GROUPS;
+    int numGroupInfo = 0;
 };
 
 #endif

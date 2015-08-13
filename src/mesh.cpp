@@ -69,10 +69,12 @@ void Mesh::loadOBJFile(const char* fileName)
     time(&startTime);
 
     char tmp[30];
-    strcpy(tmp, fileName);
-    char* c = strstr(tmp, ".");
-    strncpy(tmp, fileName, c - tmp);
+    int i;
+    for(i = 0; fileName[i] != '.'; i++)
+        tmp[i] = fileName[i];
+    tmp[i] = '\0';
     name = std::string(tmp);
+
     OBJData objData;
     parseOBJFile(fileName, &objData);
     

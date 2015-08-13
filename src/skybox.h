@@ -58,36 +58,36 @@ GLuint loadCubemap(const char *faces[])
 
 void initSkybox(Skybox &skybox)
 {
+
     GLfloat vertices[] = {
-        -1, -1, -1, -1, 1, -1, 1, 1, -1,    // front
-        -1, -1, -1, 1, 1, -1, 1, -1, -1,
-        -1, -1, 1, -1, 1, 1, 1, 1, 1,       // back
-        -1, -1, 1, 1, 1, 1, 1, -1, 1,
-        -1, -1, 1, -1, 1, 1, -1, 1, -1,     // left
-        -1, -1, 1, -1, 1, -1, -1, -1, -1,
-        1, -1, 1, 1, 1, -1, 1, -1, -1,      // right
-        1, -1, 1, 1, 1, -1, 1, -1, -1,
-        -1, 1, -1, -1, 1, 1, 1, 1, 1,       // top
-        -1, 1, -1, 1, 1, 1, 1, 1, -1,
-        -1, -1, -1, -1, -1, 1, 1, -1, 1,    // bottom
-        -1, -1, -1, 1, -1, 1, 1, -1, -1        
+      // X   Y   Z   X   Y   Z   X   Y   Z
+        -1, -1, -1, -1,  1, -1,  1,  1, -1,    // front
+        -1, -1, -1,  1,  1, -1,  1, -1, -1,
+        
+        -1, -1,  1, -1,  1,  1,  1,  1,  1,       // back
+        -1, -1,  1,  1,  1,  1,  1, -1,  1,
+        
+        -1, -1,  1, -1,  1,  1, -1,  1, -1,     // left
+        -1, -1,  1, -1,  1, -1, -1, -1, -1,
+        
+         1, -1,  1,  1,  1,  1,  1,  1, -1,      // right
+         1, -1,  1,  1,  1, -1,  1, -1, -1,
+        
+        -1, 1, - 1, -1,  1,  1,  1,  1,  1,       // top
+        -1, 1, - 1,  1,  1,  1,  1,  1, -1,
+        
+        -1, -1, -1, -1, -1,  1,  1, -1,  1,    // bottom
+        -1, -1, -1,  1, -1,  1,  1, -1, -1        
     };
-    
+
     skybox.shaderProgram = compileAndLinkShaders(skyboxVertSrc, skyboxFragSrc);
     glUseProgram(skybox.shaderProgram);
-    /*
-    Mesh cubeMesh;
-    cubeMesh.loadOBJFile("cube.obj");
-    Geometry *cube = cubeMesh.produceGeometry(PNX);
-    */
-    
 
     glGenVertexArrays(1, &(skybox.vao));
     glBindVertexArray(skybox.vao);
     glGenBuffers(1, &(skybox.vbo));                 
-    //skybox.vbo = cube->vbo;
     glBindBuffer(GL_ARRAY_BUFFER, skybox.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 36, vertices, GL_STATIC_DRAW);    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 108, vertices, GL_STATIC_DRAW);    
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
 
