@@ -15,6 +15,7 @@
 #include "scenegraph.h"
 #include "skybox.h"
 #include "input.h"
+#include "shadowshaders.h"
 
 extern Skybox g_skybox;
 extern Vec3 g_lightW;
@@ -290,7 +291,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         ShaderFlag sf = DIFFUSE;
         if(matInfoList[i].map_spec[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(SPECULAR));
-        if(matInfoList[i].map_bump[0] != '\0')
+        //if(matInfoList[i].map_bump[0] != '\0')
+        if(strstr(matInfoList[i].map_bump, "ddn"))
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(NORMAL));
         if(matInfoList[i].map_d[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(ALPHA));
@@ -298,25 +300,35 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         switch(sf)
         {
         case DIFFUSE:
-            MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            //MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);
             break;
         case DIFFUSE|NORMAL:
             MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR:
-            MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowVertSrc, shOBJSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|NORMAL|SPECULAR:
             MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|ALPHA:
-            MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);            
+            // TODO: remove this line
+            printf("alphafrag\n");
+            //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);
             break;
         case DIFFUSE|NORMAL|ALPHA:
             MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-            MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
             MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
@@ -444,7 +456,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     {
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                     numMTLMat, modelRbt, true);
-        mgn->setScaleFactor(Vec3(1.0f/55.0f, 1.0f/55.0f, 1.0f/55.0f));
+        mgn->setScaleFactor(Vec3(1.0f/70.0f, 1.0f/70.0f, 1.0f/70.0f));
     }
     rootNode->addChild(mgn);
 }

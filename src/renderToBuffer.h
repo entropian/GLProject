@@ -12,6 +12,7 @@
 #include "material.h"
 #include "shaders.h"
 
+
 // struct for Render-to-buffer 
 struct RTB{
     GLuint framebuffer, texColorBuffer, rbo;
@@ -19,6 +20,16 @@ struct RTB{
     GLuint shaderProgram;
     GLuint texture;
 };
+
+// Depth map struct
+struct DepthMap{
+    GLuint depthMapFBO;
+    GLuint depthMap;
+    GLsizei SHADOW_WIDTH, SHADOW_HEIGHT;
+    Material *depthMapMaterial;
+};
+
+extern DepthMap g_depthMap;
 
 void initRenderToBuffer(RTB &rtb, int windowWidth, int windowHeight)
 {

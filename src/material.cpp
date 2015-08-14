@@ -197,11 +197,10 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
     }else if(depthMap)
     {
         Mat4 modelMat = rigTFormToMat(modelRbt);
+        modelMat = modelMat * scaleMat;
         sendMatrix("uModelMat", modelMat);
-    }else
+    }else if(shadow)
     {
-        /*
-        // TODO: only for shadow map testing.
         Mat4 modelMat = rigTFormToMat(modelRbt);
         Mat4 viewMat = rigTFormToMat(viewRbt);            
         Mat4 normalMat = transpose(inv(modelMat));
@@ -210,8 +209,8 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
         sendMatrix("uModelMat", modelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);
-        */
-
+    }else
+    {
         RigTForm modelViewRbt = viewRbt * modelRbt;                
         Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
         Mat4 normalMat = transpose(inv(modelViewMat));
@@ -219,7 +218,6 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
 
         sendMatrix("uModelViewMat", modelViewMat);
         sendMatrix("uNormalMat", normalMat);
-
     }
 
     /*
@@ -305,6 +303,11 @@ void Material::setDepthMap(bool b)
     depthMap = b;
 }
 
+void Material::setShadow(bool b)
+{
+    shadow = b;
+}
+
 void Material::sendMatrix(const char* uniformName, Mat4 &matrix)
 {
     for(int i = 0; i < numUniforms; i++)
@@ -318,7 +321,7 @@ void Material::sendMatrix(const char* uniformName, Mat4 &matrix)
 void Material::initialize()
 {
     glGetProgramiv(shaderProgram, GL_ACTIVE_UNIFORMS, &numUniforms);          // Get the number of uniforms in shaderProgram
-    if(numUniforms > MAX_NUM_UNIFORMS)
+     if(numUniforms > MAX_NUM_UNIFORMS)
         fprintf(stderr, "Too many active uniforms in material %s\n", name);
     //uniformDesc = (UniformDesc *)malloc(sizeof(UniformDesc) * numUniforms);
 
@@ -351,5 +354,6 @@ void Material::initialize()
     }
     cubemap = false;
     depthMap = false;
+    shadow = false;
     textureCount = 0;
 }

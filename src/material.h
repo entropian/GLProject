@@ -156,6 +156,9 @@ public:
     // TODO: temporary
     void setDepthMap(bool b);
 
+    // TODO: temporary
+    void setShadow(bool b);
+
 private:
     int searchUniformDesc(const char* uniformName);
     void assign(Material &dest, const Material &src);
@@ -174,7 +177,7 @@ private:
     GLuint textureHandles[MAX_TEXTURES_PER_MATERIAL];
     unsigned int textureCount;
     GLuint cubemapHandle;
-    bool cubemap, depthMap;
+    bool cubemap, depthMap, shadow;
     char name[20];
 };
 

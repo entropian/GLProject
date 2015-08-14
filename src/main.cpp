@@ -28,6 +28,7 @@ static float g_windowHeight = 720.0f;
 
 static RigTForm g_view;                // View transform
 static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
+
 static Mat4 g_proj;
 
 // Materials
@@ -48,23 +49,17 @@ static bool g_renderToBuffer = true;
 static Skybox g_skybox;
 static bool g_drawSkybox = true;
 
-// Depth map struct
-struct DepthMap{
-    GLuint depthMapFBO;
-    GLuint depthMap;
-    GLsizei SHADOW_WIDTH, SHADOW_HEIGHT;
-    Material *depthMapMaterial;
-};
+
 static DepthMap g_depthMap;
 static Mat4 g_lightMat;
-static bool g_depthMapStatus = false;
+static bool g_depthMapStatus = true;
 
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
 
 InputHandler inputHandler;
 
-void draw_scene(TransformNode *rootNode)
+void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
 {
     RigTForm viewRbt = inputHandler.getViewTransform();        
     if(g_depthMapStatus)
@@ -77,13 +72,15 @@ void draw_scene(TransformNode *rootNode)
         //g_depthMap.depthMapMaterial->sendUniformMat4("uLightSpaceMat", viewMat);
         glCullFace(GL_FRONT);
         Visitor visitor(viewRbt);
-        visitor.visitNode(inputHandler.getWorldNode(), g_depthMap.depthMapMaterial);
+        visitor.visitNode(rootNode, g_depthMap.depthMapMaterial);
         glCullFace(GL_BACK);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
         /*
-        for(int i = 0; i < g_numMat; i++)
-            g_materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
+        for(int i = 0; i < numMat; i++)
+            materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
+
+        for(int i = 0; i < numMTLMat; i++)        
+            MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
         */
     }
     
@@ -103,10 +100,11 @@ void draw_scene(TransformNode *rootNode)
     //RigTForm viewRbt = inputHandler.getViewTransform();
     //double currentTime = glfwGetTime();
     //g_lightW[0] = g_lightW[0] + sin(currentTime) * 1;
+    viewRbt = inputHandler.getViewTransform();
     g_lightE = viewRbt * g_lightW;
 
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
-    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));    
+    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
     
     // Draw skybox
     if(g_drawSkybox)
@@ -271,7 +269,8 @@ int main()
 
     /*
     // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()
-    Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, .05f, 25.0f);
+    //Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, .05f, 25.0f);
+    Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -20.0f, 20.0f, 1.0f, 60.0f);
     g_proj = ortho2;
     */
     g_proj = Mat4::makePerspective(60.0f, g_windowWidth/g_windowHeight, 0.1f, 50.0f);
@@ -280,7 +279,7 @@ int main()
     initSkybox(g_skybox);
 
     initUniformBlock();
-
+ 
     Material *materials[MAX_MATERIALS];
     int numMat = 0;
     initMaterials(materials, MAX_MATERIALS, numMat, textureHandles);
@@ -295,13 +294,16 @@ int main()
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
 
+    for(int i = 0; i < numMTLMat; i++)        
+        MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
+
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
     // ---------------------------- RENDERING ------------------------------ //
     
     glEnable(GL_DEPTH_TEST);
     glFrontFace(GL_CCW);    
-    draw_scene(worldNode);
+    draw_scene(worldNode, materials, numMat, MTLMaterials, numMTLMat);
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
     {
@@ -311,7 +313,7 @@ int main()
             {
                 glfwSwapBuffers(window);
                 timeLastRender = currentTime;
-                draw_scene(worldNode);
+                draw_scene(worldNode, materials, numMat, MTLMaterials, numMTLMat);
             }
 
         // Poll window events
