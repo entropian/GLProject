@@ -198,7 +198,7 @@ void initUniformBlock()
     Mat4 proj = transpose(g_proj);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Mat4), &(proj[0]));
     // Light space matrix
-    Mat4 tmp = Mat4::makeOrtho(-10.0f, 10.0f, -20.0f, 20.0f, 1.0f, 60.0f);
+    Mat4 tmp = Mat4::makeOrtho(-13.0f, 13.0f, -20.0f, 30.0f, 1.0f, 60.0f);
     Mat4 ortho = tmp;
     //Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
     Mat4 lightSpaceMat = transpose(ortho * g_lightMat);
