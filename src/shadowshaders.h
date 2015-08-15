@@ -122,8 +122,6 @@ const char* shOBJFragSrc = GLSL(
 const char* shadowNormalVertSrc = GLSL(    
     uniform mat4 uModelMat;
     uniform mat4 uViewMat;
-    // TODO: get rid of this
-    uniform mat4 uNormalMat;
 
     in vec3 aPosition;
     in vec3 aNormal;
@@ -156,9 +154,10 @@ const char* shadowNormalVertSrc = GLSL(
         vLightT.y = dot(lightM, aBinormal * aDet);
         vLightT.z = dot(lightM, aNormal);
 
-        vFragPosLightSpace = lightSpaceMat * uModelMat * vec4(aPosition, 1.0);
+        vec4 posW = uModelMat * vec4(aPosition, 1.0);
+        vFragPosLightSpace = lightSpaceMat * posW;
 
-        gl_Position = projMat * uModelViewMat * vec4(aPosition, 1.0);
+        gl_Position = projMat * uViewMat * posW;
     }
 );
 
@@ -404,6 +403,311 @@ const char* shOBJAlphaSpecFragSrc = GLSL(
             discard;
         
         outColor = vec4(lighting, 1.0f);
+    }
+);
+
+// Normal mapping, OBJ material, and Phong lighting.
+const char* shOBJNormalFragSrc = GLSL(
+
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+    uniform sampler2D shadowMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+    in vec4 vFragPosLightSpace;
+
+    out vec4 outColor;    
+
+    float ShadowCalculation(vec4 fragPosLightSpace)
+    {
+        // perform perspective divide
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        
+        // Transform to [0,1] range
+        projCoords = projCoords * 0.5 + 0.5;
+        
+        // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+        float closestDepth = texture(shadowMap, projCoords.xy).r;
+        
+        // Get depth of current fragment from light's perspective
+        float currentDepth = projCoords.z;
+        
+        // Check whether current frag pos is in shadow
+        float bias = 0.005;
+        //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+        float shadow = 0.0;
+        vec2 texelSize = 1.0 / textureSize(diffuseMap, 0);
+        for(int x = -1; x <= 1; ++x)
+        {
+            for(int y = -1; y <= 1; ++y)
+            {
+                float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;        
+        //float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+        return shadow;
+    }    
+    
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
+        float shadow = ShadowCalculation(vFragPosLightSpace);
+        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);        
+        outColor = vec4(lighting, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+const char* shOBJNormalSpecFragSrc = GLSL(
+
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+    uniform sampler2D specularMap;
+    uniform sampler2D shadowMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+    in vec4 vFragPosLightSpace;
+
+    out vec4 outColor;    
+
+    float ShadowCalculation(vec4 fragPosLightSpace)
+    {
+        // perform perspective divide
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        
+        // Transform to [0,1] range
+        projCoords = projCoords * 0.5 + 0.5;
+        
+        // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+        float closestDepth = texture(shadowMap, projCoords.xy).r;
+        
+        // Get depth of current fragment from light's perspective
+        float currentDepth = projCoords.z;
+        
+        // Check whether current frag pos is in shadow
+        float bias = 0.005;
+        //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+        float shadow = 0.0;
+        vec2 texelSize = 1.0 / textureSize(diffuseMap, 0);
+        for(int x = -1; x <= 1; ++x)
+        {
+            for(int y = -1; y <= 1; ++y)
+            {
+                float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;        
+        //float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+        return shadow;
+    }    
+    
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec4 specular = texture(specularMap, vTexcoord);
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.rgb * Kd * 0.005;
+        float shadow = ShadowCalculation(vFragPosLightSpace);
+        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);        
+        outColor = vec4(lighting, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+const char* shOBJNormalAlphaFragSrc = GLSL(
+
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+    uniform sampler2D alphaMap;
+    uniform sampler2D shadowMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+    in vec4 vFragPosLightSpace;
+
+    out vec4 outColor;    
+
+    float ShadowCalculation(vec4 fragPosLightSpace)
+    {
+        // perform perspective divide
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        
+        // Transform to [0,1] range
+        projCoords = projCoords * 0.5 + 0.5;
+        
+        // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+        float closestDepth = texture(shadowMap, projCoords.xy).r;
+        
+        // Get depth of current fragment from light's perspective
+        float currentDepth = projCoords.z;
+        
+        // Check whether current frag pos is in shadow
+        float bias = 0.005;
+        //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+        float shadow = 0.0;
+        vec2 texelSize = 1.0 / textureSize(diffuseMap, 0);
+        for(int x = -1; x <= 1; ++x)
+        {
+            for(int y = -1; y <= 1; ++y)
+            {
+                float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;        
+        //float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+        return shadow;
+    }    
+    
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
+        float shadow = ShadowCalculation(vFragPosLightSpace);
+        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);
+        vec4 alpha = texture(alphaMap, vTexcoord);
+        if(alpha.r < 0.1)
+            discard;
+        outColor = vec4(lighting, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+    }
+);
+
+const char* shOBJNormalAlphaSpecFragSrc = GLSL(
+
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+    uniform sampler2D specularMap;
+    uniform sampler2D alphaMap;
+    uniform sampler2D shadowMap;
+
+    in vec3 vLightT;
+    in vec3 vEyeT;
+    in vec2 vTexcoord;
+    in vec4 vFragPosLightSpace;
+
+    out vec4 outColor;    
+
+    float ShadowCalculation(vec4 fragPosLightSpace)
+    {
+        // perform perspective divide
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        
+        // Transform to [0,1] range
+        projCoords = projCoords * 0.5 + 0.5;
+        
+        // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+        float closestDepth = texture(shadowMap, projCoords.xy).r;
+        
+        // Get depth of current fragment from light's perspective
+        float currentDepth = projCoords.z;
+        
+        // Check whether current frag pos is in shadow
+        float bias = 0.005;
+        //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+        float shadow = 0.0;
+        vec2 texelSize = 1.0 / textureSize(diffuseMap, 0);
+        for(int x = -1; x <= 1; ++x)
+        {
+            for(int y = -1; y <= 1; ++y)
+            {
+                float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;        
+        //float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+        return shadow;
+    }    
+    
+    void main()
+    {
+        vec4 texColor = texture(diffuseMap, vTexcoord);
+        
+        vec3 lightT = normalize(vLightT);
+        
+        vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
+
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+
+        float intensity = dot(normal, lightT);
+        vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
+        
+        vec3 eyeT = normalize(vEyeT);
+        vec3 reflectDir = 2*intensity*normal - lightT;
+        vec4 specular = texture(specularMap, vTexcoord);
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.rgb * Kd * 0.005;
+        float shadow = ShadowCalculation(vFragPosLightSpace);
+        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);
+        vec4 alpha = texture(alphaMap, vTexcoord);
+        if(alpha.r < 0.1)
+            discard;        
+        outColor = vec4(lighting, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 

@@ -305,7 +305,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             MTLMaterials[i]->setShadow(true);
             break;
         case DIFFUSE|NORMAL:
-            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|SPECULAR:
             //MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
@@ -313,7 +315,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);                        
             break;
         case DIFFUSE|ALPHA:
             // TODO: remove this line
@@ -323,7 +327,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             MTLMaterials[i]->setShadow(true);
             break;
         case DIFFUSE|NORMAL|ALPHA:
-            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|SPECULAR|ALPHA:
             //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
@@ -331,7 +337,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             MTLMaterials[i]->setShadow(true);            
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-            MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);            
+            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+            MTLMaterials[i]->setShadow(true);
             break;
         }
        
