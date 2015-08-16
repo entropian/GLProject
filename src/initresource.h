@@ -19,6 +19,7 @@
 
 extern Skybox g_skybox;
 extern Vec3 g_lightW;
+static bool shadow = false;
 
 // TODO: check for array length
 void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
@@ -300,46 +301,86 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         switch(sf)
         {
         case DIFFUSE:
-            //MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);
+            if(!shadow)
+            {
+                MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|NORMAL:
-            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);            
+            if(!shadow)
+            {
+                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|SPECULAR:
-            //MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowVertSrc, shOBJSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);            
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowVertSrc, shOBJSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);                        
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|ALPHA:
             // TODO: remove this line
             printf("alphafrag\n");
-            //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|NORMAL|ALPHA:
-            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);            
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-            //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);            
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-            //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaSpecFragSrc, matInfoList[i].name);
-            MTLMaterials[i]->setShadow(true);
+            if(!shadow)
+            {            
+                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+            }else
+            {
+                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i]->setShadow(true);
+            }
             break;
         }
        
@@ -437,7 +478,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         gn = new GeometryNode(g, m, modelRbt, true);
         gn->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
     }
-    //rootNode->addChild(gn);
+    rootNode->addChild(gn);
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot");
@@ -464,7 +505,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     {
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                     numMTLMat, modelRbt, true);
-        mgn->setScaleFactor(Vec3(1.0f/70.0f, 1.0f/70.0f, 1.0f/70.0f));
+        mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
     rootNode->addChild(mgn);
 }

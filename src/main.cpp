@@ -27,7 +27,8 @@ static float g_windowWidth = 1280.0f;
 static float g_windowHeight = 720.0f;
 
 static RigTForm g_view;                // View transform
-static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
+//static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
+static Vec3 g_lightE, g_lightW(13.0f, 22.0f, 2.0f);
 
 static Mat4 g_proj;
 
@@ -145,8 +146,10 @@ void initDepthMap(DepthMap* dm)
 {
     glGenFramebuffers(1, &(dm->depthMapFBO));
 
+    //dm->SHADOW_WIDTH = 2048;
+    //dm->SHADOW_HEIGHT = 3074;
     dm->SHADOW_WIDTH = 2048;
-    dm->SHADOW_HEIGHT = 3072;
+    dm->SHADOW_HEIGHT = 3074;
 
     glGenTextures(1, &(dm->depthMap));
     glBindTexture(GL_TEXTURE_2D, dm->depthMap);
@@ -198,7 +201,7 @@ void initUniformBlock()
     Mat4 proj = transpose(g_proj);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Mat4), &(proj[0]));
     // Light space matrix
-    Mat4 tmp = Mat4::makeOrtho(-13.0f, 13.0f, -20.0f, 30.0f, 1.0f, 60.0f);
+    Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -20.0f, 27.0f, 7.0f, 35.0f);
     Mat4 ortho = tmp;
     //Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
     Mat4 lightSpaceMat = transpose(ortho * g_lightMat);
@@ -328,12 +331,16 @@ int main()
     for(int i = 0; i < geometries.numSingleGeo; i++)
         delete geometries.singleGeo[i];
 
-    for(int i = 0; i < numMat; i++)
-        delete materials[i];
-    delete g_depthMap.depthMapMaterial;
-
     for(int i = 0; i < geometries.numGroupGeo; i++)
         delete geometries.groupGeo[i];
+    
+    for(int i = 0; i < numMat; i++)
+        delete materials[i];
+
+    for(int i = 0; i < numMTLMat; i++)
+        delete MTLMaterials[i];
+    delete g_depthMap.depthMapMaterial;
+
     
     // ---------------------------- TERMINATE ----------------------------- //
 

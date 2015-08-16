@@ -142,7 +142,7 @@ const char* shadowNormalVertSrc = GLSL(
     void main()
     {
         vTexcoord = aTexcoord;
-        mat4 inverseMat = inverse(uModelMat * uViewMat);
+        mat4 inverseMat = inverse(uViewMat * uModelMat);
         vec3 lightM = (inverseMat * vec4(light1, 1.0)).xyz - aPosition;        
         vec3 eyeM = (inverseMat * vec4(0.0, 0.0, 0.0, 1.0)).xyz - aPosition;
 

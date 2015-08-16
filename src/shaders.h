@@ -560,15 +560,15 @@ const char* OBJSpecFragSrc = GLSL(
         
         vec4 texColor = texture(diffuseMap, vTexcoord);
         vec4 specular = texture(specularMap, vTexcoord);
+        float specIntensity = (specular.r + specular.g + specular.b) / 3;
 
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;
 
         vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
 
         //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
-        //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb * 0.005;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb;
-        
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.rgb * specIntensity;
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
@@ -637,13 +637,15 @@ const char* OBJAlphaSpecFragSrc = GLSL(
         vec4 texColor = texture(diffuseMap, vTexcoord);        
         vec4 alpha = texture(alphaMap, vTexcoord);
         vec4 specular = texture(specularMap, vTexcoord);
+        float specIntensity = (specular.r + specular.g + specular.b) / 3;
 
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;
 
         vec3 diffContrib = max(dot(lightDir, vNormal), 0.0) * texColor.xyz * Kd;
 
         //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.xyz * Kd;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb * 0.005;
+        //vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * specular.rgb * 0.005;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeDir), 0), Ns) * texColor.rgb * specIntensity * 0.1;
         if(alpha.r < 0.1)
             discard;
         
@@ -708,6 +710,7 @@ const char* OBJNormalSpecFragSrc = GLSL(
     {
         vec4 texColor = texture(diffuseMap, vTexcoord);
         vec4 specular = texture(specularMap, vTexcoord);
+        float specIntensity = (specular.r + specular.g + specular.b) / 3;
         
         vec3 lightT = normalize(vLightT);
         
@@ -721,7 +724,7 @@ const char* OBJNormalSpecFragSrc = GLSL(
         vec3 eyeT = normalize(vEyeT);
         vec3 reflectDir = 2*intensity*normal - lightT;
         //vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.xyz * 0.005;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * specIntensity * 0.1;
         
         outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
@@ -790,6 +793,7 @@ const char* OBJNormalAlphaSpecFragSrc = GLSL(
         vec4 texColor = texture(diffuseMap, vTexcoord);
         vec4 alpha = texture(alphaMap, vTexcoord);
         vec4 specular = texture(specularMap, vTexcoord);
+        float specIntensity = (specular.r + specular.g + specular.b) / 3;
         
         vec3 lightT = normalize(vLightT);
         
@@ -803,7 +807,7 @@ const char* OBJNormalAlphaSpecFragSrc = GLSL(
         vec3 eyeT = normalize(vEyeT);
         vec3 reflectDir = 2*intensity*normal - lightT;
         //vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.xyz * Kd * 0.005;
-        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * specular.rgb * 0.005;
+        vec3 specContrib = pow(max(dot(reflectDir, eyeT), 0.0), Ns) * texColor.rgb * specIntensity * 0.1;
         if(alpha.r < 0.1)
             discard;
         
