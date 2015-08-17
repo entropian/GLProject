@@ -44,7 +44,7 @@ static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
 // Render-to-buffer
 static RTB g_rtb;
-static bool g_renderToBuffer = true;
+static bool g_renderToBuffer = false;
 
 // Skybox struct
 Skybox g_skybox;
@@ -53,7 +53,15 @@ static bool g_drawSkybox = true;
 
 DepthMap g_depthMap;
 static Mat4 g_lightMat;
-static bool g_depthMapStatus = true;
+static bool g_depthMapStatus = false;
+
+// Deferred rendering struct
+struct DFStruct{
+    GLuint gBuffer, gPosition, gNormalSpec, gDiffuse;
+    GLuint vao, vbo, rboDepth;
+    GLuint shaderProgram;
+};
+static DFStruct g_df;
 
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
@@ -104,8 +112,12 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     viewRbt = inputHandler.getViewTransform();
     g_lightE = viewRbt * g_lightW;
 
-    glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
-    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
+    //glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
+    //glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
+
+    RigTForm invViewRbt = inv(viewRbt);
+    glBufferSubData(GL_UNIFORM_BUFFER, 144, 16, &(invViewRbt.getTranslation()[0]));
+    
     
     // Draw skybox
     if(g_drawSkybox)
@@ -114,9 +126,32 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
         drawSkybox(g_skybox, viewRotationMat);
     }
 
+    // Geometry Pass
+    glBindFramebuffer(GL_FRAMEBUFFER, g_df.gBuffer);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     // Draw scene
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
+
+    // Light Pass
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glUseProgram(g_df.shaderProgram);
+    glBindVertexArray(g_df.vao);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_df.gPosition);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, g_df.gNormalSpec);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, g_df.gDiffuse);    
+    //glUniform1i(rtb.texture, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
 
     // Display normal vectors
     //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);
@@ -190,9 +225,11 @@ void initUniformBlock()
       //                     Base alignment    Aligned offset
       mat4 projMat;       // 16 (x4)           0
       vec3 light1;        // 16                64
-      mat4 lightSpaceMat // 16 (x4)           80
+      mat4 lightSpaceMat  // 16 (x4)           80
+      vec3 eyeW;          // 16                144
     };
     16 + 64 + 64 = 144
+    16 + 64 + 64 + 16 = 160
     */
     glGenBuffers(1, &uniformBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
@@ -206,12 +243,100 @@ void initUniformBlock()
     //Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
     Mat4 lightSpaceMat = transpose(ortho * g_lightMat);
     glBufferSubData(GL_UNIFORM_BUFFER, 80, 64, &(lightSpaceMat[0]));
+
+
+    // light pos in world space
+    glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightW[0]));
+
     
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
 
+void initDeferredRender(DFStruct &df)
+{
+    df.shaderProgram = compileAndLinkShaders(RTBVertSrc, LightPassFragSrc);
+    glUseProgram(df.shaderProgram);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gPosition"), 0);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gNormalSpec"), 1);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gDiffuse"), 2);    
+    
+    //GLuint gBuffer;
+    glGenFramebuffers(1, &(df.gBuffer));
+    glBindFramebuffer(GL_FRAMEBUFFER, df.gBuffer);
 
+    //GLuint gPosition, gNormalSpec, gDiffuse;
+
+    glGenTextures(1, &(df.gPosition));
+    glBindTexture(GL_TEXTURE_2D, df.gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, df.gPosition, 0);
+
+    glGenTextures(1, &(df.gNormalSpec));
+    glBindTexture(GL_TEXTURE_2D, df.gNormalSpec);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, df.gNormalSpec, 0);
+    
+    glGenTextures(1, &(df.gDiffuse));
+    glBindTexture(GL_TEXTURE_2D, df.gDiffuse);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, df.gDiffuse, 0);
+
+    GLuint attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+    glDrawBuffers(3, attachments);
+
+    glGenRenderbuffers(1, &(df.rboDepth));
+    glBindRenderbuffer(GL_RENDERBUFFER, df.rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, (int)g_windowWidth, (int)g_windowHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, df.rboDepth);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        fprintf(stderr, "Framebuffer not complete!\n");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);    
+
+
+
+    // The quad that covers the whole viewport
+    GLfloat vertices[] = {
+        -1.0f,  -1.0f, 0.0f, 0.0f,
+        1.0f, -1.0f, 1.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f, 1.0f,
+        1.0, -1.0, 1.0f, 0.0f,
+        -1.0, 1.0, 0.0f, 1.0f,
+        1.0, 1.0, 1.0f, 1.0f
+    };
+
+    glGenVertexArrays(1, &(df.vao));
+    glBindVertexArray(df.vao);
+
+    glGenBuffers(1, &(df.vbo));
+    glBindBuffer(GL_ARRAY_BUFFER, df.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Setup vertex attributes
+    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glBindVertexArray(0);
+}
+
+/*
+void deleteScenegraph(TransformNode *tn)
+{
+    for(int i = 0; i < tn->getChildrenCount(); i++)
+        deleteScenegraph(static_cast<TransformNode*>(tn->getChild(i)));
+    delete tn;
+}
+*/
 int main()
 {
     // -------------------------------- INIT ------------------------------- //
@@ -297,6 +422,7 @@ int main()
     initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
+    initDeferredRender(g_df);
 
     for(int i = 0; i < numMTLMat; i++)        
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
@@ -342,7 +468,12 @@ int main()
         delete MTLMaterials[i];
     delete g_depthMap.depthMapMaterial;
 
-    
+    /*
+    glDeleteTextures(1, g_df.gPosition);
+    glDeleteTextures(1, g_df.gNormalSpec);
+    glDeleteTextures(1, g_df.gDiffuse);
+    */
+    //deleteScenegraph(worldNode);    
     // ---------------------------- TERMINATE ----------------------------- //
 
     // Terminate GLFW

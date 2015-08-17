@@ -21,6 +21,7 @@ struct RTB{
     GLuint texture;
 };
 
+
 // Depth map struct
 struct DepthMap{
     GLuint depthMapFBO;
@@ -29,7 +30,8 @@ struct DepthMap{
     Material *depthMapMaterial;
 };
 
-extern DepthMap g_depthMap;
+//extern DepthMap g_depthMap;
+
 
 void initRenderToBuffer(RTB &rtb, int windowWidth, int windowHeight)
 {
@@ -56,7 +58,7 @@ void initRenderToBuffer(RTB &rtb, int windowWidth, int windowHeight)
     
     // Setup vertex attributes
     //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
-    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(0);xb
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
 
     glEnableVertexAttribArray(1);

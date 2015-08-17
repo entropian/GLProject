@@ -72,7 +72,8 @@ public:
         {
             if(children[i] == tn)
             {
-                children[i]->setParent(NULL);
+                //children[i]->setParent(NULL);
+                delete children[i];
                 int j;
                 for(j = i; j < childrenCount - 1; j++)
                     children[j] = children[j+1];

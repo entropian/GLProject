@@ -61,7 +61,7 @@ static GLuint compileAndLinkShaders(const char *vs, const char *fs)
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
-    glBindFragDataLocation(shaderProgram, 0, "outColor");
+    //glBindFragDataLocation(shaderProgram, 0, "outColor");
     glLinkProgram(shaderProgram);
 
     GLint status;
