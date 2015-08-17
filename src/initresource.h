@@ -16,6 +16,7 @@
 #include "skybox.h"
 #include "input.h"
 #include "shadowshaders.h"
+#include "dfshaders.h"
 
 extern Skybox g_skybox;
 extern Vec3 g_lightW;
@@ -228,8 +229,10 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
             break;
 
     if(i == numTextures)
+    {
+        printf("%s fucked up.\n", mat->getName());
         mat->sendUniformTexture(uniformName, textureHandles[1]);
-    else
+    }else
         mat->sendUniformTexture(uniformName, textureHandles[i]);    
 }
 
@@ -303,7 +306,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE:
             if(!shadow)
             {
-                MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassVertSrc, GeoPassFragSrc, matInfoList[i].name);
             }else
             {
                 MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
@@ -391,8 +395,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
         if(matInfoList[i].name[0] == '\0')
+        {
             MTLMaterials[i]->sendUniformTexture("diffuseMap", textureHandles[1]);
-        else
+        }else
         {
             // Diffuse map
             setMaterialTexture(MTLMaterials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textureHandles, numTextures);
@@ -498,7 +503,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     if(index != -1)
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                          numMTLMat, modelRbt, true);
-    //rootNode->addChild(mgn);
+    rootNode->addChild(mgn);
 
     index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza");
     if(index != -1)
@@ -507,7 +512,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                                     numMTLMat, modelRbt, true);
         mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
-    rootNode->addChild(mgn);
+    //rootNode->addChild(mgn);
 }
 
 #endif
