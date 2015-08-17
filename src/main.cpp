@@ -28,7 +28,7 @@ static float g_windowHeight = 720.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
-static Vec3 g_lightE, g_lightW(13.0f, 22.0f, 2.0f);
+Vec3 g_lightE, g_lightW(13.0f, 22.0f, 2.0f);
 
 static Mat4 g_proj;
 
@@ -47,11 +47,11 @@ static RTB g_rtb;
 static bool g_renderToBuffer = true;
 
 // Skybox struct
-static Skybox g_skybox;
+Skybox g_skybox;
 static bool g_drawSkybox = true;
 
 
-static DepthMap g_depthMap;
+DepthMap g_depthMap;
 static Mat4 g_lightMat;
 static bool g_depthMapStatus = true;
 
@@ -268,6 +268,7 @@ int main()
     GLuint *textureHandles;
     int numTextures;
     char **textureFileNames;
+    printf("here\n");
     numTextures = initTextures(matInfoList, MTLMatCount, textureFileNames, nonMTLTextures, numNonMTL, textureHandles);
 
     /*
@@ -286,7 +287,7 @@ int main()
     Material *materials[MAX_MATERIALS];
     int numMat = 0;
     initMaterials(materials, MAX_MATERIALS, numMat, textureHandles);
-
+    
     Material *MTLMaterials[MAX_MATERIALS];
     int numMTLMat = 0;
     initMTLMaterials(matInfoList, MTLMatCount, MTLMaterials, numMTLMat, textureFileNames, textureHandles, numTextures);
