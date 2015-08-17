@@ -56,12 +56,10 @@ void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const
     sponzaMesh.loadOBJFile("sponza.obj");
     sponzaMesh.computeVertexNormals();
     getGeoList(sponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNX);    
-    //getGeoList(sponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNXTBD);
 
     Mesh crysponzaMesh;
     crysponzaMesh.loadOBJFile("crysponza.obj");
     crysponzaMesh.computeVertexBasis();    
-    //getGeoList(crysponzaMesh, g_geometryGroups, g_groupInfoList, MAX_GEOMETRY_GROUPS, g_groupSize, g_groupInfoSize, PNX);
     getGeoList(crysponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNXTBD);   
 }
 
@@ -122,7 +120,7 @@ int initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&text
     textureFileNames = (char**)malloc(sizeof(char*)*tmp);
 
     for(size_t i = 0; i < tmp; i++)
-        textureFileNames[i] = (char*)malloc(sizeof(char)*20);
+        textureFileNames[i] = (char*)malloc(sizeof(char)*40);
     
     for(size_t i = 0; i < numNonMTL; i++)
         strcpy(textureFileNames[i], nonMTLTextures[i]);
@@ -287,7 +285,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         NORMAL = 2,
         SPECULAR = 4,
         ALPHA = 8
-    };    
+    };
 
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
@@ -300,7 +298,6 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(NORMAL));
         if(matInfoList[i].map_d[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(ALPHA));
-
         switch(sf)
         {
         case DIFFUSE:
@@ -387,7 +384,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             }
             break;
         }
-       
+
         //MTLMaterials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         MTLMaterials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         //MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
@@ -483,7 +480,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         gn = new GeometryNode(g, m, modelRbt, true);
         gn->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
     }
-    rootNode->addChild(gn);
+    //rootNode->addChild(gn);
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
     g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot");
@@ -505,6 +502,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                                          numMTLMat, modelRbt, true);
     rootNode->addChild(mgn);
 
+    /*
     index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza");
     if(index != -1)
     {
@@ -513,6 +511,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
     //rootNode->addChild(mgn);
+    */
 }
 
 #endif

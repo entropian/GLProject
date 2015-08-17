@@ -86,6 +86,11 @@ public:
 
     std::string getName();
 
+    int getNumGroups()
+    {
+        return groups.size();
+    }
+
 private:
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);
     void vertexAttribPNXTBD(GLfloat*, size_t*, const size_t, const size_t);

@@ -172,7 +172,6 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
     Vec3 modelDir = modelRbt.getTranslation() - Vec3(invViewMat(0, 3), invViewMat(1, 3), invViewMat(2, 3));
     if(dot(modelDir, z) < 0)
     */
-
     glBindVertexArray(geometry->vao);
     // NOTE: don't know why the vbo needs rebinding
     glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
@@ -220,7 +219,7 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
         sendMatrix("uModelMat", modelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);        
-        
+
         /*
         RigTForm modelViewRbt = viewRbt * modelRbt;                
         Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
@@ -278,8 +277,9 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
     }
 
     if(geometry->eboLen == 0)
+    {
         glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
-    else
+    }else
         glDrawElements(GL_TRIANGLES, geometry->eboLen, GL_UNSIGNED_INT, 0);
 
     glUseProgram(0);

@@ -275,7 +275,7 @@ public:
     {
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        
+
         for(int i = 0; i < numGeometries; i++)
         {
             materials[materialIndex[i]]->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
@@ -343,15 +343,6 @@ public:
         }else if(tn->getNodeType() == GEOMETRY)
         {
             RigTForm modelRbt;
-            /*
-            if(rbtCount == 0)
-            {
-                modelViewRbt = viewRbt;
-            }else
-            {
-                modelViewRbt = viewRbt * rbtStack[rbtCount-1];
-            }
-            */
             if(rbtCount > 0)
                 modelRbt = rbtStack[rbtCount-1];
             

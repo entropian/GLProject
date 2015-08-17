@@ -48,7 +48,7 @@ static bool g_renderToBuffer = false;
 
 // Skybox struct
 Skybox g_skybox;
-static bool g_drawSkybox = true;
+static bool g_drawSkybox = false;
 
 
 DepthMap g_depthMap;
@@ -116,8 +116,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     //glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
 
     RigTForm invViewRbt = inv(viewRbt);
-    glBufferSubData(GL_UNIFORM_BUFFER, 144, 16, &(invViewRbt.getTranslation()[0]));
-    
+    glBufferSubData(GL_UNIFORM_BUFFER, 144, 16, &(invViewRbt.getTranslation()[0]));    
     
     // Draw skybox
     if(g_drawSkybox)
@@ -134,6 +133,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     // Draw scene
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
+
 
     // Light Pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -382,8 +382,8 @@ int main()
     initGeometries(geometries);
     
     MaterialInfo matInfoList[MAX_MATERIALS];
-    const size_t numMTLFiles = 2;
-    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
+    const size_t numMTLFiles = 1;
+    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl"};
     
     size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
     
@@ -393,7 +393,7 @@ int main()
     GLuint *textureHandles;
     int numTextures;
     char **textureFileNames;
-    printf("here\n");
+
     numTextures = initTextures(matInfoList, MTLMatCount, textureFileNames, nonMTLTextures, numNonMTL, textureHandles);
 
     /*
@@ -419,6 +419,7 @@ int main()
 
     TransformNode *worldNode = new TransformNode();
     inputHandler.setWorldNode(worldNode);
+
     initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);

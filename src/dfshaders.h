@@ -57,6 +57,7 @@ const char* GeoPassFragSrc = GLSL(
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse = texture(diffuseMap, vTexcoord).rgb * Kd;
+
     }
 );
 
@@ -82,7 +83,8 @@ const char* LightPassFragSrc = GLSL(
         float intensity = max(dot(normal, lightDir), 0);
         vec3 diffContrib = intensity * diffuse;
         vec3 specContrib = pow(intensity, specExponent) * diffuse;
-        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        outColor = vec4(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 720.0, 0, 1.0);
     }
 );
 

@@ -58,7 +58,7 @@ void initRenderToBuffer(RTB &rtb, int windowWidth, int windowHeight)
     
     // Setup vertex attributes
     //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
-    glEnableVertexAttribArray(0);xb
+    glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
 
     glEnableVertexAttribArray(1);
