@@ -467,7 +467,7 @@ const char* shOBJNormalFragSrc = GLSL(
         
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-        vec3 normal = texture(normalMap, vTexcoord).xyz;
+        vec3 normal = normalize(texture(normalMap, vTexcoord).xyz);
 
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
@@ -541,7 +541,7 @@ const char* shOBJNormalSpecFragSrc = GLSL(
         
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-        vec3 normal = texture(normalMap, vTexcoord).xyz;
+        vec3 normal = normalize(texture(normalMap, vTexcoord).xyz);
 
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
@@ -616,7 +616,7 @@ const char* shOBJNormalAlphaFragSrc = GLSL(
         
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-        vec3 normal = texture(normalMap, vTexcoord).xyz;
+        vec3 normal = normalize(texture(normalMap, vTexcoord).xyz);
 
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz ;
@@ -694,7 +694,7 @@ const char* shOBJNormalAlphaSpecFragSrc = GLSL(
         
         vec3 ambContrib = 0.3 * Kd * texColor.xyz;       
 
-        vec3 normal = texture(normalMap, vTexcoord).xyz;
+        vec3 normal = normalize(texture(normalMap, vTexcoord).xyz);
 
         float intensity = dot(normal, lightT);
         vec3 diffContrib = max(intensity, 0) * texColor.xyz ;

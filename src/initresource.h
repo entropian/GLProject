@@ -304,7 +304,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             if(!shadow)
             {
                 //MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
-                MTLMaterials[i] = new Material(GeoPassVertSrc, GeoPassFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDFragSrc, matInfoList[i].name);
             }else
             {
                 MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
@@ -314,7 +314,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|NORMAL:
             if(!shadow)
             {
-                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDFragSrc, matInfoList[i].name);
             }else
             {
                 MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalFragSrc, matInfoList[i].name);
@@ -324,7 +325,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|SPECULAR:
             if(!shadow)
             {            
-                MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDSFragSrc, matInfoList[i].name);                
             }else
             {
                 MTLMaterials[i] = new Material(shadowVertSrc, shOBJSpecFragSrc, matInfoList[i].name);
@@ -334,7 +336,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|NORMAL|SPECULAR:
             if(!shadow)
             {            
-                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDSFragSrc, matInfoList[i].name);                
             }else
             {
                 MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalSpecFragSrc, matInfoList[i].name);
@@ -342,8 +345,6 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             }
             break;
         case DIFFUSE|ALPHA:
-            // TODO: remove this line
-            printf("alphafrag\n");
             if(!shadow)
             {            
                 MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
@@ -356,7 +357,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|NORMAL|ALPHA:
             if(!shadow)
             {            
-                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNADFragSrc, matInfoList[i].name);
             }else
             {
                 MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaFragSrc, matInfoList[i].name);
@@ -366,7 +368,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|SPECULAR|ALPHA:
             if(!shadow)
             {            
-                MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
+                //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJADSFragSrc, matInfoList[i].name);
             }else
             {
                 MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaSpecFragSrc, matInfoList[i].name);
@@ -376,7 +379,8 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
             if(!shadow)
             {            
-                MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+                //MTLMaterils[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
+                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJNADSFragSrc, matInfoList[i].name);                
             }else
             {
                 MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaSpecFragSrc, matInfoList[i].name);
@@ -389,6 +393,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         MTLMaterials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         //MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         MTLMaterials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
+        printf("Ns = %f\n", matInfoList[i].Ns);
         MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
         if(matInfoList[i].name[0] == '\0')
@@ -500,9 +505,9 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     if(index != -1)
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                          numMTLMat, modelRbt, true);
-    rootNode->addChild(mgn);
+    //rootNode->addChild(mgn);
 
-    /*
+
     index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza");
     if(index != -1)
     {
@@ -510,8 +515,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                                     numMTLMat, modelRbt, true);
         mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
-    //rootNode->addChild(mgn);
-    */
+    rootNode->addChild(mgn);
+
 }
 
 #endif

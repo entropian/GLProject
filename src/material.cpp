@@ -210,6 +210,7 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
         sendMatrix("uNormalMat", normalMat);
     }else
     {
+        /*
         // Testing deferred rendering
         Mat4 modelMat = rigTFormToMat(modelRbt);
         Mat4 viewMat = rigTFormToMat(viewRbt);            
@@ -219,8 +220,8 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
         sendMatrix("uModelMat", modelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);        
+        */
 
-        /*
         RigTForm modelViewRbt = viewRbt * modelRbt;                
         Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
         Mat4 normalMat = transpose(inv(modelViewMat));
@@ -228,7 +229,6 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
 
         sendMatrix("uModelViewMat", modelViewMat);
         sendMatrix("uNormalMat", normalMat);
-        */
     }
 
     /*
