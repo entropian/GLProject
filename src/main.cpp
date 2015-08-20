@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <ctime>
+#include <random>
 /*
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -22,6 +23,8 @@
 #include "renderToBuffer.h"
 #include "skybox.h"
 #include "initresource.h"
+#include "deferred.h"
+#include "ssao.h"
 
 static float g_windowWidth = 1280.0f;
 static float g_windowHeight = 720.0f;
@@ -55,13 +58,10 @@ DepthMap g_depthMap;
 static Mat4 g_lightMat;
 static bool g_depthMapStatus = true;
 
-// Deferred rendering struct
-struct DFStruct{
-    GLuint gBuffer, gPositionDepth, gNormalSpec, gDiffuse;
-    GLuint vao, vbo, rboDepth;
-    GLuint shaderProgram;
-};
+
 static DFStruct g_df;
+
+static SSAOStruct g_ssaos;
 
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
@@ -84,13 +84,6 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
         visitor.visitNode(rootNode, g_depthMap.depthMapMaterial);
         glCullFace(GL_BACK);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        /*
-        for(int i = 0; i < numMat; i++)
-            materials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
-
-        for(int i = 0; i < numMTLMat; i++)        
-            MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
-        */
     }
     
     glViewport(0, 0, (GLsizei)g_windowWidth, (GLsizei)g_windowHeight);
@@ -134,13 +127,39 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     // Draw scene
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
+    
 
 
+    glDisable(GL_DEPTH_TEST);
+    // SSAO Pass
+    glBindFramebuffer(GL_FRAMEBUFFER, g_ssaos.fbo);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(g_ssaos.firstPassProgram);
+    glBindVertexArray(g_ssaos.vao);    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_df.gPositionDepth);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, g_df.gNormalSpec);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, g_ssaos.noiseTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // SSAO Blur Pass
+    glBindFramebuffer(GL_FRAMEBUFFER, g_ssaos.blurFbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(g_ssaos.blurPassProgram);
+    glBindVertexArray(g_ssaos.vao);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_ssaos.colorBuffer);
+    glDrawArrays(GL_TRIANGLES, 0, 6);    
+    
     // Light Pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
+    //glClear(GL_COLOR_BUFFER_BIT);
+
     glUseProgram(g_df.shaderProgram);
     glBindVertexArray(g_df.vao);
     glActiveTexture(GL_TEXTURE0);
@@ -151,6 +170,8 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glBindTexture(GL_TEXTURE_2D, g_df.gDiffuse);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, g_depthMap.depthMap);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, g_ssaos.colorBufferBlur);    
     //glUniform1i(rtb.texture, 0);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
@@ -256,84 +277,6 @@ void initUniformBlock()
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
 
-void initDeferredRender(DFStruct &df)
-{
-    df.shaderProgram = compileAndLinkShaders(RTBVertSrc, LightPassFragSrc);
-    glUseProgram(df.shaderProgram);
-    glUniform1i(glGetUniformLocation(df.shaderProgram, "gPositionSpec"), 0);
-    glUniform1i(glGetUniformLocation(df.shaderProgram, "gNormalSpec"), 1);
-    glUniform1i(glGetUniformLocation(df.shaderProgram, "gDiffuse"), 2);
-    glUniform1i(glGetUniformLocation(df.shaderProgram, "shadowMap"), 3);
-
-    
-    //GLuint gBuffer;
-    glGenFramebuffers(1, &(df.gBuffer));
-    glBindFramebuffer(GL_FRAMEBUFFER, df.gBuffer);
-
-    //GLuint gPosition, gNormalSpec, gDiffuse;
-
-    glGenTextures(1, &(df.gPositionDepth));
-    glBindTexture(GL_TEXTURE_2D, df.gPositionDepth);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, df.gPositionDepth, 0);
-
-    glGenTextures(1, &(df.gNormalSpec));
-    glBindTexture(GL_TEXTURE_2D, df.gNormalSpec);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, df.gNormalSpec, 0);
-    
-    glGenTextures(1, &(df.gDiffuse));
-    glBindTexture(GL_TEXTURE_2D, df.gDiffuse);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)g_windowWidth, (int)g_windowHeight, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, df.gDiffuse, 0);
-
-    GLuint attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-    glDrawBuffers(3, attachments);
-
-    glGenRenderbuffers(1, &(df.rboDepth));
-    glBindRenderbuffer(GL_RENDERBUFFER, df.rboDepth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, (int)g_windowWidth, (int)g_windowHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, df.rboDepth);
-
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        fprintf(stderr, "Framebuffer not complete!\n");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);    
-
-
-
-    // The quad that covers the whole viewport
-    GLfloat vertices[] = {
-        -1.0f,  -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0, -1.0, 1.0f, 0.0f,
-        -1.0, 1.0, 0.0f, 1.0f,
-        1.0, 1.0, 1.0f, 1.0f
-    };
-
-    glGenVertexArrays(1, &(df.vao));
-    glBindVertexArray(df.vao);
-
-    glGenBuffers(1, &(df.vbo));
-    glBindBuffer(GL_ARRAY_BUFFER, df.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // Setup vertex attributes
-    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-    glBindVertexArray(0);
-}
 
 /*
 void deleteScenegraph(TransformNode *tn)
@@ -346,7 +289,7 @@ void deleteScenegraph(TransformNode *tn)
 int main()
 {
     // -------------------------------- INIT ------------------------------- //
-    
+   
     // Init GLFW
     if (glfwInit() != GL_TRUE) {
         fprintf(stderr, "Failed to initialize GLFW\n");
@@ -429,7 +372,8 @@ int main()
     initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
-    initDeferredRender(g_df);
+    initDeferredRender(g_df, (int)g_windowWidth, (int)g_windowHeight);
+    initSSAO(g_ssaos, (int)g_windowWidth, (int)g_windowHeight, 64, 1.0);
 
     for(int i = 0; i < numMTLMat; i++)        
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
@@ -474,7 +418,9 @@ int main()
     for(int i = 0; i < numMTLMat; i++)
         delete MTLMaterials[i];
     delete g_depthMap.depthMapMaterial;
-
+    deleteSSAO(g_ssaos);
+    deleteDeferredStruct(g_df);
+    
     /*
     glDeleteTextures(1, g_df.gPosition);
     glDeleteTextures(1, g_df.gNormalSpec);

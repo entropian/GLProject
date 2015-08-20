@@ -83,7 +83,7 @@ const char* GeoPassOBJDFragSrc = GLSL(
     in vec3 vNormal;
     in vec2 vTexcoord;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -91,6 +91,7 @@ const char* GeoPassOBJDFragSrc = GLSL(
     {
         // world space
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
@@ -111,7 +112,7 @@ const char* GeoPassOBJDSFragSrc = GLSL(
     in vec3 vNormal;
     in vec2 vTexcoord;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -119,6 +120,7 @@ const char* GeoPassOBJDSFragSrc = GLSL(
     {
         // world space
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
@@ -141,7 +143,7 @@ const char* GeoPassOBJADSFragSrc = GLSL(
     in vec3 vNormal;
     in vec2 vTexcoord;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -152,6 +154,7 @@ const char* GeoPassOBJADSFragSrc = GLSL(
         if(alpha < 0.1)
             discard;
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
@@ -173,7 +176,7 @@ const char* GeoPassOBJNDFragSrc = GLSL(
     in vec2 vTexcoord;
     in mat3 vTBNViewMat;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -181,9 +184,10 @@ const char* GeoPassOBJNDFragSrc = GLSL(
     {
         // world space
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         vec3 normal = texture(normalMap, vTexcoord).xyz;
         normal = vTBNViewMat * normal;
-        gNormalSpec.xyz = normal;
+        gNormalSpec.xyz = normal;        
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
         gDiffuse.a = 1.0;
@@ -204,7 +208,7 @@ const char* GeoPassOBJNADFragSrc = GLSL(
     in vec2 vTexcoord;
     in mat3 vTBNViewMat;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -215,6 +219,7 @@ const char* GeoPassOBJNADFragSrc = GLSL(
         if(alpha < 0.1)
             discard;
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         vec3 normal = texture(normalMap, vTexcoord).xyz;
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
@@ -238,7 +243,7 @@ const char* GeoPassOBJNDSFragSrc = GLSL(
     in vec2 vTexcoord;
     in mat3 vTBNViewMat;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -246,6 +251,7 @@ const char* GeoPassOBJNDSFragSrc = GLSL(
     {
         // world space
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         vec3 normal = texture(normalMap, vTexcoord).xyz;
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
@@ -271,7 +277,7 @@ const char* GeoPassOBJNADSFragSrc = GLSL(
     in vec2 vTexcoord;
     in mat3 vTBNViewMat;
 
-    layout (location = 0) out vec3 gPositionDepth;
+    layout (location = 0) out vec4 gPositionDepth;
     layout (location = 1) out vec4 gNormalSpec;
     layout (location = 2) out vec4 gDiffuse;
 
@@ -282,6 +288,7 @@ const char* GeoPassOBJNADSFragSrc = GLSL(
         if(alpha < 0.1)
             discard;
         gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         vec3 normal = texture(normalMap, vTexcoord).xyz;
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
@@ -297,6 +304,7 @@ const char* LightPassFragSrc = GLSL(
     uniform sampler2D gDiffuse;
     uniform sampler2D gNormalSpec;
     uniform sampler2D gPositionDepth;
+    uniform sampler2D ssao;
 
     in vec2 vTexcoord;
     out vec4 outColor;
@@ -308,8 +316,9 @@ const char* LightPassFragSrc = GLSL(
         vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
+        float occlusion = texture(ssao, vTexcoord).r;        
         
-        vec3 ambContrib = diffuse * 0.3;
+        vec3 ambContrib = diffuse * 0.3 * occlusion;
         vec3 lightDir = normalize(light1 - posE);
         vec3 eyeDir = normalize(-posE);
         vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
@@ -317,7 +326,8 @@ const char* LightPassFragSrc = GLSL(
         float intensity = max(dot(normal, lightDir), 0);
         vec3 diffContrib = intensity * diffuse;
         vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity;
-        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        outColor = vec4(occlusion, occlusion, occlusion, 1.0);
     }
 );
 
@@ -387,5 +397,77 @@ const char* shLightPassFragSrc = GLSL(
         //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
+
+const char* SSAOFragSrc = GLSL(
+
+    in vec2 vTexcoord;
+
+    uniform sampler2D gPositionDepth;
+    uniform sampler2D gNormalSpec;
+    uniform sampler2D texNoise;
+
+    uniform vec3 samples[64];
+    uniform int kernelSize;
+    uniform float radius;
+    //int kernelSize = 64;
+    //float radius = 1.0;
+
+    const vec2 noiseScale = vec2(1280.0f / 4.0f, 720.0f / 4.0f);
+    
+    out float outColor;
+    void main()
+    {
+        vec3 posE = texture(gPositionDepth, vTexcoord).xyz;
+        vec3 normal = texture(gNormalSpec, vTexcoord).xyz;
+        vec3 randomVec = texture(texNoise, vTexcoord * noiseScale).xyz;
+
+        vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+        vec3 biTangent = cross(normal, tangent);
+        mat3 TBN = mat3(tangent, biTangent, normal);
+
+        float occlusion = 0.0;
+        for(int i = 0; i < kernelSize; i++)
+        {
+            vec3 sample = TBN * samples[i];
+            sample = posE + sample * radius;
+
+            vec4 offset = vec4(sample, 1.0);
+            offset = projMat * offset;
+            offset.xyz /= offset.w;
+            offset.xyz = offset.xyz * 0.5 + 0.5;
+
+            float sampleDepth = -texture(gPositionDepth, offset.xy).w;
+
+            float rangeCheck = smoothstep(0.0, 1.0, radius / abs(posE.z - sampleDepth));
+            occlusion += (sampleDepth >= sample.z ? 1.0 : 0.0) * rangeCheck;
+        }
+        occlusion = 1.0 - (occlusion / kernelSize);
+        outColor = occlusion;
+    }
+);
+
+const char* SSAOBlurFragSrc = GLSL(
+    in vec2 vTexcoord;
+
+    uniform sampler2D ssao;
+
+    out float outColor;
+
+    void main()
+    {
+        vec2 texelSize = 1.0 / vec2(textureSize(ssao, 0));
+        float result = 0.0;
+        for(int x = -2; x < 2; ++x)
+        {
+            for(int y = -2; y < 2; ++y)
+            {
+                vec2 offset = vec2(float(x), float(y)) * texelSize;
+                result += texture(ssao, vTexcoord + offset).r;
+            }
+        }
+        outColor = result / 16.0;
+    }
+);
+
 
 #endif
