@@ -277,9 +277,7 @@ public:
             glDisable(GL_DEPTH_TEST);
 
         for(int i = 0; i < numGeometries; i++)
-        {
             materials[materialIndex[i]]->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
-        }
         
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
@@ -291,9 +289,7 @@ public:
             glDisable(GL_DEPTH_TEST);
         
         for(int i = 0; i < numGeometries; i++)
-        {
             overrideMat->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
-        }
         
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
@@ -336,7 +332,8 @@ public:
         pushRbt(tn->getRigidBodyTransform());            
         if(tn->getNodeType() == TRANSFORM)
         {
-            for(int i = 0; i < tn->getNumChildren(); i++)
+            int numChildren = tn->getNumChildren();
+            for(int i = 0; i < numChildren; i++)
             {
                 this->visitNode(tn->getChild(i));
             }
@@ -349,7 +346,8 @@ public:
             BaseGeometryNode *gn = static_cast<BaseGeometryNode*>(tn);
             gn->draw(modelRbt, viewRbt);
 
-            for(int i = 0; i < gn->getNumChildren(); i++)
+            int numChildren = gn->getNumChildren();
+            for(int i = 0; i < numChildren; i++)
             {
                 this->visitNode(gn->getChild(i));
             }
@@ -362,7 +360,8 @@ public:
         pushRbt(tn->getRigidBodyTransform());            
         if(tn->getNodeType() == TRANSFORM)
         {
-            for(int i = 0; i < tn->getNumChildren(); i++)
+            int numChildren = tn->getNumChildren();
+            for(int i = 0; i < numChildren; i++)            
             {
                 this->visitNode(tn->getChild(i), overrideMat);
             }
@@ -377,7 +376,8 @@ public:
             gn->overrideMatDraw(overrideMat, modelRbt, viewRbt);
             //gn->draw(modelRbt, viewRbt);
 
-            for(int i = 0; i < gn->getNumChildren(); i++)
+            int numChildren = gn->getNumChildren();
+            for(int i = 0; i < numChildren; i++)            
             {
                 this->visitNode(gn->getChild(i), overrideMat);
             }

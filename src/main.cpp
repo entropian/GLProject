@@ -26,14 +26,15 @@
 #include "deferred.h"
 #include "ssao.h"
 
-static float g_windowWidth = 1280.0f;
-static float g_windowHeight = 720.0f;
+static float g_windowWidth = 1920.0f;
+static float g_windowHeight = 1080.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
 Vec3 g_lightE, g_lightW(13.0f, 22.0f, 2.0f);
 
-static Mat4 g_proj;
+static Mat4 g_proj, g_ortho;
+static Mat4 worldToLightSpaceMat;
 
 // Materials
 static const size_t MAX_MATERIALS = 200;
@@ -47,7 +48,7 @@ static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
 // Render-to-buffer
 static RTB g_rtb;
-static bool g_renderToBuffer = false;
+static bool g_postProc = false;
 
 // Skybox struct
 Skybox g_skybox;
@@ -62,6 +63,10 @@ static bool g_depthMapStatus = true;
 static DFStruct g_df;
 
 static SSAOStruct g_ssaos;
+
+static bool g_moveLight = false;
+static bool g_shadow = true;
+static double startTime;
 
 // Uniform blocks
 GLuint uniformBlock, uniformLightBlock;
@@ -88,9 +93,6 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     
     glViewport(0, 0, (GLsizei)g_windowWidth, (GLsizei)g_windowHeight);
     
-    if(g_renderToBuffer)
-        glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
-    
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -100,17 +102,30 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
 
     // NOTE: since visitor already passes the view matrix, let it carry other often updated uniforms too,
     //RigTForm viewRbt = inputHandler.getViewTransform();
-    //double currentTime = glfwGetTime();
-    //g_lightW[0] = g_lightW[0] + sin(currentTime) * 1;
+    if(g_moveLight)
+    {
+        double currentTime = glfwGetTime();
+        g_lightW[0] = cos((currentTime - startTime) * 0.5) * 13.0f;
+    }
     viewRbt = inputHandler.getViewTransform();
     g_lightE = viewRbt * g_lightW;
 
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
 
-    // eye pos in world space
+    if(g_shadow)
+    {
+        //g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
+        g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), cross(g_lightW, Vec3(0.0f, 0.0f, 1.0f)));
+        Mat4 lightSpaceMat = transpose(g_ortho * g_lightMat);
+        glBufferSubData(GL_UNIFORM_BUFFER, 80, 64, &(lightSpaceMat[0]));
+    }
+    
+    // Set inverse view matrix
     RigTForm invViewRbt = inv(viewRbt);
-    glBufferSubData(GL_UNIFORM_BUFFER, 144, 16, &(invViewRbt.getTranslation()[0]));    
+    Mat4 invViewMat = rigTFormToMat(invViewRbt);
+    invViewMat = transpose(invViewMat);
+    glBufferSubData(GL_UNIFORM_BUFFER, 144, 64, &(invViewMat[0]));
     
     // Draw skybox
     if(g_drawSkybox)
@@ -127,8 +142,6 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     // Draw scene
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
-    
-
 
     glDisable(GL_DEPTH_TEST);
     // SSAO Pass
@@ -155,7 +168,10 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glDrawArrays(GL_TRIANGLES, 0, 6);    
     
     // Light Pass
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if(g_postProc)
+        glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
+    else
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
     //glClear(GL_COLOR_BUFFER_BIT);
@@ -181,7 +197,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);
     
     // Draws the image in the framebuffer onto the screen
-    if(g_renderToBuffer)
+    if(g_postProc)
         drawBufferToScreen(g_rtb);
 }
 
@@ -197,7 +213,47 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    inputHandler.handleKey(window, key, scancode, action, mods);
+    switch(key)
+    {
+    case GLFW_KEY_1:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.defaultShader;
+        break;
+    case GLFW_KEY_2:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.showNormal;        
+        break;
+    case GLFW_KEY_3:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.showDiffuse;         
+        break;
+    case GLFW_KEY_4:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.showSSAO;
+        break;
+    case GLFW_KEY_5:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.showSpecular;
+        break;
+    case GLFW_KEY_6:
+        if(action == GLFW_PRESS)
+            g_df.shaderProgram = g_df.shadowShader;
+        break;
+    case GLFW_KEY_M:
+        if(action == GLFW_PRESS)
+        {
+            if(g_moveLight)
+                g_moveLight = false;
+            else
+            {
+                startTime = glfwGetTime();
+                g_moveLight = true;
+            }
+        }
+        break;                
+    default:
+        inputHandler.handleKey(window, key, scancode, action, mods);
+    }
 }
 
 
@@ -238,9 +294,9 @@ void initDepthMap(DepthMap* dm)
 
 void initUniformBlock()
 {
-    inputHandler.setViewTransform(RigTForm::lookAt(Vec3(10.0f, 10.0f, 8.0f), Vec3(4.0f, 0.0f, 0.0f), Vec3(0, 1, 0)));
+    inputHandler.setViewTransform(RigTForm::lookAt(Vec3(7.0f, 7.0f, 1.0f), Vec3(0.0f, 5.0f, 0.0f), Vec3(0, 1, 0)));
     //inputHandler.setViewTransform(RigTForm::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0, 0.0f)));
-    //g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
+    g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));    
 
     // Initialize Matrices uniform block
     /* Block layout
@@ -250,23 +306,25 @@ void initUniformBlock()
       mat4 projMat;       // 16 (x4)           0
       vec3 light1;        // 16                64
       mat4 lightSpaceMat  // 16 (x4)           80
-      vec3 eyeW;          // 16                144
+      mat4 invViewMat     // 16 (x4)           144
     };
     16 + 64 + 64 = 144
-    16 + 64 + 64 + 16 = 160
+    16 + 64 + 64 + 64 = 210
     */
     glGenBuffers(1, &uniformBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
-    glBufferData(GL_UNIFORM_BUFFER, 160, NULL, GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, 210, NULL, GL_STATIC_DRAW);
     // Projection matrix
     Mat4 proj = transpose(g_proj);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Mat4), &(proj[0]));
     // Light space matrix
+    /*
     Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -20.0f, 27.0f, 7.0f, 35.0f);
     Mat4 ortho = tmp;
     //Mat4 lightSpaceMat = transpose(g_proj * g_lightMat);
     Mat4 lightSpaceMat = transpose(ortho * g_lightMat);
     glBufferSubData(GL_UNIFORM_BUFFER, 80, 64, &(lightSpaceMat[0]));
+    */
 
 
     // light pos in world space
@@ -378,6 +436,9 @@ int main()
     for(int i = 0; i < numMTLMat; i++)        
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
 
+    Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -27.0f, 27.0f, 5.0f, 35.0f);
+    g_ortho = tmp;    
+
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
     // ---------------------------- RENDERING ------------------------------ //
@@ -420,12 +481,8 @@ int main()
     delete g_depthMap.depthMapMaterial;
     deleteSSAO(g_ssaos);
     deleteDeferredStruct(g_df);
+    deleteSkybox(g_skybox);
     
-    /*
-    glDeleteTextures(1, g_df.gPosition);
-    glDeleteTextures(1, g_df.gNormalSpec);
-    glDeleteTextures(1, g_df.gDiffuse);
-    */
     //deleteScenegraph(worldNode);    
     // ---------------------------- TERMINATE ----------------------------- //
 

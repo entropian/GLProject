@@ -44,7 +44,6 @@ void initSSAO(SSAOStruct &ssaos, int windowWidth, int windowHeight, int numSampl
         numSamples = MAX_SAMPLES;
     }
 
-
     // Shaders
     ssaos.firstPassProgram = compileAndLinkShaders(RTBVertSrc, SSAOFragSrc);
     glUseProgram(ssaos.firstPassProgram);
@@ -57,7 +56,6 @@ void initSSAO(SSAOStruct &ssaos, int windowWidth, int windowHeight, int numSampl
     ssaos.blurPassProgram = compileAndLinkShaders(RTBVertSrc, SSAOBlurFragSrc);
         glUseProgram(ssaos.blurPassProgram);
     glUniform1i(glGetUniformLocation(ssaos.firstPassProgram, "ssao"), 0);
-
 
     // Generate samples
     glUseProgram(ssaos.firstPassProgram);
@@ -139,10 +137,10 @@ void initSSAO(SSAOStruct &ssaos, int windowWidth, int windowHeight, int numSampl
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Setup vertex attributes
-    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
+    // Position
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-
+    // Texcoord
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
     glBindVertexArray(0);
