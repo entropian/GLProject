@@ -8,7 +8,7 @@ layout (std140) uniform UniformBlock{\
 mat4 projMat;\
 vec3 light1;\
 mat4 lightSpaceMat;\
-vec3 eyeW;\
+mat4 invViewMat;\
 };\n" #src
 
 const char* shadowVertSrc = GLSL(

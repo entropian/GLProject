@@ -8,7 +8,7 @@ layout (std140) uniform UniformBlock{\
 mat4 projMat;\
 vec3 light1;\
 mat4 lightSpaceMat;\
-vec3 eyeW;\
+mat4 invViewMat;\
 };\
 const float NEAR = 0.1f;\
 const float FAR = 50.0f;\
@@ -326,8 +326,7 @@ const char* LightPassFragSrc = GLSL(
         float intensity = max(dot(normal, lightDir), 0);
         vec3 diffContrib = intensity * diffuse;
         vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity;
-        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
-        outColor = vec4(occlusion, occlusion, occlusion, 1.0);
+        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 
@@ -336,6 +335,7 @@ const char* shLightPassFragSrc = GLSL(
     uniform sampler2D gNormalSpec;
     uniform sampler2D gPositionDepth;
     uniform sampler2D shadowMap;
+    uniform sampler2D ssao;
 
     in vec2 vTexcoord;
     out vec4 outColor;
@@ -376,16 +376,17 @@ const char* shLightPassFragSrc = GLSL(
     
     void main()
     {
-        vec3 posW = texture(gPositionDepth, vTexcoord).rgb;
-        vec4 fragPosL = lightSpaceMat * vec4(posW, 1.0);
+        vec3 posE = texture(gPositionDepth, vTexcoord).rgb;
+        vec4 fragPosL = lightSpaceMat * invViewMat * vec4(posE, 1.0);
         vec3 normal = normalize(texture(gNormalSpec, vTexcoord).rgb);
         vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
+        float occlusion = texture(ssao, vTexcoord).r;
         
-        vec3 ambContrib = diffuse * 0.3;
-        vec3 lightDir = normalize(light1 - posW);
-        vec3 eyeDir = normalize(eyeW - posW);
+        vec3 ambContrib = diffuse * 0.3 * occlusion;
+        vec3 lightDir = normalize(light1 - posE);
+        vec3 eyeDir = normalize(-posE);
         vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
 
         float intensity = max(dot(normal, lightDir), 0);
@@ -469,5 +470,55 @@ const char* SSAOBlurFragSrc = GLSL(
     }
 );
 
+const char* showSSAOFragSrc = GLSL(
+    uniform sampler2D ssao;    
 
+    in vec2 vTexcoord;
+    out vec4 outColor;
+
+    void main()
+    {
+        float occlusion = texture(ssao, vTexcoord).r;        
+        outColor = vec4(occlusion, occlusion, occlusion, 1.0);
+    }
+);
+
+const char* showNormalFragSrc = GLSL(
+    uniform sampler2D gNormalSpec;
+    
+    in vec2 vTexcoord;
+    out vec4 outColor;
+
+    void main()
+    {
+        vec3 normal = normalize(texture(gNormalSpec, vTexcoord).rgb);
+        outColor = vec4(normal, 1.0);
+    }
+);
+
+const char* showDiffuseFragSrc = GLSL(
+    uniform sampler2D gDiffuse;
+
+    in vec2 vTexcoord;
+    out vec4 outColor;
+
+    void main()
+    {
+        vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
+        outColor = vec4(diffuse, 1.0);
+    }
+);
+
+const char* showSpecularFragSrc = GLSL(
+    uniform sampler2D gDiffuse;
+    
+    in vec2 vTexcoord;
+    out vec4 outColor;
+
+    void main()
+    {
+        float specular = texture(gDiffuse, vTexcoord).a;
+        outColor = vec4(specular, specular, specular, 1.0);
+    }
+);
 #endif

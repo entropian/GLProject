@@ -53,7 +53,8 @@ void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const
     int &numGroupInfo)
 {
     Mesh sponzaMesh;
-    sponzaMesh.loadOBJFile("sponza.obj");
+    sponzaMesh.loadOBJFile("sponza.obj"); 
+
     sponzaMesh.computeVertexNormals();
     getGeoList(sponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNX);    
 
@@ -393,7 +394,6 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         MTLMaterials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
         //MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         MTLMaterials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
-        printf("Ns = %f\n", matInfoList[i].Ns);
         MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
         if(matInfoList[i].name[0] == '\0')

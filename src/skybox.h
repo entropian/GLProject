@@ -56,6 +56,14 @@ GLuint loadCubemap(const char *faces[])
     return textureID;
 }
 
+void deleteSkybox(Skybox skybox)
+{
+    glDeleteTextures(1, &(skybox.cubemap));
+    glDeleteVertexArrays(1, &(skybox.vao));
+    glDeleteBuffers(1, &(skybox.vbo));
+    glDeleteProgram(skybox.shaderProgram);
+}
+
 void initSkybox(Skybox &skybox)
 {
 

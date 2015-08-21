@@ -11,6 +11,8 @@ struct DFStruct{
     GLuint gBuffer, gPositionDepth, gNormalSpec, gDiffuse;
     GLuint vao, vbo, rboDepth;
     GLuint shaderProgram;
+    GLuint defaultShader, shadowShader;
+    GLuint showSSAO, showNormal, showDiffuse, showSpecular;
 };
 
 void deleteDeferredStruct(DFStruct &df)
@@ -22,12 +24,19 @@ void deleteDeferredStruct(DFStruct &df)
     glDeleteTextures(1, &(df.gDiffuse));
     glDeleteFramebuffers(1, &(df.gBuffer));
     glDeleteRenderbuffers(1, &(df.rboDepth));
-    glDeleteProgram(df.shaderProgram);
+    //glDeleteProgram(df.shaderProgram);
+    glDeleteProgram(df.defaultShader);
+    glDeleteProgram(df.shadowShader);    
+    glDeleteProgram(df.showSSAO);
+    glDeleteProgram(df.showNormal);
+    glDeleteProgram(df.showDiffuse);
+    glDeleteProgram(df.showSpecular);
 }
 
 void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
 {
-    df.shaderProgram = compileAndLinkShaders(RTBVertSrc, LightPassFragSrc);
+    df.defaultShader = compileAndLinkShaders(RTBVertSrc, LightPassFragSrc);
+    df.shaderProgram = df.defaultShader;
     glUseProgram(df.shaderProgram);
     glUniform1i(glGetUniformLocation(df.shaderProgram, "gPositionDepth"), 0);
     glUniform1i(glGetUniformLocation(df.shaderProgram, "gNormalSpec"), 1);
@@ -35,12 +44,39 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
     glUniform1i(glGetUniformLocation(df.shaderProgram, "shadowMap"), 3);
     glUniform1i(glGetUniformLocation(df.shaderProgram, "ssao"), 4);
 
+    df.shadowShader = compileAndLinkShaders(RTBVertSrc, shLightPassFragSrc);
+    df.shaderProgram = df.shadowShader;
+    glUseProgram(df.shaderProgram);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gPositionDepth"), 0);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gNormalSpec"), 1);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gDiffuse"), 2);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "shadowMap"), 3);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "ssao"), 4);    
+
+    df.showSSAO = compileAndLinkShaders(RTBVertSrc, showSSAOFragSrc);
+    df.shaderProgram = df.showSSAO;
+    glUseProgram(df.shaderProgram);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "ssao"), 4);
+
+    df.showNormal = compileAndLinkShaders(RTBVertSrc, showNormalFragSrc);
+    df.shaderProgram = df.showNormal;
+    glUseProgram(df.shaderProgram);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gNormalSpec"), 1);
+
+    df.showDiffuse = compileAndLinkShaders(RTBVertSrc, showDiffuseFragSrc);
+    df.shaderProgram = df.showDiffuse;
+    glUseProgram(df.shaderProgram);    
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gDiffuse"), 2);
+
+    df.showSpecular = compileAndLinkShaders(RTBVertSrc, showSpecularFragSrc);
+    df.shaderProgram = df.showSpecular;
+    glUseProgram(df.shaderProgram);
+    glUniform1i(glGetUniformLocation(df.shaderProgram, "gDiffuse"), 2);
     
-    //GLuint gBuffer;
+    df.shaderProgram = df.defaultShader;
+    
     glGenFramebuffers(1, &(df.gBuffer));
     glBindFramebuffer(GL_FRAMEBUFFER, df.gBuffer);
-
-    //GLuint gPosition, gNormalSpec, gDiffuse;
 
     glGenTextures(1, &(df.gPositionDepth));
     glBindTexture(GL_TEXTURE_2D, df.gPositionDepth);
@@ -77,8 +113,6 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
         fprintf(stderr, "Framebuffer not complete!\n");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);    
 
-
-
     // The quad that covers the whole viewport
     GLfloat vertices[] = {
         -1.0f,  -1.0f, 0.0f, 0.0f,
@@ -97,10 +131,10 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Setup vertex attributes
-    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
+    // Position
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-
+    // Texcoord
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
     glBindVertexArray(0);
