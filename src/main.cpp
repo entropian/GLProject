@@ -53,14 +53,15 @@ static bool g_renderToBuffer = false;
 Skybox g_skybox;
 static bool g_drawSkybox = false;
 
-
+// Depth map struct
 DepthMap g_depthMap;
 static Mat4 g_lightMat;
 static bool g_depthMapStatus = true;
 
-
+// Deferred shading struct
 static DFStruct g_df;
 
+// SSAO struct
 static SSAOStruct g_ssaos;
 
 // Uniform blocks
