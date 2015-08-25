@@ -42,7 +42,7 @@ static const size_t MAX_MATERIALS = 200;
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
-static double g_distancePerSec = 3.0f;
+static double g_distancePerSec = 1.5f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 

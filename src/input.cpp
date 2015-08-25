@@ -406,7 +406,7 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         float dx = (float)(x - cursorX);
         float dy = (float)(y - cursorY);
 
-        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.1f)) * RigTForm(Quat::makeXRotation(dy * 0.1f));
+        RigTForm tform = RigTForm(Quat::makeYRotation(dx * 0.05f)) * RigTForm(Quat::makeXRotation(dy * 0.05f));
         viewRbt = tform * viewRbt;
         // Keep the camera upright
         // Rotate the camera around its z axis so that its y axis is
