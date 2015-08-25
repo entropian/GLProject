@@ -4,7 +4,7 @@
 #include <GL/glew.h>
 #include "vec.h"
 #include "material.h"
-#include "shaders.H"
+#include "shaders.h"
 #include "dfshaders.h"
 
 static const unsigned MAX_SAMPLES = 64;
