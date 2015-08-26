@@ -17,6 +17,7 @@
 #include "input.h"
 #include "shadowshaders.h"
 #include "dfshaders.h"
+#include "aabb.h"
 
 extern Skybox g_skybox;
 extern Vec3 g_lightW;
@@ -29,24 +30,32 @@ void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
     ship1Mesh.loadOBJFile("Ship.obj");
     ship1Mesh.computeVertexBasis();
     //g_ship1 = ship1Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo++] = ship1Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo] = ship1Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo]->aabb = AABB(ship1Mesh.getPositions());
+    ++numSingleGeo;    
 
     Mesh ship2Mesh;
     ship2Mesh.loadOBJFile("Ship2.obj");
     ship2Mesh.computeVertexBasis();
     //g_ship2 = ship2Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo++] = ship2Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo] = ship2Mesh.produceGeometry(PNXTBD);
+    singlesArray[numSingleGeo]->aabb = AABB(ship2Mesh.getPositions());
+    ++numSingleGeo;    
 
     Mesh cubeMesh;
     cubeMesh.loadOBJFile("cube.obj");
     //g_cube = cubeMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo++] = cubeMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo] = cubeMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo]->aabb = AABB(cubeMesh.getPositions());
+    ++numSingleGeo;    
 
     Mesh teapotMesh;
     teapotMesh.loadOBJFile("teapot.obj");
     teapotMesh.computeVertexNormals();
     //g_teapot = teapotMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo++] = teapotMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo] = teapotMesh.produceGeometry(PNX);
+    singlesArray[numSingleGeo]->aabb = AABB(teapotMesh.getPositions());
+    ++numSingleGeo;    
 }
 
 void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const size_t arrayLen, int &numGroupGeo,
@@ -229,7 +238,6 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
 
     if(i == numTextures)
     {
-        printf("%s fucked up.\n", mat->getName());
         mat->sendUniformTexture(uniformName, textureHandles[1]);
     }else
         mat->sendUniformTexture(uniformName, textureHandles[i]);    
@@ -238,29 +246,30 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
 void initMaterials(Material *materials[], const size_t arrayLen, int &numMat, const GLuint *textureHandles)
 {
     // TODO: what if two materials have the same name?
-    materials[numMat] = new Material(normalVertSrc, normalFragSrc, "Ship1Material");
-    Vec3 color(1.0f, 1.0f, 1.0f);
-    materials[numMat]->sendUniform3f("uColor", color);
+    //materials[numMat] = new Material(normalVertSrc, normalFragSrc, "Ship1Material");
+    materials[numMat] = new Material(GeoPassNormalVertSrc, GeoPassNormalFragSrc, "Ship1Material");
+    //Vec3 color(1.0f, 1.0f, 1.0f);
+    //materials[numMat]->sendUniform3f("uColor", color);
     materials[numMat]->sendUniformTexture("diffuseMap", textureHandles[0]);
     materials[numMat]->sendUniformTexture("normalMap", textureHandles[2]);
     materials[numMat]->bindUniformBlock("UniformBlock", 0);
     ++numMat;
 
-    materials[numMat] = new Material(normalVertSrc, normalFragSrc, "Ship2Material");
-    materials[numMat]->sendUniform3f("uColor", color);
+    materials[numMat] = new Material(GeoPassNormalVertSrc, GeoPassNormalFragSrc, "Ship2Material");
+    //materials[numMat]->sendUniform3f("uColor", color);
     materials[numMat]->sendUniformTexture("diffuseMap", textureHandles[3]);
     materials[numMat]->sendUniformTexture("normalMap", textureHandles[4]);
     materials[numMat]->bindUniformBlock("UniformBlock", 0);
     ++numMat;
     
-    materials[numMat] = new Material(basicVertSrc, ADSFragSrc, "TeapotMaterial");
-    materials[numMat]->sendUniform3f("uColor", color);
+    materials[numMat] = new Material(GeoPassBasicVertSrc, GeoPassBasicFragSrc, "TeapotMaterial");
+    //materials[numMat]->sendUniform3f("uColor", color);
     materials[numMat]->sendUniformTexture("diffuseMap", textureHandles[1]);
     materials[numMat]->bindUniformBlock("UniformBlock", 0);
     ++numMat;
     
     
-    materials[numMat] = new Material(basicVertSrc, basicFragSrc, "CubeMaterial");
+    materials[numMat] = new Material(GeoPassBasicVertSrc, GeoPassBasicFragSrc, "CubeMaterial");
     //g_cubeMaterial = new Material(basicVertSrc, diffuseFragSrc, exampleGeoSrc, "CubeMaterial");    
     //g_cubeMaterial->sendUniform3f("uColor", Vec3(1.0f, 1.0f, 1.0f));
     materials[numMat]->bindUniformBlock("UniformBlock", 0);
@@ -457,8 +466,9 @@ Material* getMaterialFromArray(Material *materials[], const int numMat, const ch
 
 // TODO: fix this so it's not using global variables
 
-void initScene(TransformNode *rootNode, Geometries &geometries, Material *materials[], const int numMat, Material *MTLMaterials[],
-               const int numMTLMat)
+void initScene(TransformNode *rootNode, Geometries &geometries, Material *materials[], const int numMat,
+               Material *MTLMaterials[],const int numMTLMat, BaseGeometryNode *baseGeoNodes[],
+               const int bgnArrayLen, int &numbgn)
 {
     RigTForm modelRbt;
     GeometryNode *gn;
@@ -467,7 +477,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
-    //rootNode->addChild(gn);
+    baseGeoNodes[numbgn++] = gn;
+    rootNode->addChild(gn);
         
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
@@ -475,7 +486,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     m = getMaterialFromArray(materials, numMat, "Ship2Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
-    //rootNode->addChild(gn);
+    baseGeoNodes[numbgn++] = gn;
+    rootNode->addChild(gn);
     
     modelRbt = RigTForm(g_lightW);
     g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube");
@@ -485,6 +497,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         gn = new GeometryNode(g, m, modelRbt, true);
         gn->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
     }
+    //baseGeoNodes[numbgn++] = mgn;
     //rootNode->addChild(gn);
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
@@ -495,6 +508,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         gn = new GeometryNode(g, m, modelRbt, true);
         gn->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
     }
+    //baseGeoNodes[numbgn++] = mgn;
     //rootNode->addChild(gn);
 
     MultiGeometryNode *mgn;
@@ -505,6 +519,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     if(index != -1)
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                          numMTLMat, modelRbt, true);
+    //baseGeoNodes[numbgn++] = mgn;
     //rootNode->addChild(mgn);
 
 
@@ -515,8 +530,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                                     numMTLMat, modelRbt, true);
         mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
-    rootNode->addChild(mgn);
-
+    //baseGeoNodes[numbgn++] = mgn;
+    //rootNode->addChild(mgn);
 }
 
 #endif

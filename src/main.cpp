@@ -25,6 +25,7 @@
 #include "initresource.h"
 #include "deferred.h"
 #include "ssao.h"
+//#include "collision.h"
 
 static float g_windowWidth = 1920.0f;
 static float g_windowHeight = 1080.0f;
@@ -65,18 +66,19 @@ static DFStruct g_df;
 // SSAO struct
 static SSAOStruct g_ssaos;
 
+// Uniform blocks
+GLuint uniformBlock, uniformLightBlock;
+
 static bool g_moveLight = false;
 static bool g_shadow = true;
 static double startTime;
-
-// Uniform blocks
-GLuint uniformBlock, uniformLightBlock;
 
 InputHandler inputHandler;
 
 void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
 {
-    RigTForm viewRbt = inputHandler.getViewTransform();        
+    RigTForm viewRbt = inputHandler.getViewTransform();
+    // Draws scene from the perspective of the light
     if(g_depthMapStatus)
     {
         glViewport(0, 0, g_depthMap.SHADOW_WIDTH, g_depthMap.SHADOW_HEIGHT);
@@ -109,11 +111,13 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
         g_lightW[0] = cos((currentTime - startTime) * 0.5) * 13.0f;
     }
     viewRbt = inputHandler.getViewTransform();
-    g_lightE = viewRbt * g_lightW;
 
+    // Update light position in view space
+    g_lightE = viewRbt * g_lightW;
     glBindBuffer(GL_UNIFORM_BUFFER, uniformBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightE[0]));
 
+    // Update the matrix that transforms from view space to light space
     if(g_shadow)
     {
         //g_lightMat = Mat4::lookAt(g_lightW, Vec3(0.0f, 2.5f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
@@ -140,7 +144,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Draw scene
+    // Traverse the scene graph and draw objects
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
 
@@ -166,7 +170,10 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glBindVertexArray(g_ssaos.vao);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, g_ssaos.colorBuffer);
-    glDrawArrays(GL_TRIANGLES, 0, 6);    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // Display normal vectors
+    //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);    
     
     // Light Pass
     if(g_postProc)
@@ -176,7 +183,6 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
     //glClear(GL_COLOR_BUFFER_BIT);
-
     glUseProgram(g_df.shaderProgram);
     glBindVertexArray(g_df.vao);
     glActiveTexture(GL_TEXTURE0);
@@ -194,9 +200,6 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
 
-    // Display normal vectors
-    //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);
-    
     // Draws the image in the framebuffer onto the screen
     if(g_postProc)
         drawBufferToScreen(g_rtb);
@@ -327,11 +330,9 @@ void initUniformBlock()
     glBufferSubData(GL_UNIFORM_BUFFER, 80, 64, &(lightSpaceMat[0]));
     */
 
-
     // light pos in world space
     //glBufferSubData(GL_UNIFORM_BUFFER, 64, 16, &(g_lightW[0]));
 
-    
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
@@ -388,6 +389,18 @@ int main()
 
     // Geometries    
     initGeometries(geometries);
+
+
+    for(int i = 0; i < geometries.numSingleGeo; i++)
+    {
+        AABB aabb = geometries.singleGeo[i]->aabb;
+        Vec3 min = aabb.getMin();
+        Vec3 max = aabb.getMax();        
+        printf("i = %d\n", i);
+        printf("min = %f, %f, %f\n", min[0], min[1], min[2]);
+        printf("max = %f, %f, %f\n", max[0], max[1], max[2]);        
+    }
+
     
     MaterialInfo matInfoList[MAX_MATERIALS];
     const size_t numMTLFiles = 2;
@@ -428,7 +441,11 @@ int main()
     TransformNode *worldNode = new TransformNode();
     inputHandler.setWorldNode(worldNode);
 
-    initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat);
+    int MAX_NUM_GEO_NODES = 50;
+    BaseGeometryNode *baseGeoNodes[MAX_NUM_GEO_NODES];
+    int numGeoNodes = 0;
+    initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat, baseGeoNodes,
+              MAX_NUM_GEO_NODES, numGeoNodes);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
     initDeferredRender(g_df, (int)g_windowWidth, (int)g_windowHeight);
@@ -461,7 +478,6 @@ int main()
 
         // Poll window events
         glfwPollEvents();
-
     }
 
     // ---------------------------- Clearing ------------------------------ //

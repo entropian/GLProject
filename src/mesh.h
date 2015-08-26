@@ -86,10 +86,9 @@ public:
 
     std::string getName();
 
-    int getNumGroups()
-    {
-        return groups.size();
-    }
+    int getNumGroups();
+
+    std::vector<Vec3>& getPositions();
 
 private:
     void vertexAttribPNX(GLfloat*, size_t*, const size_t, const size_t);

@@ -409,4 +409,14 @@ std::string Mesh::getName()
     return name;
 }
 
+int Mesh::getNumGroups()
+{
+    return groups.size();
+}
+
+std::vector<Vec3>& Mesh::getPositions()
+{
+    return positions;
+}
+
 

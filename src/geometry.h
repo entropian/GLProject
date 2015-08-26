@@ -4,9 +4,10 @@
 #include <GL/glew.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "aabb.h"
 
-static const size_t MAX_NUM_SINGLE_GEOMETRY = 40;
-static const size_t MAX_GEOMETRY_GROUPS = 1000;
+const size_t MAX_NUM_SINGLE_GEOMETRY = 40;
+const size_t MAX_GEOMETRY_GROUPS = 1000;
 
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
@@ -21,6 +22,7 @@ struct Geometry {
     int vertexSize = 0;
     GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
     char name[20];
+    AABB aabb;
 
     // Constructor for geometry with vertex indices
     Geometry(GLfloat vtx[], GLuint edx[], int vboLen, int eboLen, int vertexSize) {

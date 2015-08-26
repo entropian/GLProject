@@ -70,6 +70,54 @@ const char* GeoPassNormalVertSrc = GLSL(
     }
 );
 
+const char* GeoPassBasicFragSrc = GLSL(
+    uniform sampler2D diffuseMap;
+
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    layout (location = 0) out vec4 gPositionDepth;
+    layout (location = 1) out vec4 gNormalSpec;
+    layout (location = 2) out vec4 gDiffuse;
+
+    void main()
+    {
+        // world space
+        gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);
+        gNormalSpec.xyz = vNormal;
+        gNormalSpec.a = 10;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
+        gDiffuse.a = 1.0;
+    }
+);
+
+const char* GeoPassNormalFragSrc = GLSL(
+    uniform sampler2D diffuseMap;
+    uniform sampler2D normalMap;
+
+    in vec3 vPosition;
+    in vec2 vTexcoord;
+    in mat3 vTBNViewMat;
+
+    layout (location = 0) out vec4 gPositionDepth;
+    layout (location = 1) out vec4 gNormalSpec;
+    layout (location = 2) out vec4 gDiffuse;
+
+    void main()
+    {
+        // world space
+        gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
+        vec3 normal = texture(normalMap, vTexcoord).xyz;
+        normal = vTBNViewMat * normal;
+        gNormalSpec.xyz = normal;        
+        gNormalSpec.a = 10;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
+        gDiffuse.a = 1.0;
+    }
+);
 
 const char* GeoPassOBJDFragSrc = GLSL(
     uniform sampler2D diffuseMap;
