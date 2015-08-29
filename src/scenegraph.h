@@ -51,12 +51,12 @@ public:
         return true;
     }
 
-    RigTForm getRigidBodyTransform()
+    RigTForm getRbt()
     {
         return parentToLocal;
     }
 
-    void setRigidBodyTransform(RigTForm rbt)
+    void setRbt(RigTForm rbt)
     {
         parentToLocal = rbt;
     }
@@ -329,7 +329,7 @@ public:
 
     void visitNode(TransformNode *tn)
     {
-        pushRbt(tn->getRigidBodyTransform());            
+        pushRbt(tn->getRbt());            
         if(tn->getNodeType() == TRANSFORM)
         {
             int numChildren = tn->getNumChildren();
@@ -357,7 +357,7 @@ public:
 
     void visitNode(TransformNode *tn, Material *overrideMat)
     {
-        pushRbt(tn->getRigidBodyTransform());            
+        pushRbt(tn->getRbt());            
         if(tn->getNodeType() == TRANSFORM)
         {
             int numChildren = tn->getNumChildren();
@@ -388,7 +388,7 @@ public:
    
     void visitPickNode(TransformNode *tn, Material *overrideMat)
     {
-        pushRbt(tn->getRigidBodyTransform());            
+        pushRbt(tn->getRbt());            
                     
         if(tn->getNodeType() == TRANSFORM)
         {

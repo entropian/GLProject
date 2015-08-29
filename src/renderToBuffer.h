@@ -11,7 +11,7 @@
 
 #include "material.h"
 #include "shaders.h"
-
+#include "screenquad.h"
 
 // struct for Render-to-buffer 
 struct RTB{
@@ -30,39 +30,13 @@ struct DepthMap{
     Material *depthMapMaterial;
 };
 
-//extern DepthMap g_depthMap;
-
 
 void initRenderToBuffer(RTB &rtb, int windowWidth, int windowHeight)
 {
     rtb.shaderProgram = compileAndLinkShaders(RTBVertSrc, RTBFragSrc);
     glUseProgram(rtb.shaderProgram);
-    // The quad that covers the whole viewport
-    GLfloat vertices[] = {
-        -1.0f,  -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0, -1.0, 1.0f, 0.0f,
-        -1.0, 1.0, 0.0f, 1.0f,
-        1.0, 1.0, 1.0f, 1.0f
-    };    
 
-    // Generate and bind buffer objects
-    glGenVertexArrays(1, &(rtb.vao));
-    glBindVertexArray(rtb.vao);
-
-    glGenBuffers(1, &(rtb.vbo));
-    glBindBuffer(GL_ARRAY_BUFFER, rtb.vbo);
-    //sizeof works because vertices is an array, not a pointer.
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Setup vertex attributes
-    //GLint posAttrib = glGetAttribLocation(RTBProgram, "aPosition");
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    initScreenQuad(&(rtb.vao), &(rtb.vbo));    
 
     // Setup texture handle
     rtb.texture = glGetUniformLocation(rtb.shaderProgram, "screenTexture");    
@@ -106,7 +80,6 @@ void drawBufferToScreen(RTB &rtb)
     glBindVertexArray(rtb.vao);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, rtb.texColorBuffer);
-    //glBindTexture(GL_TEXTURE_2D, g_depthMap.depthMap);
     glUniform1i(rtb.texture, 0);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);

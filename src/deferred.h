@@ -5,6 +5,7 @@
 #include "material.h"
 #include "shaders.h"
 #include "dfshaders.h"
+#include "screenquad.h"
 
 // Deferred rendering struct
 struct DFStruct{
@@ -113,6 +114,8 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
         fprintf(stderr, "Framebuffer not complete!\n");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);    
 
+    initScreenQuad(&(df.vao), &(df.vbo));
+    /*
     // The quad that covers the whole viewport
     GLfloat vertices[] = {
         -1.0f,  -1.0f, 0.0f, 0.0f,
@@ -138,6 +141,7 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
     glBindVertexArray(0);
+    */
 }
 
 #endif

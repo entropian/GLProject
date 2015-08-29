@@ -6,6 +6,7 @@
 #include "material.h"
 #include "shaders.h"
 #include "dfshaders.h"
+#include "screenquad.h"
 
 static const unsigned MAX_SAMPLES = 64;
 
@@ -119,6 +120,8 @@ void initSSAO(SSAOStruct &ssaos, int windowWidth, int windowHeight, int numSampl
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         fprintf(stderr, "SSAO Blur Framebuffer not complete!\n");    
 
+    initScreenQuad(&(ssaos.vao), &(ssaos.vbo));
+    /*
     // The quad that covers the whole viewport
     GLfloat vertices[] = {
         -1.0f,  -1.0f, 0.0f, 0.0f,
@@ -144,7 +147,7 @@ void initSSAO(SSAOStruct &ssaos, int windowWidth, int windowHeight, int numSampl
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
     glBindVertexArray(0);
-
+    */
 }
 
 

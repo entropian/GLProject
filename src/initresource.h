@@ -477,8 +477,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
-    baseGeoNodes[numbgn++] = gn;
-    rootNode->addChild(gn);
+    //baseGeoNodes[numbgn++] = gn;
+    //rootNode->addChild(gn);
         
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
@@ -486,8 +486,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     m = getMaterialFromArray(materials, numMat, "Ship2Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
-    baseGeoNodes[numbgn++] = gn;
-    rootNode->addChild(gn);
+    //baseGeoNodes[numbgn++] = gn;
+    //rootNode->addChild(gn);
     
     modelRbt = RigTForm(g_lightW);
     g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube");
@@ -530,8 +530,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                                     numMTLMat, modelRbt, true);
         mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
     }
-    //baseGeoNodes[numbgn++] = mgn;
-    //rootNode->addChild(mgn);
+    baseGeoNodes[numbgn++] = mgn;
+    rootNode->addChild(mgn);
 }
 
 #endif

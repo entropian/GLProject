@@ -25,6 +25,8 @@
 #include "initresource.h"
 #include "deferred.h"
 #include "ssao.h"
+#include "hdr.h"
+#include "screenquad.h"
 //#include "collision.h"
 
 static float g_windowWidth = 1920.0f;
@@ -43,7 +45,7 @@ static const size_t MAX_MATERIALS = 200;
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
-static double g_distancePerSec = 1.5f;
+static double g_distancePerSec = 3.0f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
@@ -74,6 +76,9 @@ static bool g_shadow = true;
 static double startTime;
 
 InputHandler inputHandler;
+
+static HDRStruct g_hdr;
+
 
 void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
 {
@@ -141,69 +146,41 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
 
     // Geometry Pass
     glBindFramebuffer(GL_FRAMEBUFFER, g_df.gBuffer);
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Traverse the scene graph and draw objects
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
 
-    glDisable(GL_DEPTH_TEST);
     // SSAO Pass
-    glBindFramebuffer(GL_FRAMEBUFFER, g_ssaos.fbo);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(g_ssaos.firstPassProgram);
-    glBindVertexArray(g_ssaos.vao);    
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, g_df.gPositionDepth);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, g_df.gNormalSpec);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, g_ssaos.noiseTexture);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    GLuint texArray[10], numTex = 0;
+    texArray[numTex++] = g_df.gPositionDepth;
+    texArray[numTex++] = g_df.gNormalSpec;
+    texArray[numTex++] = g_ssaos.noiseTexture;
+    drawScreenQuadMultiTex(g_ssaos.fbo, g_ssaos.firstPassProgram, g_ssaos.vao, texArray, numTex);
 
     // SSAO Blur Pass
-    glBindFramebuffer(GL_FRAMEBUFFER, g_ssaos.blurFbo);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(g_ssaos.blurPassProgram);
-    glBindVertexArray(g_ssaos.vao);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, g_ssaos.colorBuffer);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    drawScreenQuad(g_ssaos.blurFbo, g_ssaos.blurPassProgram, g_ssaos.vao, g_ssaos.colorBuffer);
 
     // Display normal vectors
     //visitor.visitNode(inputHandler.getWorldNode(), g_showNormalMaterial);    
-    
-    // Light Pass
-    if(g_postProc)
-        glBindFramebuffer(GL_FRAMEBUFFER, g_rtb.framebuffer);
-    else
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
-    //glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(g_df.shaderProgram);
-    glBindVertexArray(g_df.vao);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, g_df.gPositionDepth);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, g_df.gNormalSpec);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, g_df.gDiffuse);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, g_depthMap.depthMap);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, g_ssaos.colorBufferBlur);    
-    //glUniform1i(rtb.texture, 0);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-    glEnable(GL_DEPTH_TEST);
 
-    // Draws the image in the framebuffer onto the screen
-    if(g_postProc)
-        drawBufferToScreen(g_rtb);
+    // Light Pass with HDR
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);    
+    numTex = 0;
+    texArray[numTex++] = g_df.gPositionDepth;
+    texArray[numTex++] = g_df.gNormalSpec;
+    texArray[numTex++] = g_df.gDiffuse;
+    texArray[numTex++] = g_depthMap.depthMap;
+    texArray[numTex++] = g_ssaos.colorBufferBlur;        
+    drawScreenQuadMultiTex(g_hdr.fbo, g_df.shaderProgram, g_df.vao, texArray, numTex);
+
+    // Tone mapping pass
+    drawScreenQuad(0, g_hdr.shaderProgram, g_hdr.vao, g_hdr.colorBuffer);
 }
+
+
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
@@ -441,7 +418,7 @@ int main()
     TransformNode *worldNode = new TransformNode();
     inputHandler.setWorldNode(worldNode);
 
-    int MAX_NUM_GEO_NODES = 50;
+    const int MAX_NUM_GEO_NODES = 50;
     BaseGeometryNode *baseGeoNodes[MAX_NUM_GEO_NODES];
     int numGeoNodes = 0;
     initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat, baseGeoNodes,
@@ -450,6 +427,7 @@ int main()
     initDepthMap(&g_depthMap);
     initDeferredRender(g_df, (int)g_windowWidth, (int)g_windowHeight);
     initSSAO(g_ssaos, (int)g_windowWidth, (int)g_windowHeight, 64, 1.0);
+    initHDR(g_hdr, (int)g_windowWidth, (int)g_windowHeight);
 
     for(int i = 0; i < numMTLMat; i++)        
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
@@ -499,6 +477,7 @@ int main()
     deleteSSAO(g_ssaos);
     deleteDeferredStruct(g_df);
     deleteSkybox(g_skybox);
+    deleteHDRStruct(g_hdr);
     
     //deleteScenegraph(worldNode);    
     // ---------------------------- TERMINATE ----------------------------- //

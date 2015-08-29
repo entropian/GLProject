@@ -16,13 +16,13 @@ void InputHandler::updateArrowOrientation()
     TransformNode *tn = pickedObj;
     while(tn != worldNode)
     {
-        counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
+        counterRotation = linFact(tn->getRbt()) * counterRotation;
         tn = tn->getParent();
     }
     counterRotation = inv(counterRotation);
-    arrowYNode->setRigidBodyTransform(counterRotation);
-    arrowZNode->setRigidBodyTransform(counterRotation * RigTForm(Quat::makeXRotation(-90.0f)));
-    arrowXNode->setRigidBodyTransform(counterRotation * RigTForm(Quat::makeZRotation(-90.0f)));    
+    arrowYNode->setRbt(counterRotation);
+    arrowZNode->setRbt(counterRotation * RigTForm(Quat::makeXRotation(-90.0f)));
+    arrowXNode->setRbt(counterRotation * RigTForm(Quat::makeZRotation(-90.0f)));    
 }
 
 // Removess the coordinate systems arrows on an object
@@ -33,9 +33,9 @@ void InputHandler::removeArrows(GeometryNode *gn)
     gn->removeChild(arrowXNode);
     
     // Restore the arrows' default orientation
-    arrowYNode->setRigidBodyTransform(RigTForm());
-    arrowZNode->setRigidBodyTransform(RigTForm(Quat::makeXRotation(-90.0f)));
-    arrowXNode->setRigidBodyTransform(RigTForm(Quat::makeZRotation(-90.0f)));    
+    arrowYNode->setRbt(RigTForm());
+    arrowZNode->setRbt(RigTForm(Quat::makeXRotation(-90.0f)));
+    arrowXNode->setRbt(RigTForm(Quat::makeZRotation(-90.0f)));    
 }
 
 void InputHandler::setArrowsClickable()
@@ -248,14 +248,14 @@ void InputHandler::ObjModeKeyInput(GLFWwindow *window, int key, int scancode, in
     TransformNode *tn = pickedObj;
     while(tn != worldNode)
     {
-        rotation = linFact(tn->getRigidBodyTransform()) * rotation;
+        rotation = linFact(tn->getRbt()) * rotation;
         tn = tn->getParent();
     }
     counterRotation = inv(rotation);
     // TODO: investigate how the quaternion stops being a unit quaternion
-    RigTForm newRbt = pickedObj->getRigidBodyTransform() * counterRotation * rbt * rotation;
+    RigTForm newRbt = pickedObj->getRbt() * counterRotation * rbt * rotation;
     newRbt.setRotation(normalize(newRbt.getRotation()));
-    pickedObj->setRigidBodyTransform(newRbt);
+    pickedObj->setRbt(newRbt);
     updateArrowOrientation();
 }
 
@@ -327,7 +327,7 @@ void InputHandler::handleKey(GLFWwindow *window, int key, int scancode, int acti
         if(pickedArrow != NULL && inputMode == OBJECT_MODE)
         {
             pickedArrow = NULL;
-            pickedObj->setRigidBodyTransform(clickRbt);           
+            pickedObj->setRbt(clickRbt);           
         }
         break;
     default:
@@ -380,7 +380,7 @@ void InputHandler::handleMouseButton(GLFWwindow *window, int button, int action,
                 clickX = cursorX;
                 clickY = cursorY;
                 // clickRbt is only set here
-                clickRbt = pickedObj->getRigidBodyTransform();
+                clickRbt = pickedObj->getRbt();
             }
  
             if(pickedArrow == arrowYNode)
@@ -463,13 +463,13 @@ void InputHandler::handleCursor(GLFWwindow* window, double x, double y)
         TransformNode *tn = pickedObj;
         while(tn != worldNode)
         {
-            counterRotation = linFact(tn->getRigidBodyTransform()) * counterRotation;
+            counterRotation = linFact(tn->getRbt()) * counterRotation;
             tn = tn->getParent();
         }
         counterRotation = inv(counterRotation);
         translation = counterRotation * translation;
         RigTForm newRbt(translation);
-        pickedObj->setRigidBodyTransform(pickedObj->getRigidBodyTransform() * newRbt);
+        pickedObj->setRbt(pickedObj->getRbt() * newRbt);
         updateArrowOrientation();
     }
     
