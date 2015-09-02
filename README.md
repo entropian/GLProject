@@ -7,4 +7,4 @@ This is my first OpenGL application. Currently, it's basically a OBJ model viewe
 
 ![Screenshot](http://i.imgur.com/fP1ALjK.jpg "")
 
-![Screenshot](http://i.imgur.com/hedN7Zt.png "")
+![Screenshot](http://i.imgur.com/DW4zm25.png "")
