@@ -27,10 +27,11 @@
 #include "ssao.h"
 #include "hdr.h"
 #include "screenquad.h"
+#include "bloom.h"
 //#include "collision.h"
 
-static float g_windowWidth = 1920.0f;
-static float g_windowHeight = 1080.0f;
+static float g_windowWidth = 1280.0f;
+static float g_windowHeight = 720.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
@@ -79,6 +80,8 @@ InputHandler inputHandler;
 
 static HDRStruct g_hdr;
 
+static BloomBlurStruct g_bb;
+static bool g_bloom = true;
 
 void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
 {
@@ -175,13 +178,36 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     texArray[numTex++] = g_depthMap.depthMap;
     texArray[numTex++] = g_ssaos.colorBufferBlur;        
     drawScreenQuadMultiTex(g_hdr.fbo, g_df.shaderProgram, g_df.vao, texArray, numTex);
-    //drawScreenQuadMultiTex(0, g_df.shaderProgram, g_df.vao, texArray, numTex);    
+    //drawScreenQuadMultiTex(0, g_df.shaderProgram, g_df.vao, texArray, numTex);
+    
+    // Bloom Blur Passes
+    if(g_bloom)
+    {
+        GLboolean horizontal = true, firstIteration = true;
+        GLuint numBlurPass = 10;
+        glActiveTexture(GL_TEXTURE0);
+        for(GLuint i = 0; i < numBlurPass; i++)
+        {
+            drawScreenQuad(g_bb.pingpongFBO[horizontal], g_bb.shaderProgram, g_bb.vao,
+                           firstIteration ? g_hdr.brightColorBuffer : g_bb.pingpongBuffer[!horizontal]);
+            horizontal = !horizontal;
+            if(firstIteration)
+                firstIteration = false;
+        }
+    }
 
-    // Tone mapping pass
-    drawScreenQuad(0, g_hdr.shaderProgram, g_hdr.vao, g_hdr.colorBuffer);
+    // Tone Mapping Pass
+    if(g_bloom)
+    {
+        numTex = 0;
+        texArray[numTex++] = g_hdr.colorBuffer;
+        texArray[numTex++] = g_bb.pingpongBuffer[0];
+        drawScreenQuadMultiTex(0, g_hdr.shaderProgram, g_hdr.vao, texArray, numTex);
+    }else
+    {
+        drawScreenQuad(0, g_hdr.shaderProgram, g_hdr.vao, g_hdr.colorBuffer);
+    }
 }
-
-
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
@@ -413,7 +439,8 @@ int main()
     initDepthMap(&g_depthMap);
     initDeferredRender(g_df, (int)g_windowWidth, (int)g_windowHeight);
     initSSAO(g_ssaos, (int)g_windowWidth, (int)g_windowHeight, 64, 1.0);
-    initHDR(g_hdr, (int)g_windowWidth, (int)g_windowHeight);
+    initHDR(g_hdr, (int)g_windowWidth, (int)g_windowHeight, g_bloom);
+    initBloomBlur(g_bb, (int)g_windowWidth, (int)g_windowHeight);
 
     for(int i = 0; i < numMTLMat; i++)        
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
@@ -464,6 +491,7 @@ int main()
     deleteDeferredStruct(g_df);
     deleteSkybox(g_skybox);
     deleteHDRStruct(g_hdr);
+    deleteBloomBlur(g_bb);
     
     //deleteScenegraph(worldNode);    
     // ---------------------------- TERMINATE ----------------------------- //

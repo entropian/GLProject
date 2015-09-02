@@ -347,7 +347,7 @@ const char* GeoPassOBJNADSFragSrc = GLSL(
     }
 );
 
-
+/*
 const char* LightPassFragSrc = GLSL(
     uniform sampler2D gDiffuse;
     uniform sampler2D gNormalSpec;
@@ -381,6 +381,47 @@ const char* LightPassFragSrc = GLSL(
         outColor = vec4(ambContrib + (diffContrib + specContrib) * lightColor * attenuation, 1.0);
     }
 );
+*/
+
+const char* LightPassFragSrc = GLSL(
+    uniform sampler2D gDiffuse;
+    uniform sampler2D gNormalSpec;
+    uniform sampler2D gPositionDepth;
+    uniform sampler2D ssao;
+
+    in vec2 vTexcoord;
+    layout (location = 0) out vec4 outColor;
+    layout (location = 1) out vec4 brightColor;    
+
+    void main()
+    {
+        vec3 posE = texture(gPositionDepth, vTexcoord).rgb;
+        vec3 normal = normalize(texture(gNormalSpec, vTexcoord).rgb);
+        vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
+        float specExponent = texture(gNormalSpec, vTexcoord).a;
+        float specIntensity = texture(gDiffuse, vTexcoord).a;
+        float occlusion = texture(ssao, vTexcoord).r;
+        vec3 lightColor = vec3(1000.0);
+
+        
+        vec3 ambContrib = diffuse * 0.3 * occlusion;
+        vec3 lightDist = light1 - posE;
+        float attenuation = 1/dot(lightDist, lightDist);        
+        vec3 lightDir = normalize(lightDist);
+        vec3 eyeDir = normalize(-posE);
+        vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
+
+        float intensity = max(dot(normal, lightDir), 0);
+        vec3 diffContrib = intensity * diffuse;
+        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity;
+        vec3 lighting = ambContrib + (diffContrib + specContrib) * lightColor * attenuation;
+        outColor = vec4(lighting, 1.0);
+        if(dot(lighting, vec3(0.2126, 0.7152, 0.0722)) > 1.0)
+        {
+           brightColor = vec4(lighting, 1.0);
+        }
+    }
+);
 
 const char* shLightPassFragSrc = GLSL(
     uniform sampler2D gDiffuse;
@@ -390,7 +431,8 @@ const char* shLightPassFragSrc = GLSL(
     uniform sampler2D ssao;
 
     in vec2 vTexcoord;
-    out vec4 outColor;
+    layout (location = 0) out vec4 outColor;
+    layout (location = 1) out vec4 brightColor;        
 
     float ShadowCalculation(vec4 fragPosLightSpace)
     {
@@ -435,7 +477,7 @@ const char* shLightPassFragSrc = GLSL(
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(500.0);        
+        vec3 lightColor = vec3(1000.0);        
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
         vec3 lightDist = light1 - posE;
@@ -450,6 +492,10 @@ const char* shLightPassFragSrc = GLSL(
         float shadow = ShadowCalculation(fragPosL);
         vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);
         outColor = vec4(lighting, 1.0);
+        if(dot(lighting, vec3(0.2126, 0.7152, 0.0722)) > 1.0)
+        {
+           brightColor = vec4(lighting, 1.0);
+        }        
     }
 );
 
@@ -524,6 +570,40 @@ const char* SSAOBlurFragSrc = GLSL(
     }
 );
 
+const char* BloomBlurFragSrc = GLSL(
+    in vec2 vTexcoord;
+
+    uniform sampler2D brightColorBuffer;
+
+    uniform bool horizontal;
+
+    uniform float weight[5] = float[] (0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
+
+    out vec4 outColor;
+    
+    void main()
+    {
+        vec2 tex_offset = 1.0 / textureSize(brightColorBuffer, 0);
+        vec3 result = texture(brightColorBuffer, vTexcoord).rgb * weight[0];
+        if(horizontal)
+        {
+            for(int i = 1; i < 5; i++)
+            {
+                result += texture(brightColorBuffer, vTexcoord + vec2(tex_offset.x * i, 0.0)).rgb * weight[i];
+                result += texture(brightColorBuffer, vTexcoord - vec2(tex_offset.x * i, 0.0)).rgb * weight[i];                
+            }
+        }else
+        {
+            for(int i = 1; i < 5; i++)
+            {
+                result += texture(brightColorBuffer, vTexcoord + vec2(0.0, tex_offset.y * i)).rgb * weight[i];
+                result += texture(brightColorBuffer, vTexcoord - vec2(0.0, tex_offset.y * i)).rgb * weight[i];                
+            }            
+        }
+        outColor = vec4(result, 1.0);
+    }
+);
+
 const char* showSSAOFragSrc = GLSL(
     uniform sampler2D ssao;    
 
@@ -593,4 +673,25 @@ const char* exposureHDRFragSrc = GLSL(
     }
 
 );
+
+const char* bloomFragSrc = GLSL(
+    in vec2 vTexcoord;
+
+    uniform sampler2D hdrBuffer;
+    uniform sampler2D bloomBlurBuffer;
+    uniform float exposure;
+    out vec4 outColor;
+    
+    void main()
+    {
+        const float gamma = 1.0;
+        vec3 hdrColor = texture(hdrBuffer, vTexcoord).rgb;
+        vec3 bloomColor = texture(bloomBlurBuffer, vTexcoord).rgb;
+        hdrColor += bloomColor;
+        vec3 mapped = vec3(1.0) - exp(-hdrColor * exposure);
+        mapped = pow(mapped, vec3(1.0 / gamma));
+        outColor = vec4(mapped, 1.0);
+    }
+);
+
 #endif

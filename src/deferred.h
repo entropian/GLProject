@@ -115,33 +115,6 @@ void initDeferredRender(DFStruct &df, int windowWidth, int windowHeight)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);    
 
     initScreenQuad(&(df.vao), &(df.vbo));
-    /*
-    // The quad that covers the whole viewport
-    GLfloat vertices[] = {
-        -1.0f,  -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0, -1.0, 1.0f, 0.0f,
-        -1.0, 1.0, 0.0f, 1.0f,
-        1.0, 1.0, 1.0f, 1.0f
-    };
-
-    glGenVertexArrays(1, &(df.vao));
-    glBindVertexArray(df.vao);
-
-    glGenBuffers(1, &(df.vbo));
-    glBindBuffer(GL_ARRAY_BUFFER, df.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // Setup vertex attributes
-    // Position
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-    // Texcoord
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-    glBindVertexArray(0);
-    */
 }
 
 #endif
