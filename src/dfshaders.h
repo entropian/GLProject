@@ -365,17 +365,20 @@ const char* LightPassFragSrc = GLSL(
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(1);
+        vec3 lightColor = vec3(500.0);
+
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
-        vec3 lightDir = normalize(light1 - posE);
+        vec3 lightDist = light1 - posE;
+        float attenuation = 1/dot(lightDist, lightDist);        
+        vec3 lightDir = normalize(lightDist);
         vec3 eyeDir = normalize(-posE);
         vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
 
         float intensity = max(dot(normal, lightDir), 0);
-        vec3 diffContrib = intensity * diffuse * lightColor;
-        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity * lightColor;
-        outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
+        vec3 diffContrib = intensity * diffuse;
+        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity;
+        outColor = vec4(ambContrib + (diffContrib + specContrib) * lightColor * attenuation, 1.0);
     }
 );
 
@@ -432,20 +435,21 @@ const char* shLightPassFragSrc = GLSL(
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(1);        
+        vec3 lightColor = vec3(500.0);        
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
-        vec3 lightDir = normalize(light1 - posE);
+        vec3 lightDist = light1 - posE;
+        float attenuation = 1/dot(lightDist, lightDist);        
+        vec3 lightDir = normalize(lightDist);        
         vec3 eyeDir = normalize(-posE);
         vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
 
         float intensity = max(dot(normal, lightDir), 0);
-        vec3 diffContrib = intensity * diffuse * lightColor;
-        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity * lightColor;
+        vec3 diffContrib = intensity * diffuse * lightColor * attenuation;
+        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity * lightColor * attenuation;
         float shadow = ShadowCalculation(fragPosL);
         vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);
         outColor = vec4(lighting, 1.0);
-        //outColor = vec4(ambContrib + diffContrib + specContrib, 1.0);
     }
 );
 
@@ -581,11 +585,11 @@ const char* exposureHDRFragSrc = GLSL(
     
     void main()
     {
-        const float gamma = 2.2;
+        const float gamma = 1.0;
         vec3 hdrColor = texture(hdrBuffer, vTexcoord).rgb;
         vec3 mapped = vec3(1.0) - exp(-hdrColor * exposure);
         mapped = pow(mapped, vec3(1.0 / gamma));
-        outColor = vec4(mapped, 1.0);
+         outColor = vec4(mapped, 1.0);
     }
 
 );

@@ -27,13 +27,15 @@ void initHDR(HDRStruct &hdr, const int windowWidth, const int windowHeight)
     hdr.shaderProgram = compileAndLinkShaders(RTBVertSrc, exposureHDRFragSrc);
     glUseProgram(hdr.shaderProgram);
     glUniform1i(glGetUniformLocation(hdr.shaderProgram, "hdrBuffer"), 0);
-    glUniform1f(glGetUniformLocation(hdr.shaderProgram, "exposure"), 1.0f);
+    glUniform1f(glGetUniformLocation(hdr.shaderProgram, "exposure"), 2.0f);
 
     glGenFramebuffers(1, &(hdr.fbo));
     glBindFramebuffer(GL_FRAMEBUFFER, hdr.fbo);
     glGenTextures(1, &(hdr.colorBuffer));
     glBindTexture(GL_TEXTURE_2D, hdr.colorBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, windowWidth, windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
+    // GL_RGBA16F for HDR    
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, windowWidth, windowHeight, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, windowWidth, windowHeight, 0, GL_RGB, GL_FLOAT, NULL);    
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, hdr.colorBuffer, 0);    

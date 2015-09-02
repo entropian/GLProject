@@ -35,6 +35,7 @@ void initScreenQuad(GLuint *vao, GLuint *vbo)
 void drawScreenQuad(const GLuint framebuffer, const GLuint shaderProgram, const GLuint vao, const GLuint colorBuffer)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
     glDisable(GL_DEPTH_TEST);
     glUseProgram(shaderProgram);
     glBindVertexArray(vao);
@@ -49,6 +50,7 @@ void drawScreenQuadMultiTex(const GLuint framebuffer, const GLuint shaderProgram
                             const GLuint numColorBuffers)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
     glDisable(GL_DEPTH_TEST);
     glUseProgram(shaderProgram);
     glBindVertexArray(vao);

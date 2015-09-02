@@ -113,7 +113,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     if(g_moveLight)
     {
         double currentTime = glfwGetTime();
-        g_lightW[0] = cos((currentTime - startTime) * 0.5) * 13.0f;
+        g_lightW[0] = cosf((currentTime - startTime) * 0.5) * 13.0f;
     }
     viewRbt = inputHandler.getViewTransform();
 
@@ -175,6 +175,7 @@ void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat
     texArray[numTex++] = g_depthMap.depthMap;
     texArray[numTex++] = g_ssaos.colorBufferBlur;        
     drawScreenQuadMultiTex(g_hdr.fbo, g_df.shaderProgram, g_df.vao, texArray, numTex);
+    //drawScreenQuadMultiTex(0, g_df.shaderProgram, g_df.vao, texArray, numTex);    
 
     // Tone mapping pass
     drawScreenQuad(0, g_hdr.shaderProgram, g_hdr.vao, g_hdr.colorBuffer);
@@ -338,10 +339,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);    
-
-    //window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
     window = glfwCreateWindow((int)g_windowWidth, (int)g_windowHeight, "OpenGL", NULL, NULL);
     glfwMakeContextCurrent(window);
 
@@ -367,18 +365,6 @@ int main()
     // Geometries    
     initGeometries(geometries);
 
-
-    for(int i = 0; i < geometries.numSingleGeo; i++)
-    {
-        AABB aabb = geometries.singleGeo[i]->aabb;
-        Vec3 min = aabb.getMin();
-        Vec3 max = aabb.getMax();        
-        printf("i = %d\n", i);
-        printf("min = %f, %f, %f\n", min[0], min[1], min[2]);
-        printf("max = %f, %f, %f\n", max[0], max[1], max[2]);        
-    }
-
-    
     MaterialInfo matInfoList[MAX_MATERIALS];
     const size_t numMTLFiles = 2;
     char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
