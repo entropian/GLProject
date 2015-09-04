@@ -235,12 +235,7 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
     for(i = 0; i < numTextures; i++)
         if(strcmp(fileName, textureFileNames[i]) == 0)
             break;
-
-    if(i == numTextures)
-    {
-        mat->sendUniformTexture(uniformName, textureHandles[1]);
-    }else
-        mat->sendUniformTexture(uniformName, textureHandles[i]);    
+    mat->sendUniformTexture(uniformName, textureHandles[i]);    
 }
 
 void initMaterials(Material *materials[], const size_t arrayLen, int &numMat, const GLuint *textureHandles)
@@ -291,6 +286,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
 {
     enum ShaderFlag
     {
+        NONE = 0,
         DIFFUSE = 1,
         NORMAL = 2,
         SPECULAR = 4,
@@ -300,7 +296,9 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
     // Initialize materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
-        ShaderFlag sf = DIFFUSE;
+        ShaderFlag sf = NONE;
+        if(matInfoList[i].map_Kd[0] != '\0')
+            sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(DIFFUSE));        
         if(matInfoList[i].map_spec[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(SPECULAR));
         //if(matInfoList[i].map_bump[0] != '\0')
@@ -310,92 +308,32 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(ALPHA));
         switch(sf)
         {
+        case NONE:
+                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJFragSrc, matInfoList[i].name);
+                break;
         case DIFFUSE:
-            if(!shadow)
-            {
-                //MTLMaterials[i] = new Material(basicVertSrc, OBJFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDFragSrc, matInfoList[i].name);
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowVertSrc, shOBJFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|NORMAL:
-            if(!shadow)
-            {
-                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDFragSrc, matInfoList[i].name);
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|SPECULAR:
-            if(!shadow)
-            {            
-                //MTLMaterials[i] = new Material(basicVertSrc, OBJSpecFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDSFragSrc, matInfoList[i].name);                
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowVertSrc, shOBJSpecFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-            if(!shadow)
-            {            
-                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalSpecFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDSFragSrc, matInfoList[i].name);                
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalSpecFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|ALPHA:
-            if(!shadow)
-            {            
                 MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|NORMAL|ALPHA:
-            if(!shadow)
-            {            
-                //MTLMaterials[i] = new Material(normalVertSrc, OBJNormalAlphaFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNADFragSrc, matInfoList[i].name);
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-            if(!shadow)
-            {            
-                //MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaSpecFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJADSFragSrc, matInfoList[i].name);
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowVertSrc, shOBJAlphaSpecFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-            if(!shadow)
-            {            
-                //MTLMaterils[i] = new Material(normalVertSrc, OBJNormalAlphaSpecFragSrc, matInfoList[i].name);
                 MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJNADSFragSrc, matInfoList[i].name);                
-            }else
-            {
-                MTLMaterials[i] = new Material(shadowNormalVertSrc, shOBJNormalAlphaSpecFragSrc, matInfoList[i].name);
-                MTLMaterials[i]->setShadow(true);
-            }
             break;
         }
 
@@ -405,23 +343,22 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         MTLMaterials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
         MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
-        if(matInfoList[i].name[0] == '\0')
-        {
-            MTLMaterials[i]->sendUniformTexture("diffuseMap", textureHandles[1]);
-        }else
-        {
-            // Diffuse map
-            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textureHandles, numTextures);
-            // Normal map
-            if(sf & NORMAL)
-                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_bump, "normalMap", textureFileNames, textureHandles, numTextures);
-            // Alpha map
-            if(sf & ALPHA)
-                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_d, "alphaMap", textureFileNames, textureHandles, numTextures);
-            // Specular map
-            if(sf & SPECULAR)
-                setMaterialTexture(MTLMaterials[i], matInfoList[i].map_spec, "specularMap", textureFileNames, textureHandles, numTextures);
-        }
+        // Diffuse map
+        if(sf & DIFFUSE)
+            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_Kd, "diffuseMap", textureFileNames, textureHandles,
+                               numTextures);
+        // Normal map
+        if(sf & NORMAL)
+            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_bump, "normalMap", textureFileNames, textureHandles,
+                               numTextures);
+        // Alpha map
+        if(sf & ALPHA)
+            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_d, "alphaMap", textureFileNames, textureHandles,
+                               numTextures);
+        // Specular map
+        if(sf & SPECULAR)
+            setMaterialTexture(MTLMaterials[i], matInfoList[i].map_spec, "specularMap", textureFileNames, textureHandles,
+                               numTextures);
     }
     numMTLMat += matCount;
 }

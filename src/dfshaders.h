@@ -119,6 +119,32 @@ const char* GeoPassNormalFragSrc = GLSL(
     }
 );
 
+const char* GeoPassOBJFragSrc = GLSL(
+    uniform vec3 Ka;
+    uniform vec3 Kd;
+    uniform vec3 Ks;
+    uniform float Ns;
+    
+    in vec3 vPosition;
+    in vec3 vNormal;
+    in vec2 vTexcoord;
+
+    layout (location = 0) out vec4 gPositionDepth;
+    layout (location = 1) out vec4 gNormalSpec;
+    layout (location = 2) out vec4 gDiffuse;
+
+    void main()
+    {
+        // world space
+        gPositionDepth.xyz = vPosition;
+        gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);
+        gNormalSpec.xyz = vNormal;
+        gNormalSpec.a = Ns;
+        gDiffuse.rgb = Kd;
+        gDiffuse.a = 1.0;
+    }
+);
+
 const char* GeoPassOBJDFragSrc = GLSL(
     uniform sampler2D diffuseMap;
 

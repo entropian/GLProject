@@ -109,7 +109,7 @@ struct MaterialInfo
 {    
     char name[30];
     Vec3 Ka, Kd, Ks, Ke;         // Ambient color, diffuse color, specular color, and emmisive color
-    float Ns = 0.0f, Ni = 0.0f;  // Specular exponent and index of reflection
+    float Ns, Ni;                // Specular exponent and index of reflection
     int illum = 0;               // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
     char map_Ka[40];             // Ambient map file name
     char map_Kd[40];             // Diffuse map file name
@@ -122,6 +122,9 @@ static void initMatInfoList(MaterialInfo *matInfoList, const size_t infoListSize
 {
     for(size_t i = 0; i < infoListSize; i++)
     {
+        matInfoList[i].Ns = 0.0f;
+        matInfoList[i].Ni = 0.0f;
+        matInfoList[i].illum = 0;
         matInfoList[i].name[0] = '\0';
         matInfoList[i].map_Ka[0] = '\0';
         matInfoList[i].map_Kd[0] = '\0';
@@ -233,7 +236,17 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         }else if(strcmp(buffer, "map_bump") == 0)
         {
             index = getMaterialName(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
-        }            
+        }
+    }
+
+    for(size_t i = 0; i < infoListSize; i++)
+    {
+        if(strcmp(infoList[i].name, "Material__47") == 0)
+        {
+            printf("In mtl parsing...\n");
+            printf("Material__47\n");
+            printf("map_Kd = %s\n", infoList[i].map_Kd);
+        }
     }
 
     free(fileContent);    
@@ -244,12 +257,12 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
 static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
 {
     MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
-    initMatInfoList(tmpList, infoListSize);
 
     size_t numMat = 0;
 
     for(size_t i = 0; i < numMTLFiles; i++)
-    {
+    {        
+        initMatInfoList(tmpList, infoListSize);
         size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
 
         if(matCount == 0)
