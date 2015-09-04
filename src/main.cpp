@@ -392,9 +392,10 @@ int main()
     initGeometries(geometries);
 
     MaterialInfo matInfoList[MAX_MATERIALS];
-    const size_t numMTLFiles = 2;
-    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
+    initMatInfoList(matInfoList, MAX_MATERIALS);
     
+    const size_t numMTLFiles = 2;
+    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};    
     size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
     
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",

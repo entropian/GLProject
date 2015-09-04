@@ -8,6 +8,8 @@
 #include <ctype.h>
 #include "vec.h"
 
+static const char *MODEL_DIR = "../models/";
+
 /*
   Stores into buffer[] the next alphabetic word in fileContent[] starting after fileContent[index] 
   Returns the index of the character immediately after the substring.
@@ -116,20 +118,36 @@ struct MaterialInfo
     char map_spec[40];           // Specular map file name
 };
 
+static void initMatInfoList(MaterialInfo *matInfoList, const size_t infoListSize)
+{
+    for(size_t i = 0; i < infoListSize; i++)
+    {
+        matInfoList[i].name[0] = '\0';
+        matInfoList[i].map_Ka[0] = '\0';
+        matInfoList[i].map_Kd[0] = '\0';
+        matInfoList[i].map_d[0] = '\0';        
+        matInfoList[i].map_bump[0] = '\0';
+        matInfoList[i].map_spec[0] = '\0';        
+    }
+}
+
 /*
   Reads the MTL file specified by fileName, and store the material entry info into infoList.
   Returns the number of materials read
  */
 static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, const char *fileName)
 {
-    char *fileContent;
-    size_t readResult = readFileIntoString(fileName, &fileContent);
+    char *fileContent, buffer[100];
+    buffer[0] = '\0';
+    strcat(buffer, MODEL_DIR);
+    strcat(buffer, fileName);
+    size_t readResult = readFileIntoString(buffer, &fileContent);
     if(readResult == 0)
     {
         fprintf(stderr, "Read nothing from %s\n", fileName);
         return 0;
     }
-    char buffer[50];
+    //char buffer[50];
     size_t matCount = 0;
 
     // Count the number of material entries in fileContent.
@@ -146,17 +164,7 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         fprintf(stderr, "Too many materials in %s.\n", fileName);
         return 0;
     }
-
-    for(size_t i = 0; i < matCount; i++)
-    {
-        infoList[i].name[0] = '\0';
-        infoList[i].map_Ka[0] = '\0';
-        infoList[i].map_Kd[0] = '\0';
-        infoList[i].map_d[0] = '\0';        
-        infoList[i].map_bump[0] = '\0';
-        infoList[i].map_spec[0] = '\0';        
-    }
-
+    
     size_t infoIndex = 0;
     index = 0;
     while(index != -1)
@@ -236,6 +244,8 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
 static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
 {
     MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
+    initMatInfoList(tmpList, infoListSize);
+
     size_t numMat = 0;
 
     for(size_t i = 0; i < numMTLFiles; i++)
@@ -374,11 +384,13 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
 static void parseOBJFile(const char *fileName, OBJData *objData)
 {
     // Read the file into the string fileContent
-    char *fileContent;
-    size_t readResult = readFileIntoString(fileName, &fileContent);
+    char *fileContent, buffer[100];
+    buffer[0] = '\0';
+    strcat(buffer, MODEL_DIR);
+    strcat(buffer, fileName);    
+    size_t readResult = readFileIntoString(buffer, &fileContent);
 
     // Count the number of positions, normals, texcoords, faces, and groups in the file
-    char buffer[50];
     size_t posCount = 0, normCount = 0, texcoordCount = 0, faceCount = 0;
     int index = 0;
     size_t groupCount = 0;

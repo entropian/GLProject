@@ -481,7 +481,7 @@ const char* shLightPassFragSrc = GLSL(
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
         vec3 lightDist = light1 - posE;
-        float attenuation = 1/dot(lightDist, lightDist);        
+        float attenuation = 1/dot(lightDist, lightDist);
         vec3 lightDir = normalize(lightDist);        
         vec3 eyeDir = normalize(-posE);
         vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
