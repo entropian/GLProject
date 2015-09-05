@@ -85,7 +85,7 @@ void loadAndSpecifyTexture(const char *fileName)
     int width, height;
     unsigned char *image;
     /*      
-      Note:Changed SOIL_LOAD_RGB to SOIL_LOAD_RGBA so that each row of pixels in the image
+      Note: Changed SOIL_LOAD_RGB to SOIL_LOAD_RGBA so that each row of pixels in the image
       is a multiple of 4 bytes. Supposedly GPUs like data in chunks for 4 bytes. Loading images
       as RGB was crashing glTexImage2D() for certain images.       
     */
@@ -293,7 +293,7 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
         ALPHA = 8
     };
 
-    // Initialize materials with data in matInfoList
+    // Populate materials with data in matInfoList
     for(size_t i = 0; i < matCount; i++)
     {
         ShaderFlag sf = NONE;
@@ -401,8 +401,6 @@ Material* getMaterialFromArray(Material *materials[], const int numMat, const ch
     return NULL;
 }
 
-// TODO: fix this so it's not using global variables
-
 void initScene(TransformNode *rootNode, Geometries &geometries, Material *materials[], const int numMat,
                Material *MTLMaterials[],const int numMTLMat, BaseGeometryNode *baseGeoNodes[],
                const int bgnArrayLen, int &numbgn)
@@ -410,7 +408,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     RigTForm modelRbt;
     GeometryNode *gn;
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
-    Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship");
+    Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship.obj");
     Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
@@ -419,7 +417,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         
 
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship2");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship2.obj");
     m = getMaterialFromArray(materials, numMat, "Ship2Material");
     if(g && m)
         gn = new GeometryNode(g, m, modelRbt, true);
@@ -427,7 +425,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     //rootNode->addChild(gn);
     
     modelRbt = RigTForm(g_lightW);
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube.obj");
     m = getMaterialFromArray(materials, numMat, "CubeMaterial");
     if(g && m)
     {
@@ -438,7 +436,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     //rootNode->addChild(gn);
 
     modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot");
+    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot.obj");
     m = getMaterialFromArray(materials, numMat, "CubemapReflectionMat");
     if(g && m)
     {
@@ -452,7 +450,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
     // TODO: check if index is -1.
-    int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "sponza");
+    int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "sponza.obj");
     if(index != -1)
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                          numMTLMat, modelRbt, true);
@@ -460,7 +458,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     //rootNode->addChild(mgn);
 
 
-    index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza");
+    index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza.obj");
     if(index != -1)
     {
         mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,

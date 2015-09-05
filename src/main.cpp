@@ -393,9 +393,11 @@ int main()
 
     MaterialInfo matInfoList[MAX_MATERIALS];
     initMatInfoList(matInfoList, MAX_MATERIALS);
+
     
     const size_t numMTLFiles = 2;
-    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};    
+    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
+    
     size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
     
     char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
@@ -447,7 +449,22 @@ int main()
         MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
 
     Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -27.0f, 27.0f, 5.0f, 35.0f);
-    g_ortho = tmp;    
+    g_ortho = tmp;
+
+
+    SceneObjectEntry objEntries[MAX_NUM_GEO_NODES];
+    initSceneObjectEntries(objEntries, MAX_NUM_GEO_NODES);
+    int numObjEntries = loadSceneFile(objEntries, MAX_NUM_GEO_NODES, "../scenes/scene1.txt");
+    for(int i = 0; i < numObjEntries; i++)
+    {        
+        printf("Name: %s\n", objEntries[i].name);
+        printf("Position: %f, %f, %f\n", objEntries[i].position[0], objEntries[i].position[1], objEntries[i].position[2]);
+        printf("Orientation: %f, %f, %f\n", objEntries[i].orientation[0], objEntries[i].orientation[1], objEntries[i].orientation[2]);
+        printf("Scaling factors: %f, %f, %f\n", objEntries[i].scaleFactors[0], objEntries[i].scaleFactors[1], objEntries[i].scaleFactors[2]);
+        printf("calcNormal: %s\n", objEntries[i].calcNormal ? "true" : "false");
+        printf("calcBasis: %s\n", objEntries[i].calcBasis ? "true" : "false");
+        printf("extraVertAttrib: %s\n", objEntries[i].extraVertAttrib ? "true" : "false");        
+    }
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 

@@ -9,6 +9,7 @@
 #include "vec.h"
 
 static const char *MODEL_DIR = "../models/";
+static const char *SCENE_DIR = "../scenes/";
 
 /*
   Stores into buffer[] the next alphabetic word in fileContent[] starting after fileContent[index] 
@@ -55,12 +56,7 @@ static int subStringNum(const char* fileContent, char buffer[], size_t fileSize,
     return int(j + i);
 }
 
-/*
-  Stores into buffer[] the next alpha-numeric word in fileContent[] starting after fileContent[index] 
-  Returns the index of the character immediately after the substring.
-  Returns -1 if no word found
-*/
-static int getMaterialName(const char *fileContent, char buffer[], size_t fileSize, size_t index)
+static int nextToken(const char *fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
     for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++)
@@ -74,6 +70,19 @@ static int getMaterialName(const char *fileContent, char buffer[], size_t fileSi
     buffer[j] = '\0';
 
     return int(j + i);
+}
+
+static int parseVec3(Vec3 *vec, const char *fileContent, const int readResult, const int startIndex)
+{
+    char buffer[50];
+    int index = startIndex;
+    index = subStringNum(fileContent, buffer, readResult, index);
+    (*vec)[0] = (float)atof(buffer);
+    index = subStringNum(fileContent, buffer, readResult, index);
+    (*vec)[1] = (float)atof(buffer);
+    index = subStringNum(fileContent, buffer, readResult, index);
+    (*vec)[2] = (float)atof(buffer);
+    return index;
 }
 
 // Reads the content from file specified by fileName and stores in fileContent
@@ -175,40 +184,20 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
         index = subStringAlpha(fileContent, buffer, readResult, index);
         if(strcmp(buffer, "newmtl") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex].name, readResult, index);
+            index = nextToken(fileContent, infoList[infoIndex].name, readResult, index);
             infoIndex++;
         }else if(strcmp(buffer, "Ka") == 0)
         {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ka[2] = (float)atof(buffer);            
+            index = parseVec3(&(infoList[infoIndex-1].Ka), fileContent, readResult, index);
         }else if(strcmp(buffer, "Kd") == 0)
         {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Kd[2] = (float)atof(buffer);            
+            index = parseVec3(&(infoList[infoIndex-1].Kd), fileContent, readResult, index);            
         }else if(strcmp(buffer, "Ks") == 0)
         {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ks[2] = (float)atof(buffer);
+            index = parseVec3(&(infoList[infoIndex-1].Ks), fileContent, readResult, index);            
         }else if(strcmp(buffer, "Ke") == 0)
         {
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[0] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[1] = (float)atof(buffer);
-            index = subStringNum(fileContent, buffer, readResult, index);
-            infoList[infoIndex-1].Ke[2] = (float)atof(buffer);            
+            index = parseVec3(&(infoList[infoIndex-1].Ke), fileContent, readResult, index);
         }else if(strcmp(buffer, "Ns") == 0)
         {
             index = subStringNum(fileContent, buffer, readResult, index);
@@ -223,32 +212,21 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
             infoList[infoIndex-1].illum = atoi(buffer);                                                
         }else if(strcmp(buffer, "map_Kd") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex-1].map_Kd, readResult, index);
+            index = nextToken(fileContent, infoList[infoIndex-1].map_Kd, readResult, index);
         }else if(strcmp(buffer, "map_Ka") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex-1].map_Ka, readResult, index);
+            index = nextToken(fileContent, infoList[infoIndex-1].map_Ka, readResult, index);
         }else if(strcmp(buffer, "map_d") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex-1].map_d, readResult, index);
+            index = nextToken(fileContent, infoList[infoIndex-1].map_d, readResult, index);
         }else if(strcmp(buffer, "map_spec") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex-1].map_spec, readResult, index);            
+            index = nextToken(fileContent, infoList[infoIndex-1].map_spec, readResult, index);            
         }else if(strcmp(buffer, "map_bump") == 0)
         {
-            index = getMaterialName(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
+            index = nextToken(fileContent, infoList[infoIndex-1].map_bump, readResult, index);
         }
     }
-
-    for(size_t i = 0; i < infoListSize; i++)
-    {
-        if(strcmp(infoList[i].name, "Material__47") == 0)
-        {
-            printf("In mtl parsing...\n");
-            printf("Material__47\n");
-            printf("map_Kd = %s\n", infoList[i].map_Kd);
-        }
-    }
-
     free(fileContent);    
     return matCount;
 }
@@ -257,32 +235,25 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
 static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
 {
     MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
-
     size_t numMat = 0;
-
     for(size_t i = 0; i < numMTLFiles; i++)
     {        
         initMatInfoList(tmpList, infoListSize);
         size_t matCount = parseMTLFile(tmpList, infoListSize, MTLFileNames[i]);
-
         if(matCount == 0)
         {
             fprintf(stderr, "Error parsing %s.\n", MTLFileNames[i]);
             continue;
         }
-        
         if(matCount + numMat >= infoListSize)
         {
             fprintf(stderr, "Not enough space for %s.\n", MTLFileNames[i]);
             continue;
         }
-
         for(size_t j = 0; j < matCount; j++)
             matInfoList[numMat + j] = tmpList[j];
-
         numMat += matCount;
     }
-
     free(tmpList);
     return numMat;
 }
@@ -385,7 +356,7 @@ static void extractOBJData(const char *fileContent, const size_t fileSize, OBJDa
             // Assuming "usemtl blah_material" is the next line
             index = subStringAlpha(fileContent, buffer, fileSize, index); // Skip over "usemtl"
 
-            index = getMaterialName(fileContent, buffer, fileSize, index);
+            index = nextToken (fileContent, buffer, fileSize, index);
 
             strcpy(objData->mtlNames[groupIndex++], buffer);
         }
@@ -417,47 +388,151 @@ static void parseOBJFile(const char *fileName, OBJData *objData)
         else if(strcmp(buffer, "vn") == 0)            
             normCount++;
         else if(strcmp(buffer, "f") == 0 && fileContent[index - 2] == '\n')
-        {
             faceCount++;
-        }else if(strcmp(buffer, "g") == 0)
-        {
+        else if(strcmp(buffer, "g") == 0)
             groupCount++;
-        }
     }
 
     // Allocate memory for objData members
+    objData->numPositions = posCount * 3;
+    objData->positions = (GLfloat*)malloc(sizeof(GLfloat) * objData->numPositions);
+
+    if(normCount > 0)
     {
-        objData->numPositions = posCount * 3;
-        objData->positions = (GLfloat*)malloc(sizeof(GLfloat) * objData->numPositions);
+        objData->numNormals = normCount * 3;
+        objData->normals = (GLfloat*)malloc(sizeof(GLfloat) * objData->numNormals);
+    }
 
-        if(normCount > 0)
-        {
-            objData->numNormals = normCount * 3;
-            objData->normals = (GLfloat*)malloc(sizeof(GLfloat) * objData->numNormals);
-        }
+    objData->numTexcoords = texcoordCount * 2;
+    objData->texcoords = (GLfloat*)malloc(sizeof(GLfloat) * objData->numTexcoords);
 
-        objData->numTexcoords = texcoordCount * 2;
-        objData->texcoords = (GLfloat*)malloc(sizeof(GLfloat) * objData->numTexcoords);
+    // Not sure how many faces there will be after making sure thay are all triangles
+    // so I quadrupled the size of the faceArray
+    objData->numFaces = faceCount * 3 * 3 * 4;
+    //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
+    objData->faces = (int*)malloc(sizeof(int) * objData->numFaces);
 
-        // Not sure how many faces there will be after making sure thay are all triangles
-        // so I quadrupled the size of the faceArray
-        objData->numFaces = faceCount * 3 * 3 * 4;
-        //faceArray = (int*)malloc(sizeof(int)*faceCount*3*3*2 *2);
-        objData->faces = (int*)malloc(sizeof(int) * objData->numFaces);
-
-        if(groupCount > 0)
-        {
-            objData->numGroups = groupCount;
-            objData->groupIndices = (size_t*)malloc(sizeof(size_t)*groupCount);
-            objData->mtlNames = (char**)malloc(sizeof(char*)*groupCount);
-            for(size_t i = 0; i < groupCount; i++)
-                objData->mtlNames[i] = (char*)malloc(sizeof(char*)*20);
-        }
+    if(groupCount > 0)
+    {
+        objData->numGroups = groupCount;
+        objData->groupIndices = (size_t*)malloc(sizeof(size_t)*groupCount);
+        objData->mtlNames = (char**)malloc(sizeof(char*)*groupCount);
+        for(size_t i = 0; i < groupCount; i++)
+            objData->mtlNames[i] = (char*)malloc(sizeof(char*)*20);
     }
 
     // Extract the OBJ file data from fileContent and store the data in objData.
     extractOBJData(fileContent, readResult, objData);    
     free(fileContent);
+}
+
+struct SceneObjectEntry
+{
+    char name[30];
+    Vec3 position;
+    Vec3 orientation;                // Euler angle
+    Vec3 scaleFactors;
+    bool calcNormal;
+    bool calcBasis;
+    bool extraVertAttrib;
+};
+
+static void initSceneObjectEntries(SceneObjectEntry objEntries[], const int entriesLen)
+{
+    for(int i = 0; i < entriesLen; i++)
+    {        
+        objEntries[i].name[0] = '\0';
+        objEntries[i].calcNormal = false;
+        objEntries[i].calcBasis = false;
+        objEntries[i].extraVertAttrib = false;
+    }
+}
+
+static int parseSceneObject(SceneObjectEntry *objEntry, const char *fileContent, const size_t readResult,
+                            const int startIndex)
+{
+    int index = startIndex;
+    char buffer[50];
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over NAME
+    index = subStringAlpha(fileContent, buffer, readResult, index);
+    strcpy(objEntry->name, buffer);
+    
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over POSITION
+    index = parseVec3(&(objEntry->position), fileContent, readResult, index);
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over ORIENTATION
+    index = parseVec3(&(objEntry->orientation), fileContent, readResult, index);    
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over SCALING
+    index = parseVec3(&(objEntry->scaleFactors), fileContent, readResult, index);        
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over CALC_NORMAL
+    index = subStringAlpha(fileContent, buffer, readResult, index);    
+    if(strcmp(buffer, "true") == 0)
+        objEntry->calcNormal = true;
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over CALC_BASIS
+    index = subStringAlpha(fileContent, buffer, readResult, index);        
+    if(strcmp(buffer, "true") == 0)
+        objEntry->calcBasis = true;
+
+    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over EXTRA_ATTRIB
+    index = subStringAlpha(fileContent, buffer, readResult, index);        
+    if(strcmp(buffer, "true") == 0)
+        objEntry->extraVertAttrib = true;
+    
+    return index;
+}
+
+static int loadSceneFile(SceneObjectEntry objectEntries[], const int entriesLen, const char *fileName)
+{
+    // Read the file into the string fileContent
+    char *fileContent, buffer[100];
+    buffer[0] = '\0';
+    strcat(buffer, SCENE_DIR);
+    strcat(buffer, fileName);    
+    size_t readResult = readFileIntoString(buffer, &fileContent);
+
+    int index = 0, numObjects = 0;
+    while(index != -1)
+    {
+        index = subStringAlpha(fileContent, buffer, readResult, index);
+        if(strcmp(buffer, "OBJECT") == 0)
+        {
+            numObjects++;
+        }else if(strcmp(buffer, "NAME") == 0)
+        {
+            index = subStringAlpha(fileContent, buffer, readResult, index);
+            strcpy(objectEntries[numObjects-1].name, buffer);
+        }else if(strcmp(buffer, "POSITION") == 0)
+        {
+            index = parseVec3(&(objectEntries[numObjects-1].position), fileContent, readResult, index);
+        }else if(strcmp(buffer, "ORIENTATION") == 0)
+        {
+            index = parseVec3(&(objectEntries[numObjects-1].orientation), fileContent, readResult, index);
+        }else if(strcmp(buffer, "SCALING") == 0)
+        {
+            index = parseVec3(&(objectEntries[numObjects-1].scaleFactors), fileContent, readResult, index);
+        }else if(strcmp(buffer, "CALC_NORMAL") == 0)
+        {
+            index = subStringAlpha(fileContent, buffer, readResult, index);    
+            if(strcmp(buffer, "true") == 0)
+                objectEntries[numObjects-1].calcNormal = true;
+        }else if(strcmp(buffer, "CALC_BASIS") == 0)
+        {
+            index = subStringAlpha(fileContent, buffer, readResult, index);    
+            if(strcmp(buffer, "true") == 0)
+                objectEntries[numObjects-1].calcBasis = true;
+        }else if(strcmp(buffer, "EXTRA_ATTRIB") == 0)
+        {
+            index = subStringAlpha(fileContent, buffer, readResult, index);    
+            if(strcmp(buffer, "true") == 0)
+                objectEntries[numObjects-1].extraVertAttrib = true;
+        }
+    }
+    free(fileContent);
+    return numObjects;
 }
 
 
@@ -470,28 +545,6 @@ static GLfloat* readFromCollada(const char* fileName, int *numVertices)
     float *posArray, *normArray, *vertexArray;
     int *indexArray;
     
-    /*
-    FILE *fp = fopen(fileName, "rb");
-    if(fp == NULL)
-    {
-        fprintf(stderr, "Cannot open file.");
-        exit(0);
-    }
-    
-    fseek(fp, 0L, SEEK_END);
-    fileSize = ftell(fp);
-    fileContent = (char*)malloc(sizeof(char) * fileSize + 1);
-    rewind(fp);
-    printf("File size = %d\n", fileSize);
-
-    readResult = fread((void*)fileContent, 1, fileSize, fp);
-    if(readResult != fileSize)
-    {
-        fprintf(stderr, "Reading error.\n");
-        exit(1);
-    }
-    fclose(fp);
-    */
     size_t readResult = readFileIntoString(fileName, &fileContent);
     
     // Read in the positions
