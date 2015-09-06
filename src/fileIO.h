@@ -19,11 +19,9 @@ static const char *SCENE_DIR = "../scenes/";
 static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isalpha(fileContent[i]) == 0; i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
+    for(i = index; isalpha(fileContent[i]) == 0 && i < fileSize; i++);
+    if(i >= fileSize)
+        return -1;
 
     for(j = 0; isalpha(fileContent[j+i]) || fileContent[j+i] == '_';j++)
         buffer[j] = fileContent[j+i];
@@ -41,11 +39,9 @@ static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSiz
 static int subStringNum(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isdigit(fileContent[i]) == 0 && fileContent[i] != '-'; i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
+    for(i = index; isdigit(fileContent[i]) == 0 && fileContent[i] != '-' && i < fileSize; i++);    
+    if(i >= fileSize)
+        return -1;
 
     for(j = 0;
         (isdigit(fileContent[j+i]) != 0 || fileContent[j+i] == '.') || fileContent[j+i] == '-';
@@ -59,13 +55,25 @@ static int subStringNum(const char* fileContent, char buffer[], size_t fileSize,
 static int nextToken(const char *fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++)
-    {
-        if(i >= fileSize)
-            return -1;
-    }
+    for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++);
+    if(i >= fileSize)
+        return -1;
 
-    for(j = 0; fileContent[j+i] != '\n'; j++)
+    for(j = 0; fileContent[j+i] != '\n' && fileContent[j+i] != ' '; j++)
+        buffer[j] = fileContent[j+i];
+    buffer[j] = '\0';
+
+    return int(j + i);
+}
+
+static int nextTokenFileName(const char *fileContent, char buffer[], size_t fileSize, size_t index)
+{
+    size_t i, j;
+    for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++);
+    if(i >= fileSize)
+        return -1;
+
+    for(j = 0; isalnum(fileContent[j+i]) != 0 || fileContent[j+i] == '.' || fileContent[j+i] == '_'; j++)
         buffer[j] = fileContent[j+i];
     buffer[j] = '\0';
 
@@ -448,43 +456,6 @@ static void initSceneObjectEntries(SceneObjectEntry objEntries[], const int entr
     }
 }
 
-static int parseSceneObject(SceneObjectEntry *objEntry, const char *fileContent, const size_t readResult,
-                            const int startIndex)
-{
-    int index = startIndex;
-    char buffer[50];
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over NAME
-    index = subStringAlpha(fileContent, buffer, readResult, index);
-    strcpy(objEntry->name, buffer);
-    
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over POSITION
-    index = parseVec3(&(objEntry->position), fileContent, readResult, index);
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over ORIENTATION
-    index = parseVec3(&(objEntry->orientation), fileContent, readResult, index);    
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over SCALING
-    index = parseVec3(&(objEntry->scaleFactors), fileContent, readResult, index);        
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over CALC_NORMAL
-    index = subStringAlpha(fileContent, buffer, readResult, index);    
-    if(strcmp(buffer, "true") == 0)
-        objEntry->calcNormal = true;
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over CALC_BASIS
-    index = subStringAlpha(fileContent, buffer, readResult, index);        
-    if(strcmp(buffer, "true") == 0)
-        objEntry->calcBasis = true;
-
-    index = subStringAlpha(fileContent, buffer, readResult, index);    // Skip over EXTRA_ATTRIB
-    index = subStringAlpha(fileContent, buffer, readResult, index);        
-    if(strcmp(buffer, "true") == 0)
-        objEntry->extraVertAttrib = true;
-    
-    return index;
-}
-
 static int loadSceneFile(SceneObjectEntry objectEntries[], const int entriesLen, const char *fileName)
 {
     // Read the file into the string fileContent
@@ -503,7 +474,7 @@ static int loadSceneFile(SceneObjectEntry objectEntries[], const int entriesLen,
             numObjects++;
         }else if(strcmp(buffer, "NAME") == 0)
         {
-            index = subStringAlpha(fileContent, buffer, readResult, index);
+            index = nextTokenFileName(fileContent, buffer, readResult, index);
             strcpy(objectEntries[numObjects-1].name, buffer);
         }else if(strcmp(buffer, "POSITION") == 0)
         {

@@ -451,21 +451,6 @@ int main()
     Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -27.0f, 27.0f, 5.0f, 35.0f);
     g_ortho = tmp;
 
-
-    SceneObjectEntry objEntries[MAX_NUM_GEO_NODES];
-    initSceneObjectEntries(objEntries, MAX_NUM_GEO_NODES);
-    int numObjEntries = loadSceneFile(objEntries, MAX_NUM_GEO_NODES, "../scenes/scene1.txt");
-    for(int i = 0; i < numObjEntries; i++)
-    {        
-        printf("Name: %s\n", objEntries[i].name);
-        printf("Position: %f, %f, %f\n", objEntries[i].position[0], objEntries[i].position[1], objEntries[i].position[2]);
-        printf("Orientation: %f, %f, %f\n", objEntries[i].orientation[0], objEntries[i].orientation[1], objEntries[i].orientation[2]);
-        printf("Scaling factors: %f, %f, %f\n", objEntries[i].scaleFactors[0], objEntries[i].scaleFactors[1], objEntries[i].scaleFactors[2]);
-        printf("calcNormal: %s\n", objEntries[i].calcNormal ? "true" : "false");
-        printf("calcBasis: %s\n", objEntries[i].calcBasis ? "true" : "false");
-        printf("extraVertAttrib: %s\n", objEntries[i].extraVertAttrib ? "true" : "false");        
-    }
-
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;    
 
     // ---------------------------- RENDERING ------------------------------ //

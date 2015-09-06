@@ -381,8 +381,11 @@ int getGroupInfoFromArray(const GeoGroupInfo infoList[], const int numGroupInfo,
 {
     int i = 0;
     for(i = 0; i < numGroupInfo; i++)
-        if(strcmp(infoList[i].name, groupName) == 0)
+    {
+        printf("%s\n", infoList[i].name);
+        if(strcmp(infoList[i].name, groupName) == 0)            
             break;
+    }
     if(i < numGroupInfo)
         return i;
     fprintf(stderr, "Geometry group %s not found.\n", groupName);
@@ -405,7 +408,40 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
                Material *MTLMaterials[],const int numMTLMat, BaseGeometryNode *baseGeoNodes[],
                const int bgnArrayLen, int &numbgn)
 {
+
+    SceneObjectEntry objEntries[50];
+    initSceneObjectEntries(objEntries, 50);
+    int numObj = loadSceneFile(objEntries, 50, "scene1.txt");
+    for(int i = 0; i < numObj; i++)
+    {        
+        printf("Name: %s\n", objEntries[i].name);
+        printf("Position: %f, %f, %f\n", objEntries[i].position[0], objEntries[i].position[1], objEntries[i].position[2]);
+        printf("Orientation: %f, %f, %f\n", objEntries[i].orientation[0], objEntries[i].orientation[1], objEntries[i].orientation[2]);
+        printf("Scaling factors: %f, %f, %f\n", objEntries[i].scaleFactors[0], objEntries[i].scaleFactors[1], objEntries[i].scaleFactors[2]);
+        printf("calcNormal: %s\n", objEntries[i].calcNormal ? "true" : "false");
+        printf("calcBasis: %s\n", objEntries[i].calcBasis ? "true" : "false");
+        printf("extraVertAttrib: %s\n", objEntries[i].extraVertAttrib ? "true" : "false");        
+    }    
+
+    for(int i = 0; i < numObj; i++)
+    {
+        MultiGeometryNode *mgn;
+        RigTForm modelRbt(objEntries[i].position);
+        int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, objEntries[i].name);
+        if(index != -1)
+        {
+            printf("HERE!\n");
+            mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
+                                        numMTLMat, modelRbt, true);
+            mgn->setScaleFactor(objEntries[i].scaleFactors);
+        }
+        baseGeoNodes[numbgn++] = mgn;
+        rootNode->addChild(mgn);        
+    }
+
+
     RigTForm modelRbt;
+    /*
     GeometryNode *gn;
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
     Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship.obj");
@@ -445,7 +481,9 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     }
     //baseGeoNodes[numbgn++] = mgn;
     //rootNode->addChild(gn);
+    */
 
+    /*
     MultiGeometryNode *mgn;
     //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
     modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
@@ -457,7 +495,6 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     //baseGeoNodes[numbgn++] = mgn;
     //rootNode->addChild(mgn);
 
-
     index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza.obj");
     if(index != -1)
     {
@@ -467,6 +504,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     }
     baseGeoNodes[numbgn++] = mgn;
     rootNode->addChild(mgn);
+    */
 }
 
 #endif
