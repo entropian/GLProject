@@ -720,4 +720,21 @@ const char* bloomFragSrc = GLSL(
     }
 );
 
+const char* showBloomFragSrc = GLSL(
+    in vec2 vTexcoord;
+
+    uniform sampler2D bloomBlurBuffer;
+    uniform float exposure;
+    out vec4 outColor;
+    
+    void main()
+    {
+        const float gamma = 1.0;
+        vec3 bloomColor = texture(bloomBlurBuffer, vTexcoord).rgb;
+        vec3 mapped = vec3(1.0) - exp(-bloomColor * exposure);
+        mapped = pow(mapped, vec3(1.0 / gamma));
+        outColor = vec4(mapped, 1.0);
+    }
+);
+
 #endif

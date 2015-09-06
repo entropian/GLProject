@@ -10,7 +10,7 @@ struct HDRStruct
 {
     GLuint vao, vbo;
     GLuint fbo, colorBuffer, brightColorBuffer;
-    GLuint shaderProgram;
+    GLuint shaderProgram, toneMap, toneMapBloom, showBloom;
 };
 
 void deleteHDRStruct(HDRStruct &hdr)
@@ -20,17 +20,31 @@ void deleteHDRStruct(HDRStruct &hdr)
     glDeleteTextures(1, &(hdr.colorBuffer));
     glDeleteTextures(1, &(hdr.brightColorBuffer));    
     glDeleteFramebuffers(1, &(hdr.fbo));
-    glDeleteProgram(hdr.shaderProgram);
+    //glDeleteProgram(hdr.shaderProgram);
+    glDeleteProgram(hdr.toneMap);    
+    glDeleteProgram(hdr.showBloom);
 }
 
 void initHDR(HDRStruct &hdr, const int windowWidth, const int windowHeight, const bool bloom)
 {
-    hdr.shaderProgram = compileAndLinkShaders(RTBVertSrc, bloom ? bloomFragSrc : exposureHDRFragSrc);
-    glUseProgram(hdr.shaderProgram);
-    glUniform1i(glGetUniformLocation(hdr.shaderProgram, "hdrBuffer"), 0);
-    if(bloom)
-        glUniform1i(glGetUniformLocation(hdr.shaderProgram, "bloomBlurBuffer"), 1);        
-    glUniform1f(glGetUniformLocation(hdr.shaderProgram, "exposure"), 2.0f);
+    hdr.showBloom = compileAndLinkShaders(RTBVertSrc, showBloomFragSrc);
+    glUseProgram(hdr.showBloom);
+    glUniform1i(glGetUniformLocation(hdr.showBloom, "bloomBlurBuffer"), 1);
+    glUniform1f(glGetUniformLocation(hdr.showBloom, "exposure"), 2.0f);    
+    
+    //hdr.toneMap = compileAndLinkShaders(RTBVertSrc, bloom ? bloomFragSrc : exposureHDRFragSrc);
+    hdr.toneMap = compileAndLinkShaders(RTBVertSrc, exposureHDRFragSrc);    
+    glUseProgram(hdr.toneMap);
+    glUniform1i(glGetUniformLocation(hdr.toneMap, "hdrBuffer"), 0);
+    glUniform1f(glGetUniformLocation(hdr.toneMap, "exposure"), 2.0f);
+
+    hdr.toneMapBloom = compileAndLinkShaders(RTBVertSrc, bloomFragSrc);    
+    glUseProgram(hdr.toneMapBloom);
+    glUniform1i(glGetUniformLocation(hdr.toneMapBloom, "hdrBuffer"), 0);
+    glUniform1i(glGetUniformLocation(hdr.toneMapBloom, "bloomBlurBuffer"), 1);        
+    glUniform1f(glGetUniformLocation(hdr.toneMapBloom, "exposure"), 2.0f);    
+
+    hdr.shaderProgram = hdr.toneMapBloom;
 
     glGenFramebuffers(1, &(hdr.fbo));
     glBindFramebuffer(GL_FRAMEBUFFER, hdr.fbo);

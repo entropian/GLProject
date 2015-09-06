@@ -30,8 +30,8 @@
 #include "bloom.h"
 //#include "collision.h"
 
-static float g_windowWidth = 1280.0f;
-static float g_windowHeight = 720.0f;
+static float g_windowWidth = 1920.0f;
+static float g_windowHeight = 1080.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
@@ -46,7 +46,7 @@ static const size_t MAX_TEXTURES = 100;
 GLFWwindow* window;
 
 static double g_framesPerSec = 60.0f;
-static double g_distancePerSec = 3.0f;
+static double g_distancePerSec = 1.5f;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
@@ -202,10 +202,10 @@ void draw_scene(TransformNode *rootNode)
         numTex = 0;
         texArray[numTex++] = g_hdr.colorBuffer;
         texArray[numTex++] = g_bb.pingpongBuffer[0];
-        drawScreenQuadMultiTex(0, g_hdr.shaderProgram, g_hdr.vao, texArray, numTex);
+        drawScreenQuadMultiTex(0, g_hdr.shaderProgram, g_hdr.vao, texArray, numTex);        
     }else
     {
-        drawScreenQuad(0, g_hdr.shaderProgram, g_hdr.vao, g_hdr.colorBuffer);
+        drawScreenQuad(0, g_hdr.toneMap, g_hdr.vao, g_hdr.colorBuffer);
     }
 }
 
@@ -221,6 +221,13 @@ void cursorPosCallback(GLFWwindow* window, double x, double y)
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    if(key > GLFW_KEY_0 && key < GLFW_KEY_8 && key != GLFW_KEY_6)
+        g_hdr.shaderProgram = g_hdr.toneMapBloom;
+    if(key == GLFW_KEY_1 || key == GLFW_KEY_6 || key == GLFW_KEY_7)
+        g_bloom = true;
+    else if(key > GLFW_KEY_1 && key < GLFW_KEY_6)
+        g_bloom = false;
+            
     switch(key)
     {
     case GLFW_KEY_1:
@@ -229,21 +236,26 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         break;
     case GLFW_KEY_2:
         if(action == GLFW_PRESS)
-            g_df.shaderProgram = g_df.showNormal;        
+            g_df.shaderProgram = g_df.showDiffuse;                     
         break;
     case GLFW_KEY_3:
         if(action == GLFW_PRESS)
-            g_df.shaderProgram = g_df.showDiffuse;         
+            g_df.shaderProgram = g_df.showNormal;        
         break;
     case GLFW_KEY_4:
         if(action == GLFW_PRESS)
-            g_df.shaderProgram = g_df.showSSAO;
+            g_df.shaderProgram = g_df.showSpecular;            
         break;
     case GLFW_KEY_5:
         if(action == GLFW_PRESS)
-            g_df.shaderProgram = g_df.showSpecular;
+            g_df.shaderProgram = g_df.showSSAO;
         break;
     case GLFW_KEY_6:
+        if(action == GLFW_PRESS)
+            g_hdr.shaderProgram = g_hdr.showBloom;
+            g_df.shaderProgram = g_df.shadowShader;        
+        break;        
+    case GLFW_KEY_7:
         if(action == GLFW_PRESS)
             g_df.shaderProgram = g_df.shadowShader;
         break;
