@@ -40,8 +40,8 @@ Vec3 g_lightE, g_lightW(13.0f, 22.0f, 2.0f);
 static Mat4 g_proj, g_ortho;
 static Mat4 worldToLightSpaceMat;
 
-// Materials
-static const size_t MAX_MATERIALS = 200;
+static const size_t MAX_MATERIALS = 50;
+static const size_t MAX_TEXTURES = 100;
 
 GLFWwindow* window;
 
@@ -83,7 +83,7 @@ static HDRStruct g_hdr;
 static BloomBlurStruct g_bb;
 static bool g_bloom = true;
 
-void draw_scene(TransformNode *rootNode, Material *materials[], const int numMat, Material *MTLMaterials[], const int numMTLMat)
+void draw_scene(TransformNode *rootNode)
 {
     RigTForm viewRbt = inputHandler.getViewTransform();
     // Draws scene from the perspective of the light
@@ -278,12 +278,8 @@ void initDepthMap(DepthMap* dm)
     glBindTexture(GL_TEXTURE_2D, dm->depthMap);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
                  dm->SHADOW_WIDTH, dm->SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
@@ -341,15 +337,13 @@ void initUniformBlock()
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBlock);
 }
 
-
-/*
 void deleteScenegraph(TransformNode *tn)
 {
     for(int i = 0; i < tn->getChildrenCount(); i++)
         deleteScenegraph(static_cast<TransformNode*>(tn->getChild(i)));
     delete tn;
 }
-*/
+
 int main()
 {
     // -------------------------------- INIT ------------------------------- //
@@ -390,25 +384,7 @@ int main()
 
     // Geometries    
     initGeometries(geometries);
-
-    MaterialInfo matInfoList[MAX_MATERIALS];
-    initMatInfoList(matInfoList, MAX_MATERIALS);
-
     
-    const size_t numMTLFiles = 2;
-    char MTLFileNames[numMTLFiles][20] = {"sponza.mtl", "crysponza.mtl"};
-    
-    size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numMTLFiles);
-    
-    char *nonMTLTextures[5] = {"Ship_Diffuse.png", "default.png", "Ship_Normal.png",
-                                "Ship2_Diffuse.png", "Ship2_Normal.png"};
-    int numNonMTL = 5;
-    GLuint *textureHandles;
-    int numTextures;
-    char **textureFileNames;
-
-    numTextures = initTextures(matInfoList, MTLMatCount, textureFileNames, nonMTLTextures, numNonMTL, textureHandles);
-
     /*
     // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()
     //Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, .05f, 25.0f);
@@ -421,14 +397,6 @@ int main()
     initSkybox(g_skybox);
 
     initUniformBlock();
- 
-    Material *materials[MAX_MATERIALS];
-    int numMat = 0;
-    initMaterials(materials, MAX_MATERIALS, numMat, textureHandles);
-    
-    Material *MTLMaterials[MAX_MATERIALS];
-    int numMTLMat = 0;
-    initMTLMaterials(matInfoList, MTLMatCount, MTLMaterials, numMTLMat, textureFileNames, textureHandles, numTextures);
 
     TransformNode *worldNode = new TransformNode();
     inputHandler.setWorldNode(worldNode);
@@ -436,17 +404,25 @@ int main()
     const int MAX_NUM_GEO_NODES = 50;
     BaseGeometryNode *baseGeoNodes[MAX_NUM_GEO_NODES];
     int numGeoNodes = 0;
-    initScene(worldNode, geometries, materials, numMat, MTLMaterials, numMTLMat, baseGeoNodes,
-              MAX_NUM_GEO_NODES, numGeoNodes);
+
+    MaterialInfo matInfoList[MAX_MATERIALS];
+    initMatInfoList(matInfoList, MAX_MATERIALS);
+    
+    Material *MTLMaterials[MAX_MATERIALS];
+    int numMTLMat = 0;
+
+    GLuint *textureHandles;
+    int numTextures;
+    char textureFileNames[MAX_TEXTURES][40];
+    
+    initScene(worldNode, geometries, matInfoList, MAX_MATERIALS, MTLMaterials, numMTLMat, textureHandles, numTextures,
+              textureFileNames, MAX_TEXTURES, baseGeoNodes, MAX_NUM_GEO_NODES, numGeoNodes);
     initRenderToBuffer(g_rtb, (int)g_windowWidth, (int)g_windowHeight);
     initDepthMap(&g_depthMap);
     initDeferredRender(g_df, (int)g_windowWidth, (int)g_windowHeight);
     initSSAO(g_ssaos, (int)g_windowWidth, (int)g_windowHeight, 64, 1.0);
     initHDR(g_hdr, (int)g_windowWidth, (int)g_windowHeight, g_bloom);
     initBloomBlur(g_bb, (int)g_windowWidth, (int)g_windowHeight);
-
-    for(int i = 0; i < numMTLMat; i++)        
-        MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);
 
     Mat4 tmp = Mat4::makeOrtho(-9.0f, 8.0f, -27.0f, 27.0f, 5.0f, 35.0f);
     g_ortho = tmp;
@@ -457,7 +433,7 @@ int main()
     
     glEnable(GL_DEPTH_TEST);
     glFrontFace(GL_CCW);    
-    draw_scene(worldNode, materials, numMat, MTLMaterials, numMTLMat);
+    draw_scene(worldNode);
     double currentTime, timeLastRender = 0;
     while(!glfwWindowShouldClose(window))
     {
@@ -467,7 +443,7 @@ int main()
             {
                 glfwSwapBuffers(window);
                 timeLastRender = currentTime;
-                draw_scene(worldNode, materials, numMat, MTLMaterials, numMTLMat);
+                draw_scene(worldNode);
             }
 
         // Poll window events
@@ -483,12 +459,13 @@ int main()
 
     for(int i = 0; i < geometries.numGroupGeo; i++)
         delete geometries.groupGeo[i];
-    
+    /*
     for(int i = 0; i < numMat; i++)
         delete materials[i];
-
+    */
     for(int i = 0; i < numMTLMat; i++)
         delete MTLMaterials[i];
+
     delete g_depthMap.depthMapMaterial;
     deleteSSAO(g_ssaos);
     deleteDeferredStruct(g_df);

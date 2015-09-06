@@ -240,7 +240,7 @@ static size_t parseMTLFile(MaterialInfo *infoList, const size_t infoListSize, co
 }
 
 // Loads the data from MTL files specified by MTLFileNames into matInfoList
-static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][20], const size_t numMTLFiles)
+static size_t loadMTLFiles(MaterialInfo matInfoList[], const size_t infoListSize, char MTLFileNames[][30], const size_t numMTLFiles)
 {
     MaterialInfo *tmpList = (MaterialInfo*)malloc(sizeof(MaterialInfo)*infoListSize);
     size_t numMat = 0;
@@ -436,7 +436,8 @@ static void parseOBJFile(const char *fileName, OBJData *objData)
 
 struct SceneObjectEntry
 {
-    char name[30];
+    char fileName[30];
+    char MTLFileName[30];
     Vec3 position;
     Vec3 orientation;                // Euler angle
     Vec3 scaleFactors;
@@ -449,7 +450,8 @@ static void initSceneObjectEntries(SceneObjectEntry objEntries[], const int entr
 {
     for(int i = 0; i < entriesLen; i++)
     {        
-        objEntries[i].name[0] = '\0';
+        objEntries[i].fileName[0] = '\0';
+        objEntries[i].MTLFileName[0] = '\0';        
         objEntries[i].calcNormal = false;
         objEntries[i].calcBasis = false;
         objEntries[i].extraVertAttrib = false;
@@ -475,7 +477,11 @@ static int loadSceneFile(SceneObjectEntry objectEntries[], const int entriesLen,
         }else if(strcmp(buffer, "NAME") == 0)
         {
             index = nextTokenFileName(fileContent, buffer, readResult, index);
-            strcpy(objectEntries[numObjects-1].name, buffer);
+            strcpy(objectEntries[numObjects-1].fileName, buffer);
+        }else if(strcmp(buffer, "MTL_FILE") == 0)
+        {
+            index = nextTokenFileName(fileContent, buffer, readResult, index);
+            strcpy(objectEntries[numObjects-1].MTLFileName, buffer);            
         }else if(strcmp(buffer, "POSITION") == 0)
         {
             index = parseVec3(&(objectEntries[numObjects-1].position), fileContent, readResult, index);

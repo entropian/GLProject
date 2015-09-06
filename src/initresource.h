@@ -21,7 +21,9 @@
 
 extern Skybox g_skybox;
 extern Vec3 g_lightW;
+extern DepthMap g_depthMap;
 static bool shadow = false;
+static char *TEXTURE_DIR = "../textures/";
 
 // TODO: check for array length
 void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
@@ -97,8 +99,6 @@ void loadAndSpecifyTexture(const char *fileName)
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB , width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -107,8 +107,26 @@ void loadAndSpecifyTexture(const char *fileName)
     SOIL_free_image_data(image);
 }
 
+bool addTextureFileName(const char fileName[40], char textureFileNames[][40], const size_t MAX_TEXTURES, size_t &tfIndex)
+{
+    bool duplicate = false;
+    for(size_t j = 0; j < tfIndex; j++)
+        if(strcmp(fileName, textureFileNames[j]) == 0)
+            duplicate = true;
+
+    if(!duplicate)
+    {
+        if((tfIndex + 1) >= MAX_TEXTURES)
+            return false;
+        strcpy(textureFileNames[tfIndex], fileName);
+        tfIndex++;
+    }
+    return true;
+}
+
 // Initializes textures that are used in materials
-int initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&textureFileNames, char *nonMTLTextures[], const int numNonMTL, GLuint *&textureHandles)
+int initTextures(MaterialInfo matInfoList[], const size_t matCount, char textureFileNames[][40], const size_t MAX_TEXTURES,
+                 GLuint *&textureHandles)
 {
     time_t startTime, endTime;
     time(&startTime);
@@ -125,93 +143,41 @@ int initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&text
             mapCount++;                
     }
     
-    //size_t tmp = 5 + matCount;
-    size_t tmp = numNonMTL + mapCount;    
-    textureFileNames = (char**)malloc(sizeof(char*)*tmp);
-
-    for(size_t i = 0; i < tmp; i++)
-        textureFileNames[i] = (char*)malloc(sizeof(char)*40);
-    
-    for(size_t i = 0; i < numNonMTL; i++)
-        strcpy(textureFileNames[i], nonMTLTextures[i]);
-
-
+    // TODO: get rid of the redundant code in this loop
     size_t tfIndex = 0;
+    bool status = true;;
+    char *fileNames[4];
     for(size_t i = 0; i < matCount; i++)
     {
-        // Diffuse map
-        if(matInfoList[i].map_Kd[0] != '\0')
+        fileNames[0] = matInfoList[i].map_Kd;
+        fileNames[1] = matInfoList[i].map_bump;
+        fileNames[2] = matInfoList[i].map_d;
+        fileNames[3] = matInfoList[i].map_spec;
+        for(size_t j = 0; j < 4; j++)
         {
-            bool duplicate = false;
-            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-                if(strcmp(matInfoList[i].map_Kd, textureFileNames[j]) == 0)
-                    duplicate = true;
-
-            if(!duplicate)
+            if(fileNames[j][0] != '\0')
             {
-                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_Kd);
-                tfIndex++;
+                status = addTextureFileName(fileNames[j], textureFileNames, MAX_TEXTURES, tfIndex);
+                if(!status)
+                {
+                    fprintf(stderr, "Too many textures.\n");
+                    break;
+                }
             }
+            if(!status)
+                break;
         }
-
-        // Normal map
-        if(matInfoList[i].map_bump[0] != '\0')
-        {
-            bool duplicate = false;
-            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-                if(strcmp(matInfoList[i].map_bump, textureFileNames[j]) == 0)
-                    duplicate = true;
-
-            if(!duplicate)
-            {
-                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_bump);
-                tfIndex++;
-            }
-        }
-
-        // Alpha map
-        if(matInfoList[i].map_d[0] != '\0')
-        {
-            bool duplicate = false;
-            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-                if(strcmp(matInfoList[i].map_d, textureFileNames[j]) == 0)
-                    duplicate = true;
-
-            if(!duplicate)
-            {
-                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_d);
-                tfIndex++;
-            }            
-        }
-
-        // Specular map
-        if(matInfoList[i].map_spec[0] != '\0')
-        {
-            bool duplicate = false;
-            for(size_t j = 0; j < numNonMTL + tfIndex; j++)
-                if(strcmp(matInfoList[i].map_spec, textureFileNames[j]) == 0)
-                    duplicate = true;
-
-            if(!duplicate)
-            {
-                strcpy(textureFileNames[numNonMTL + tfIndex], matInfoList[i].map_spec);
-                tfIndex++;
-            }            
-        }                                    
     }
                                                                                   
-    int numTextureFiles = tfIndex + numNonMTL;
-
-    textureHandles = (GLuint*)malloc(sizeof(GLuint)*numTextureFiles);
-    glGenTextures(numTextureFiles, textureHandles);
+    textureHandles = (GLuint*)malloc(sizeof(GLuint)*tfIndex);
+    glGenTextures(tfIndex, textureHandles);
 
     glActiveTexture(GL_TEXTURE0);
-    for(size_t i = 0; i < numTextureFiles; i++)
+    for(size_t i = 0; i < tfIndex; i++)
     {
-        printf("%s\n", textureFileNames[i]);
+        //printf("%s\n", textureFileNames[i]);        
         char buffer[100];
-        buffer[0] = '\0';
-        strcat(buffer, "../textures/");
+        strcpy(buffer, TEXTURE_DIR);
         strcat(buffer, textureFileNames[i]);
         glBindTexture(GL_TEXTURE_2D, textureHandles[i]);
         loadAndSpecifyTexture(buffer);
@@ -221,7 +187,7 @@ int initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&text
     time(&endTime);
     double sec = difftime(endTime, startTime);
     printf("Texture loading took %f seconds.\n", sec);
-    return numTextureFiles;
+    return tfIndex;
 }
 
 /*
@@ -229,7 +195,7 @@ int initTextures(MaterialInfo matInfoList[], const size_t matCount, char **&text
   If the texture handle is not found, textureArray[i] is sent instead.
 */
 void setMaterialTexture(Material *mat, const char* fileName, const char* uniformName,
-                         char** textureFileNames, const GLuint* textureHandles, size_t numTextures)
+                         char textureFileNames[][40], const GLuint* textureHandles, size_t numTextures)
 {
     size_t i;
     for(i = 0; i < numTextures; i++)
@@ -238,6 +204,7 @@ void setMaterialTexture(Material *mat, const char* fileName, const char* uniform
     mat->sendUniformTexture(uniformName, textureHandles[i]);    
 }
 
+/*
 void initMaterials(Material *materials[], const size_t arrayLen, int &numMat, const GLuint *textureHandles)
 {
     // TODO: what if two materials have the same name?
@@ -280,9 +247,10 @@ void initMaterials(Material *materials[], const size_t arrayLen, int &numMat, co
     materials[numMat]->bindUniformBlock("UniformBlock", 0);
     ++numMat;
 }
+*/
 
 void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material *MTLMaterials[], int &numMTLMat,
-                      char **textureFileNames, const GLuint *textureHandles, const int numTextures)
+                      char textureFileNames[][40], const GLuint *textureHandles, const int numTextures)
 {
     enum ShaderFlag
     {
@@ -404,33 +372,34 @@ Material* getMaterialFromArray(Material *materials[], const int numMat, const ch
     return NULL;
 }
 
-void initScene(TransformNode *rootNode, Geometries &geometries, Material *materials[], const int numMat,
-               Material *MTLMaterials[],const int numMTLMat, BaseGeometryNode *baseGeoNodes[],
-               const int bgnArrayLen, int &numbgn)
+// TODO: some of the arrays in the parameters don't have length specified. Also sort out the references and pointers
+void initScene(TransformNode *rootNode, Geometries &geometries, MaterialInfo matInfoList[], const size_t MAX_MATERIALS,
+               Material *MTLMaterials[], int &numMTLMat, GLuint *&textureHandles, int &numTextures, char textureFileNames[][40], 
+               const size_t MAX_TEXTURES, BaseGeometryNode *baseGeoNodes[], const int bgnArrayLen, int &numbgn)    
 {
-
     SceneObjectEntry objEntries[50];
     initSceneObjectEntries(objEntries, 50);
     int numObj = loadSceneFile(objEntries, 50, "scene1.txt");
+
+    char MTLFileNames[30][30];    
     for(int i = 0; i < numObj; i++)
-    {        
-        printf("Name: %s\n", objEntries[i].name);
-        printf("Position: %f, %f, %f\n", objEntries[i].position[0], objEntries[i].position[1], objEntries[i].position[2]);
-        printf("Orientation: %f, %f, %f\n", objEntries[i].orientation[0], objEntries[i].orientation[1], objEntries[i].orientation[2]);
-        printf("Scaling factors: %f, %f, %f\n", objEntries[i].scaleFactors[0], objEntries[i].scaleFactors[1], objEntries[i].scaleFactors[2]);
-        printf("calcNormal: %s\n", objEntries[i].calcNormal ? "true" : "false");
-        printf("calcBasis: %s\n", objEntries[i].calcBasis ? "true" : "false");
-        printf("extraVertAttrib: %s\n", objEntries[i].extraVertAttrib ? "true" : "false");        
-    }    
+    {
+        strcpy(MTLFileNames[i], objEntries[i].MTLFileName);
+    }
+    size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numObj);
+    numTextures = initTextures(matInfoList, MTLMatCount, textureFileNames, MAX_TEXTURES, textureHandles);
+    initMTLMaterials(matInfoList, MTLMatCount, MTLMaterials, numMTLMat, textureFileNames, textureHandles, numTextures);
+
+    for(int i = 0; i < numMTLMat; i++)        
+        MTLMaterials[i]->sendUniformTexture("shadowMap", g_depthMap.depthMap);    
 
     for(int i = 0; i < numObj; i++)
     {
         MultiGeometryNode *mgn;
         RigTForm modelRbt(objEntries[i].position);
-        int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, objEntries[i].name);
+        int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, objEntries[i].fileName);
         if(index != -1)
         {
-            printf("HERE!\n");
             mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
                                         numMTLMat, modelRbt, true);
             mgn->setScaleFactor(objEntries[i].scaleFactors);
@@ -438,10 +407,8 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
         baseGeoNodes[numbgn++] = mgn;
         rootNode->addChild(mgn);        
     }
-
-
-    RigTForm modelRbt;
     /*
+    RigTForm modelRbt;      
     GeometryNode *gn;
     modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
     Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship.obj");
@@ -504,6 +471,15 @@ void initScene(TransformNode *rootNode, Geometries &geometries, Material *materi
     }
     baseGeoNodes[numbgn++] = mgn;
     rootNode->addChild(mgn);
+    */
+
+    /*
+    glDeleteTextures(numTextures, textureHandles);
+    for(int i = 0; i < numMat; i++)
+        delete materials[i];
+
+    for(int i = 0; i < numMTLMat; i++)
+        delete MTLMaterials[i];
     */
 }
 
