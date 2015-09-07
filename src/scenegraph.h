@@ -237,7 +237,7 @@ public:
         for(size_t i = 0; i < groupInfo.numGroups; i++)
         {
             size_t j;
-            for(j = 0; strcmp(groupInfo.mtlNames[i], m[j]->getName()) != 0 && j < numMat; j++){};
+            for(j = 0; j < numMat && strcmp(groupInfo.mtlNames[i], m[j]->getName()) != 0; j++){};
             assert(j < numMat);
             bool duplicate = false;
             for(size_t k = 0; k < matIndex; k++)

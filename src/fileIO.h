@@ -19,9 +19,12 @@ static const char *SCENE_DIR = "../scenes/";
 static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isalpha(fileContent[i]) == 0 && i < fileSize; i++);
+    for(i = index; i < fileSize && isalpha(fileContent[i]) == 0; i++);
     if(i >= fileSize)
+    {
+        fprintf(stderr, "Read past file content.\n");        
         return -1;
+    }
 
     for(j = 0; isalpha(fileContent[j+i]) || fileContent[j+i] == '_';j++)
         buffer[j] = fileContent[j+i];
@@ -39,9 +42,12 @@ static int subStringAlpha(const char* fileContent, char buffer[], size_t fileSiz
 static int subStringNum(const char* fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isdigit(fileContent[i]) == 0 && fileContent[i] != '-' && i < fileSize; i++);    
+    for(i = index; i < fileSize && isdigit(fileContent[i]) == 0 && fileContent[i] != '-'; i++);    
     if(i >= fileSize)
+    {
+        fprintf(stderr, "Read past file content.\n");        
         return -1;
+    }
 
     for(j = 0;
         (isdigit(fileContent[j+i]) != 0 || fileContent[j+i] == '.') || fileContent[j+i] == '-';
@@ -55,11 +61,14 @@ static int subStringNum(const char* fileContent, char buffer[], size_t fileSize,
 static int nextToken(const char *fileContent, char buffer[], size_t fileSize, size_t index)
 {
     size_t i, j;
-    for(i = index; isalnum(fileContent[i]) == 0 && i < fileSize; i++);
+    for(i = index; i < fileSize && isalnum(fileContent[i]) == 0; i++);
     if(i >= fileSize)
+    {
+        fprintf(stderr, "Read past file content.\n");
         return -1;
+    }
 
-    for(j = 0; fileContent[j+i] != '\n' && fileContent[j+i] != ' '; j++)
+    for(j = 0; fileContent[j+i] != '\n' && fileContent[j+i] != '\r' && fileContent[j+i] != ' '; j++)
         buffer[j] = fileContent[j+i];
     buffer[j] = '\0';
 

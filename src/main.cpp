@@ -30,8 +30,8 @@
 #include "bloom.h"
 //#include "collision.h"
 
-static float g_windowWidth = 1920.0f;
-static float g_windowHeight = 1080.0f;
+static float g_windowWidth = 1280.0f;
+static float g_windowHeight = 720.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
@@ -392,11 +392,12 @@ int main()
 
     // ----------------------------- RESOURCES ----------------------------- //
     inputHandler.initialize();
-    Geometries geometries;
 
-    // Geometries    
-    initGeometries(geometries);
-    
+
+    // Geometries
+    Geometries geometries;
+    //initGeometries(geometries);    
+      
     /*
     // TODO: figure out why I can't have it as g_proj = Mat4::makeOrtho()
     //Mat4 ortho2 = Mat4::makeOrtho(-10.0f, 10.0f, -10.0f, 10.0f, .05f, 25.0f);
@@ -466,9 +467,6 @@ int main()
 
     // Delete allocated resources
     glDeleteTextures(numTextures, textureHandles);
-    for(int i = 0; i < geometries.numSingleGeo; i++)
-        delete geometries.singleGeo[i];
-
     for(int i = 0; i < geometries.numGroupGeo; i++)
         delete geometries.groupGeo[i];
     /*

@@ -25,61 +25,29 @@ extern DepthMap g_depthMap;
 static bool shadow = false;
 static char *TEXTURE_DIR = "../textures/";
 
-// TODO: check for array length
-void initSingleGeometries(Geometry *singlesArray[], int &numSingleGeo)
+
+void initGeometries(Geometries &geometries, SceneObjectEntry objEntries[], const int numObj)
 {
-    Mesh ship1Mesh;
-    ship1Mesh.loadOBJFile("Ship.obj");
-    ship1Mesh.computeVertexBasis();
-    //g_ship1 = ship1Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo] = ship1Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo]->aabb = AABB(ship1Mesh.getPositions());
-    ++numSingleGeo;    
+    for(int i = 0; i < numObj; i++)
+    {
+        bool duplicate = false;
 
-    Mesh ship2Mesh;
-    ship2Mesh.loadOBJFile("Ship2.obj");
-    ship2Mesh.computeVertexBasis();
-    //g_ship2 = ship2Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo] = ship2Mesh.produceGeometry(PNXTBD);
-    singlesArray[numSingleGeo]->aabb = AABB(ship2Mesh.getPositions());
-    ++numSingleGeo;    
+        for(int j = 0; j < geometries.numGroupGeo; j++)
+            if(strcmp(objEntries[i].fileName, geometries.groupGeo[j]->name) == 0)
+                duplicate = true;
 
-    Mesh cubeMesh;
-    cubeMesh.loadOBJFile("cube.obj");
-    //g_cube = cubeMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo] = cubeMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo]->aabb = AABB(cubeMesh.getPositions());
-    ++numSingleGeo;    
-
-    Mesh teapotMesh;
-    teapotMesh.loadOBJFile("teapot.obj");
-    teapotMesh.computeVertexNormals();
-    //g_teapot = teapotMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo] = teapotMesh.produceGeometry(PNX);
-    singlesArray[numSingleGeo]->aabb = AABB(teapotMesh.getPositions());
-    ++numSingleGeo;    
-}
-
-void initGroupGeometries(Geometry *groupArray[], GeoGroupInfo infoArray[], const size_t arrayLen, int &numGroupGeo,
-    int &numGroupInfo)
-{
-    Mesh sponzaMesh;
-    sponzaMesh.loadOBJFile("sponza.obj"); 
-
-    sponzaMesh.computeVertexNormals();
-    getGeoList(sponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNX);    
-
-    Mesh crysponzaMesh;
-    crysponzaMesh.loadOBJFile("crysponza.obj");
-    crysponzaMesh.computeVertexBasis();    
-    getGeoList(crysponzaMesh, groupArray, infoArray, arrayLen, numGroupGeo, numGroupInfo, PNXTBD);   
-}
-
-void initGeometries(Geometries &geometries)
-{
-    initSingleGeometries(geometries.singleGeo, geometries.numSingleGeo);
-    initGroupGeometries(geometries.groupGeo, geometries.groupInfoList, geometries.groupLen,
-                        geometries.numGroupGeo, geometries.numGroupInfo);
+        if(!duplicate)
+        {
+            Mesh mesh;
+            mesh.loadOBJFile(objEntries[i].fileName);
+            if(objEntries[i].calcNormal)
+                mesh.computeVertexNormals();
+            if(objEntries[i].calcBasis)
+                mesh.computeVertexBasis();
+            getGeoList(mesh, geometries.groupGeo, geometries.groupInfoList, geometries.groupLen, geometries.numGroupGeo,
+                       geometries.numGroupInfo, objEntries[i].extraVertAttrib ? PNXTBD : PNX);
+        }
+    }
 }
 
 void loadAndSpecifyTexture(const char *fileName)
@@ -379,7 +347,9 @@ void initScene(TransformNode *rootNode, Geometries &geometries, MaterialInfo mat
 {
     SceneObjectEntry objEntries[50];
     initSceneObjectEntries(objEntries, 50);
-    int numObj = loadSceneFile(objEntries, 50, "scene1.txt");
+    int numObj = loadSceneFile(objEntries, 50, "scene2.txt");
+
+    initGeometries(geometries, objEntries, numObj);
 
     char MTLFileNames[30][30];    
     for(int i = 0; i < numObj; i++)
@@ -407,80 +377,6 @@ void initScene(TransformNode *rootNode, Geometries &geometries, MaterialInfo mat
         baseGeoNodes[numbgn++] = mgn;
         rootNode->addChild(mgn);        
     }
-    /*
-    RigTForm modelRbt;      
-    GeometryNode *gn;
-    modelRbt = RigTForm(Vec3(-6.0f, 0.0f, 1.0f));
-    Geometry *g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship.obj");
-    Material *m = getMaterialFromArray(materials, numMat, "Ship1Material");
-    if(g && m)
-        gn = new GeometryNode(g, m, modelRbt, true);
-    //baseGeoNodes[numbgn++] = gn;
-    //rootNode->addChild(gn);
-        
-
-    modelRbt = RigTForm(Vec3(0.0f, 0.0f, -10.0f));
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "Ship2.obj");
-    m = getMaterialFromArray(materials, numMat, "Ship2Material");
-    if(g && m)
-        gn = new GeometryNode(g, m, modelRbt, true);
-    //baseGeoNodes[numbgn++] = gn;
-    //rootNode->addChild(gn);
-    
-    modelRbt = RigTForm(g_lightW);
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "cube.obj");
-    m = getMaterialFromArray(materials, numMat, "CubeMaterial");
-    if(g && m)
-    {
-        gn = new GeometryNode(g, m, modelRbt, true);
-        gn->setScaleFactor(Vec3(0.5f, 0.5f, 0.5f));
-    }
-    //baseGeoNodes[numbgn++] = mgn;
-    //rootNode->addChild(gn);
-
-    modelRbt = RigTForm(Vec3(10.0f, 0.0f, 0.0f));
-    g = getSingleGeoFromArray(geometries.singleGeo, geometries.numSingleGeo, "teapot.obj");
-    m = getMaterialFromArray(materials, numMat, "CubemapReflectionMat");
-    if(g && m)
-    {
-        gn = new GeometryNode(g, m, modelRbt, true);
-        gn->setScaleFactor(Vec3(1.0f/15.0f, 1.0f/15.0f, 1.0f/15.0f));
-    }
-    //baseGeoNodes[numbgn++] = mgn;
-    //rootNode->addChild(gn);
-    */
-
-    /*
-    MultiGeometryNode *mgn;
-    //modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f), Quat::makeZRotation(-30.0f));
-    modelRbt = RigTForm(Vec3(0.0f, 0.0f, 0.0f));
-    // TODO: check if index is -1.
-    int index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "sponza.obj");
-    if(index != -1)
-        mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
-                                         numMTLMat, modelRbt, true);
-    //baseGeoNodes[numbgn++] = mgn;
-    //rootNode->addChild(mgn);
-
-    index = getGroupInfoFromArray(geometries.groupInfoList, geometries.numGroupInfo, "crysponza.obj");
-    if(index != -1)
-    {
-        mgn = new MultiGeometryNode(geometries.groupGeo, geometries.groupInfoList[index], MTLMaterials,
-                                    numMTLMat, modelRbt, true);
-        mgn->setScaleFactor(Vec3(1.0f/100.0f, 1.0f/100.0f, 1.0f/100.0f));
-    }
-    baseGeoNodes[numbgn++] = mgn;
-    rootNode->addChild(mgn);
-    */
-
-    /*
-    glDeleteTextures(numTextures, textureHandles);
-    for(int i = 0; i < numMat; i++)
-        delete materials[i];
-
-    for(int i = 0; i < numMTLMat; i++)
-        delete MTLMaterials[i];
-    */
 }
 
 #endif

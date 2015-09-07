@@ -101,9 +101,6 @@ struct GeoGroupInfo
 };
 
 struct Geometries{
-    Geometry *singleGeo[MAX_NUM_SINGLE_GEOMETRY];
-    const int singeLen = MAX_NUM_SINGLE_GEOMETRY;
-    int numSingleGeo = 0;
     Geometry *groupGeo[MAX_GEOMETRY_GROUPS];
     int numGroupGeo = 0;
     GeoGroupInfo groupInfoList[MAX_GEOMETRY_GROUPS];
