@@ -9,10 +9,41 @@
 const size_t MAX_NUM_SINGLE_GEOMETRY = 40;
 const size_t MAX_GEOMETRY_GROUPS = 1000;
 
+// Vertex attribute indices
+const GLuint POSITION_ATTRIB_INDEX = 0;
+const GLuint NORMAL_ATTRIB_INDEX = 1;
+const GLuint TEXCOORD_ATTRIB_INDEX = 2;
+const GLuint TANGENT_ATTRIB_INDEX = 3;
+const GLuint BINORMAL_ATTRIB_INDEX = 4;
+const GLuint DET_ATTRIB_INDEX = 5;
+
 enum VertexAttrib{
     PNX,                      // position, normal, texcoord
     PNXTBD                    // position, normal, texcoord, tangent, binormal, determinant
 };
+
+static void setVertexAttributes(const GLuint vertexSize)
+{
+    glEnableVertexAttribArray(POSITION_ATTRIB_INDEX);
+    glVertexAttribPointer(POSITION_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), 0);
+    glEnableVertexAttribArray(NORMAL_ATTRIB_INDEX);
+    glVertexAttribPointer(NORMAL_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(TEXCOORD_ATTRIB_INDEX, 2, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat),
+                          (void*)(6 * sizeof(GLfloat)));
+    if(vertexSize == 15)
+    {
+        glEnableVertexAttribArray(TANGENT_ATTRIB_INDEX);
+        glVertexAttribPointer(TANGENT_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat),
+                              (void*)(8 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(BINORMAL_ATTRIB_INDEX);
+        glVertexAttribPointer(BINORMAL_ATTRIB_INDEX, 3, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat),
+                              (void*)(11 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(DET_ATTRIB_INDEX);
+        glVertexAttribPointer(DET_ATTRIB_INDEX, 1, GL_FLOAT, GL_FALSE, vertexSize * sizeof(GLfloat),
+                              (void*)(14 * sizeof(GLfloat)));
+    }        
+}
 
 struct Geometry {
     GLuint vao;                // Vertex array object
@@ -20,9 +51,9 @@ struct Geometry {
     GLuint ebo;                // Index buffer object
     int vboLen = 0, eboLen = 0;                // number of vertices and number of indices
     int vertexSize = 0;
-    GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
+    //GLuint shaderProgram;      // Handle to the shader program that last drew this geometry
     char name[20];
-    AABB aabb;
+    //AABB aabb;
 
     // Constructor for geometry with vertex indices
     Geometry(GLfloat vtx[], GLuint edx[], int vboLen, int eboLen, int vertexSize) {
@@ -37,9 +68,11 @@ struct Geometry {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * vertexSize, vtx, GL_STATIC_DRAW);
 
+        setVertexAttributes(vertexSize);
+        this->vertexSize = vertexSize;
+
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * eboLen, edx, GL_STATIC_DRAW);
-        
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * eboLen, edx, GL_STATIC_DRAW);        
         glBindVertexArray(0);
     }
 
@@ -54,6 +87,8 @@ struct Geometry {
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vboLen * vertexSize, vtx, GL_STATIC_DRAW);
+        
+        setVertexAttributes(vertexSize);
 
         glBindVertexArray(0);
 
@@ -75,7 +110,7 @@ struct Geometry {
         ebo = g.ebo;
         vboLen = g.vboLen;
         eboLen = g.eboLen;
-        shaderProgram = g.shaderProgram;
+        //shaderProgram = g.shaderProgram;
     }
 
     Geometry& operator= (const Geometry &rhs)
@@ -85,7 +120,7 @@ struct Geometry {
         ebo = rhs.ebo;
         vboLen = rhs.vboLen;
         eboLen = rhs.eboLen;
-        shaderProgram = rhs.shaderProgram;
+        //shaderProgram = rhs.shaderProgram;
         return *this;
     }
 

@@ -160,58 +160,47 @@ bool Material::sendUniformCubemap(const char *uniformName, GLuint uniform)
 /*
   Draws geometry with modelview transform modelVewRbt and scaled with scaleFactor
 */
-void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm &viewRbt, Vec3& scaleFactor)
+//void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm &viewRbt, Vec3& scaleFactor)
+void Material::draw(Geometry *geometry, const Mat4 &modelMat, const Mat4 &viewMat, Mat4 &scaleMat)
 {
-    /*
-    // Preliminary messing about with culling while having no idea how to do culling.
-    // Does not work well.
-    Mat4 viewMat = rigTFormToMat(viewRbt);
-    // NOTE: Look more into matrix inversion
-    Mat4 invViewMat = inv(viewMat);
-    Vec3 z(invViewMat(0, 2), invViewMat(1, 2), invViewMat(2, 2));
-    Vec3 modelDir = modelRbt.getTranslation() - Vec3(invViewMat(0, 3), invViewMat(1, 3), invViewMat(2, 3));
-    if(dot(modelDir, z) < 0)
-    */
     glBindVertexArray(geometry->vao);
     // NOTE: don't know why the vbo needs rebinding
     glBindBuffer(GL_ARRAY_BUFFER, geometry->vbo);
 
-    Mat4 scaleMat;
-    scaleMat[0] = scaleFactor[0];
-    scaleMat[5] = scaleFactor[1];
-    scaleMat[10] = scaleFactor[2];
+    //Mat4 scaleMat = Mat4::makeScale(scaleFactor);              
 
     glUseProgram(shaderProgram);        
 
     if(cubemap)
     {
-        Mat4 modelMat = rigTFormToMat(modelRbt);
-        Mat4 viewMat = rigTFormToMat(viewRbt);            
+        //Mat4 modelMat = rigTFormToMat(modelRbt);
+        //Mat4 viewMat = rigTFormToMat(viewRbt);                    
         Mat4 normalMat = transpose(inv(modelMat));
-        modelMat = modelMat * scaleMat;
+        Mat4 tmpModelMat = modelMat * scaleMat;
 
-        sendMatrix("uModelMat", modelMat);
+        sendMatrix("uModelMat", tmpModelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);               
     }else if(depthMap)
     {
-        Mat4 modelMat = rigTFormToMat(modelRbt);
-        modelMat = modelMat * scaleMat;
-        sendMatrix("uModelMat", modelMat);
+        //Mat4 modelMat = rigTFormToMat(modelRbt);
+        Mat4 tmpModelMat = modelMat * scaleMat;
+        sendMatrix("uModelMat", tmpModelMat);
     }else if(shadow)
     {
-        Mat4 modelMat = rigTFormToMat(modelRbt);
-        Mat4 viewMat = rigTFormToMat(viewRbt);            
+        //Mat4 modelMat = rigTFormToMat(modelRbt);
+        //Mat4 viewMat = rigTFormToMat(viewRbt);            
         Mat4 normalMat = transpose(inv(modelMat));
-        modelMat = modelMat * scaleMat;
+        Mat4 tmpModelMat = modelMat * scaleMat;
 
-        sendMatrix("uModelMat", modelMat);
+        sendMatrix("uModelMat", tmpModelMat);
         sendMatrix("uViewMat", viewMat);
         sendMatrix("uNormalMat", normalMat);
     }else
     {
-        RigTForm modelViewRbt = viewRbt * modelRbt;                
-        Mat4 modelViewMat = rigTFormToMat(modelViewRbt); 
+        //RigTForm modelViewRbt = viewRbt * modelRbt;                
+        //Mat4 modelViewMat = rigTFormToMat(modelViewRbt);
+        Mat4 modelViewMat = viewMat * modelMat;
         Mat4 normalMat = transpose(inv(modelViewMat));
         modelViewMat = modelViewMat * scaleMat;        
 
@@ -241,10 +230,13 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
                 break;
             }
     }
-        
+
+
+    /*
     // Link vertex attributes 
     if(geometry->shaderProgram != shaderProgram)
     {
+
         glEnableVertexAttribArray(h_aPosition);
         glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), 0);
         glEnableVertexAttribArray(h_aNormal);
@@ -260,10 +252,10 @@ void Material::draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm
             glEnableVertexAttribArray(h_aDet);
             glVertexAttribPointer(h_aDet, 1, GL_FLOAT, GL_FALSE, geometry->vertexSize * sizeof(GLfloat), (void*)(14 * sizeof(GLfloat)));
         }
-                
+      
         geometry->shaderProgram = shaderProgram;
     }
-
+    */
     if(geometry->eboLen == 0)
     {
         glDrawArrays(GL_TRIANGLES, 0, geometry->vboLen);
@@ -308,7 +300,7 @@ void Material::setShadow(bool b)
     shadow = b;
 }
 
-void Material::sendMatrix(const char* uniformName, Mat4 &matrix)
+void Material::sendMatrix(const char* uniformName, const Mat4 &matrix)
 {
     for(int i = 0; i < numUniforms; i++)
         if(strcmp(uniformDesc[i].name, uniformName) == 0)
@@ -337,9 +329,15 @@ void Material::initialize()
     }
 
     // Retrieve handles to the basic vertex attributes
+    /*
     h_aPosition = glGetAttribLocation(shaderProgram, "aPosition");
     h_aNormal = glGetAttribLocation(shaderProgram, "aNormal");
     h_aTexcoord = glGetAttribLocation(shaderProgram, "aTexcoord");
+
+    h_aPosition = POSITION_ATTRIB_INDEX;
+    h_aNormal = NORMAL_ATTRIB_INDEX;
+    h_aTexcoord = TEXCOORD_ATTRIB_INDEX;
+    */    
     vertexAttrib = PNX;            
 
     // Retrieve handles to optional vertex attributes
@@ -347,9 +345,15 @@ void Material::initialize()
     glGetProgramiv(shaderProgram, GL_ACTIVE_ATTRIBUTES, &numActiveAttrib);
     if(numActiveAttrib == 6)
     {
+        /*
         h_aTangent = glGetAttribLocation(shaderProgram, "aTangent");
         h_aBinormal = glGetAttribLocation(shaderProgram, "aBinormal");
         h_aDet = glGetAttribLocation(shaderProgram, "aDet");
+
+        h_aTangent = TANGENT_ATTRIB_INDEX;
+        h_aBinormal = BINORMAL_ATTRIB_INDEX;
+        h_aDet = DET_ATTRIB_INDEX;
+        */        
         vertexAttrib = PNXTBD;
     }
     cubemap = false;

@@ -43,9 +43,9 @@ const char* skyboxVertSrc = GLSL(
 );
 
 const char* showNormalVertSrc = GLSL(
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
@@ -63,9 +63,9 @@ const char* showNormalVertSrc = GLSL(
 );
 
 const char* depthMapVertSrc = GLSL(
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     uniform mat4 uModelMat;
 
@@ -79,9 +79,9 @@ const char* basicVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     out vec3 vPosition;
     out vec3 vNormal;
@@ -101,9 +101,9 @@ const char* arrowVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     out vec3 vPosition;
     out vec3 vNormal;
@@ -123,9 +123,9 @@ const char* cubemapReflectionVertSrc = GLSL(
     uniform mat4 uViewMat;    
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     //out vec3 TexVec;
     out vec3 vPosition;
@@ -153,13 +153,13 @@ const char* normalVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
-    in vec3 aTangent;
-    in vec3 aBinormal;
-    in float aDet;
+    layout (location = 3) in vec3 aTangent;
+    layout (location = 4) in vec3 aBinormal;
+    layout (location = 5) in float aDet;
 
     out vec3 vLightT;
     out vec3 vEyeT;
@@ -193,9 +193,9 @@ const char* diffuseVertSrc = GLSL(
     uniform mat4 uNormalMat;
     uniform vec3 uColor;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     out vec3 vColor;
     out vec2 vTexcoord;
@@ -226,9 +226,9 @@ const char* lightVertexSrc = GLSL(
     uniform mat4 uNormalMat;
     uniform vec3 uColor;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     out vec3 vColor;
     out vec2 vTexcoord;
@@ -253,9 +253,9 @@ const char *pickVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uProjMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     void main()
     {
@@ -335,32 +335,7 @@ const char* cubemapReflectionFragSrc = GLSL(
     }
 );
 
-const char* basicFragSrc = GLSL(
 
-    out vec4 outColor;
-
-    void main()
-    {
-        outColor = vec4(1, 1, 1, 1);
-    }
-);
-
-
-
-const char* fragmentSource = GLSL(
-    uniform sampler2D texKitten;
-    uniform sampler2D texPuppy;
-
-    in vec3 vColor;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-        
-    void main() {
-        //outColor = mix(texture(texKitten, Texcoord), texture(texPuppy, Texcoord), 0.5) * vec4(Color, 1.0);
-        outColor = vec4(vColor, 1.0);
-    }
-);
 
 // Fragment shader for object picking
 const char *pickFragSrc = GLSL(
@@ -409,49 +384,6 @@ const char* flatFragSrc = GLSL(
     }
 );
 
-// Fragment shader with diffuse lighting and texture
-const char* diffuseTextureFragSrc = GLSL(
-    uniform vec3 uColor;
-    uniform sampler2D diffuseMap;
-
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-
-        vec3 lightDir = normalize(light1 - vPosition);
-        vec3 normal = normalize(vNormal);
-        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
-        outColor = vec4((dot(lightDir, normal) * texColor.xyz), 1.0);
-    }
-);
-
-// Specular fragment shader with texture
-const char* specTexFragSrc = GLSL(
-    uniform vec3 uColor;
-    uniform sampler2D diffuseMap;
-
-    
-    in vec3 vPosition;
-    in vec3 vNormal;
-    in vec2 vTexcoord;
-
-    out vec4 outColor;
-
-    void main()
-    {
-
-        vec3 lightDir = normalize(light1 - vPosition);
-        vec3 reflectDir = 2*dot(lightDir, vNormal)*vNormal - lightDir;
-        vec3 eyeDir = normalize(-vPosition);        
-        vec4 texColor = texture(diffuseMap, vTexcoord) * vec4(uColor, 1.0);
-        outColor =vec4( max(dot(lightDir, vNormal), 0) * texColor.xyz, 1.0);
-    }
-);
 
 const char* specTexSpotFragSrc = GLSL(
     uniform vec3 uColor;

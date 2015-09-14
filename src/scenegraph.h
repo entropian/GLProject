@@ -199,18 +199,24 @@ public:
 
     void draw(const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
+        Mat4 scaleMat = Mat4::makeScale(scaleFactor);
+        Mat4 modelMat = rigTFormToMat(modelRbt);
+        Mat4 viewMat = rigTFormToMat(viewRbt);                            
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        m->draw(geometry, modelRbt, viewRbt, scaleFactor);
+        m->draw(geometry, modelMat, viewMat, scaleMat);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }
 
     void overrideMatDraw(Material *overrideMat, const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
+        Mat4 scaleMat = Mat4::makeScale(scaleFactor);
+        Mat4 modelMat = rigTFormToMat(modelRbt);
+        Mat4 viewMat = rigTFormToMat(viewRbt);                                    
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
-        overrideMat->draw(geometry, modelRbt, viewRbt, scaleFactor);
+        overrideMat->draw(geometry, modelMat, viewMat, scaleMat);
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
     }    
@@ -273,11 +279,17 @@ public:
 
     void draw(const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
+        Mat4 scaleMat = Mat4::makeScale(scaleFactor);
+        Mat4 modelMat = rigTFormToMat(modelRbt);
+        Mat4 viewMat = rigTFormToMat(viewRbt);                    
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
 
         for(int i = 0; i < numGeometries; i++)
-            materials[materialIndex[i]]->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
+        {
+            //materials[materialIndex[i]]->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
+            materials[materialIndex[i]]->draw(geometries[i], modelMat, viewMat, scaleMat);            
+        }
         
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);
@@ -285,11 +297,14 @@ public:
 
     void overrideMatDraw(Material *overrideMat, const RigTForm &modelRbt, const RigTForm &viewRbt)
     {
+        Mat4 scaleMat = Mat4::makeScale(scaleFactor);
+        Mat4 modelMat = rigTFormToMat(modelRbt);
+        Mat4 viewMat = rigTFormToMat(viewRbt);                                    
         if(depthTest == false)
             glDisable(GL_DEPTH_TEST);
         
         for(int i = 0; i < numGeometries; i++)
-            overrideMat->draw(geometries[i], modelRbt, viewRbt, scaleFactor);
+            overrideMat->draw(geometries[i], modelMat, viewMat, scaleMat);
         
         if(depthTest == false)
             glEnable(GL_DEPTH_TEST);

@@ -452,7 +452,6 @@ struct SceneObjectEntry
     Vec3 scaleFactors;
     bool calcNormal;
     bool calcBasis;
-    bool extraVertAttrib;
 };
 
 static void initSceneObjectEntries(SceneObjectEntry objEntries[], const int entriesLen)
@@ -463,7 +462,6 @@ static void initSceneObjectEntries(SceneObjectEntry objEntries[], const int entr
         objEntries[i].MTLFileName[0] = '\0';        
         objEntries[i].calcNormal = false;
         objEntries[i].calcBasis = false;
-        objEntries[i].extraVertAttrib = false;
     }
 }
 
@@ -510,11 +508,6 @@ static int loadSceneFile(SceneObjectEntry objectEntries[], const int entriesLen,
             index = subStringAlpha(fileContent, buffer, readResult, index);    
             if(strcmp(buffer, "true") == 0)
                 objectEntries[numObjects-1].calcBasis = true;
-        }else if(strcmp(buffer, "EXTRA_ATTRIB") == 0)
-        {
-            index = subStringAlpha(fileContent, buffer, readResult, index);    
-            if(strcmp(buffer, "true") == 0)
-                objectEntries[numObjects-1].extraVertAttrib = true;
         }
     }
     free(fileContent);

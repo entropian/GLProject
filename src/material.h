@@ -150,7 +150,7 @@ public:
     /*
       Draws geometry with modelview transform modelVewRbt and scaled with scaleFactor
      */
-    void draw(Geometry *geometry, const RigTForm &modelRbt, const RigTForm &viewRbt, Vec3& scaleFactor);
+    void draw(Geometry *geometry, const Mat4 &modelMat, const Mat4 &viewMat, Mat4 &scaleMat);
 
     void bindUniformBlock(const char* blockName, GLuint bindingPoint);
     // TODO: temporary
@@ -162,7 +162,7 @@ public:
 private:
     int searchUniformDesc(const char* uniformName);
     void assign(Material &dest, const Material &src);
-    void sendMatrix(const char* uniformName, Mat4 &matrix);    
+    void sendMatrix(const char* uniformName, const Mat4 &matrix);    
     void initialize();
 
     

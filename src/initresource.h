@@ -44,8 +44,9 @@ void initGeometries(Geometries &geometries, SceneObjectEntry objEntries[], const
                 mesh.computeVertexNormals();
             if(objEntries[i].calcBasis)
                 mesh.computeVertexBasis();
+            
             getGeoList(mesh, geometries.groupGeo, geometries.groupInfoList, geometries.groupLen, geometries.numGroupGeo,
-                       geometries.numGroupInfo, objEntries[i].extraVertAttrib ? PNXTBD : PNX);
+                       geometries.numGroupInfo, objEntries[i].calcBasis ? PNXTBD : PNX);
         }
     }
 }
@@ -237,45 +238,46 @@ void initMTLMaterials(MaterialInfo *matInfoList, const size_t matCount, Material
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(DIFFUSE));        
         if(matInfoList[i].map_spec[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(SPECULAR));
-        //if(matInfoList[i].map_bump[0] != '\0')
-        if(strstr(matInfoList[i].map_bump, "ddn"))
+        //if(strstr(matInfoList[i].map_bump, "ddn"))
+        if(matInfoList[i].map_bump[0] != '\0')        
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(NORMAL));
         if(matInfoList[i].map_d[0] != '\0')
             sf = static_cast<ShaderFlag>(static_cast<int>(sf) | static_cast<int>(ALPHA));
         switch(sf)
         {
         case NONE:
-                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJFragSrc, matInfoList[i].name);
-                break;
+            printf("None here\n");
+            MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJFragSrc, matInfoList[i].name);
+            break;
         case DIFFUSE:
-                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|NORMAL:
-                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|SPECULAR:
-                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDSFragSrc, matInfoList[i].name);                
+            MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJDSFragSrc, matInfoList[i].name);                
             break;
         case DIFFUSE|NORMAL|SPECULAR:
-                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDSFragSrc, matInfoList[i].name);                
+            MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNDSFragSrc, matInfoList[i].name);                
             break;
         case DIFFUSE|ALPHA:
-                MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(basicVertSrc, OBJAlphaFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|NORMAL|ALPHA:
-                MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNADFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(GeoPassNormalVertSrc, GeoPassOBJNADFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|SPECULAR|ALPHA:
-                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJADSFragSrc, matInfoList[i].name);
+            MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJADSFragSrc, matInfoList[i].name);
             break;
         case DIFFUSE|NORMAL|SPECULAR|ALPHA:
-                MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJNADSFragSrc, matInfoList[i].name);                
+            MTLMaterials[i] = new Material(GeoPassBasicVertSrc, GeoPassOBJNADSFragSrc, matInfoList[i].name);                
             break;
         }
 
         //MTLMaterials[i]->sendUniform3f("Ka", matInfoList[i].Ka);
         MTLMaterials[i]->sendUniform3f("Kd", matInfoList[i].Kd);
-        //MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
+        MTLMaterials[i]->sendUniform3f("Ks", matInfoList[i].Ks);
         MTLMaterials[i]->sendUniform1f("Ns", matInfoList[i].Ns);
         MTLMaterials[i]->bindUniformBlock("UniformBlock", 0);
 
@@ -347,7 +349,7 @@ void initScene(TransformNode *rootNode, Geometries &geometries, MaterialInfo mat
 {
     SceneObjectEntry objEntries[50];
     initSceneObjectEntries(objEntries, 50);
-    int numObj = loadSceneFile(objEntries, 50, "scene2.txt");
+    int numObj = loadSceneFile(objEntries, 50, "scene1.txt");
 
     initGeometries(geometries, objEntries, numObj);
 
@@ -357,6 +359,10 @@ void initScene(TransformNode *rootNode, Geometries &geometries, MaterialInfo mat
         strcpy(MTLFileNames[i], objEntries[i].MTLFileName);
     }
     size_t MTLMatCount = loadMTLFiles(matInfoList, MAX_MATERIALS, MTLFileNames, numObj);
+    for(size_t i = 0; i < MTLMatCount; i++)
+    {
+        printf("bump map: %s\n", matInfoList[i].map_bump);
+    }
     numTextures = initTextures(matInfoList, MTLMatCount, textureFileNames, MAX_TEXTURES, textureHandles);
     initMTLMaterials(matInfoList, MTLMatCount, MTLMaterials, numMTLMat, textureFileNames, textureHandles, numTextures);
 

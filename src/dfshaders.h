@@ -23,9 +23,9 @@ const char* GeoPassBasicVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
     out vec3 vPosition;
     out vec3 vNormal;
@@ -44,13 +44,13 @@ const char* GeoPassNormalVertSrc = GLSL(
     uniform mat4 uModelViewMat;
     uniform mat4 uNormalMat;
 
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aTexcoord;
+    layout (location = 0) in vec3 aPosition;
+    layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexcoord;
 
-    in vec3 aTangent;
-    in vec3 aBinormal;
-    in float aDet;
+    layout (location = 3) in vec3 aTangent;
+    layout (location = 4) in vec3 aBinormal;
+    layout (location = 5) in float aDet;
 
     out vec3 vPosition;    
     out vec2 vTexcoord;
@@ -87,7 +87,7 @@ const char* GeoPassBasicFragSrc = GLSL(
         gPositionDepth.xyz = vPosition;
         gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);
         gNormalSpec.xyz = vNormal;
-        gNormalSpec.a = 10;
+        gNormalSpec.a = 40;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         gDiffuse.a = 1.0;
     }
@@ -113,7 +113,7 @@ const char* GeoPassNormalFragSrc = GLSL(
         vec3 normal = texture(normalMap, vTexcoord).xyz;
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;        
-        gNormalSpec.a = 10;
+        gNormalSpec.a = 40;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         gDiffuse.a = 1.0;
     }
@@ -168,7 +168,7 @@ const char* GeoPassOBJDFragSrc = GLSL(
         gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         gDiffuse.a = 1.0;
     }
 );
@@ -197,7 +197,7 @@ const char* GeoPassOBJDSFragSrc = GLSL(
         gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         vec3 specular = texture(specularMap, vTexcoord).rgb;
         gDiffuse.a = (specular.r + specular.g + specular.b) / 3.0;
     }
@@ -231,7 +231,7 @@ const char* GeoPassOBJADSFragSrc = GLSL(
         gPositionDepth.a = LinearizeDepth(gl_FragCoord.z);        
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         vec3 specular = texture(specularMap, vTexcoord).rgb;
         gDiffuse.a = (specular.r + specular.g + specular.b) / 3.0;
     }
@@ -263,7 +263,7 @@ const char* GeoPassOBJNDFragSrc = GLSL(
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;        
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         gDiffuse.a = 1.0;
     }
 );
@@ -298,7 +298,7 @@ const char* GeoPassOBJNADFragSrc = GLSL(
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         gDiffuse.a = 1.0;
     }
 );
@@ -330,7 +330,7 @@ const char* GeoPassOBJNDSFragSrc = GLSL(
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         vec3 specular = texture(specularMap, vTexcoord).rgb;
         gDiffuse.a = (specular.r + specular.g + specular.b) / 3.0;        
     }
@@ -367,7 +367,7 @@ const char* GeoPassOBJNADSFragSrc = GLSL(
         normal = vTBNViewMat * normal;
         gNormalSpec.xyz = normal;
         gNormalSpec.a = Ns;
-        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb * Kd;
+        gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
         vec3 specular = texture(specularMap, vTexcoord).rgb;
         gDiffuse.a = (specular.r + specular.g + specular.b) / 3.0;        
     }
@@ -409,6 +409,8 @@ const char* LightPassFragSrc = GLSL(
 );
 */
 
+
+// Phong lighting without normalization
 const char* LightPassFragSrc = GLSL(
     uniform sampler2D gDiffuse;
     uniform sampler2D gNormalSpec;
@@ -427,7 +429,7 @@ const char* LightPassFragSrc = GLSL(
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(1000.0);
+        vec3 lightColor = vec3(500.0);
 
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
@@ -435,12 +437,23 @@ const char* LightPassFragSrc = GLSL(
         float attenuation = 1/dot(lightDist, lightDist);        
         vec3 lightDir = normalize(lightDist);
         vec3 eyeDir = normalize(-posE);
-        vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
+        float intensity = dot(normal, lightDir);        
+        //vec3 reflectDir = 2*intensity*normal - lightDir;
+        vec3 tmpHalfway = lightDir + eyeDir;
+        //vec3 halfwayDir = normalize((lightDir + eyeDir) * clamp(dot(normal, lightDir), 0, 1));
+        vec3 halfwayDir = normalize(tmpHalfway * clamp(intensity, 0, 1));
+        
 
-        float intensity = max(dot(normal, lightDir), 0);
-        vec3 diffContrib = intensity * diffuse;
-        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity;
-        vec3 lighting = ambContrib + (diffContrib + specContrib) * lightColor * attenuation;
+        //float normalFactor = (specExponent + 2) * 0.5;
+        float normalFactor = (specExponent + 8) * 0.125;
+        //vec3 diffContrib = intensity * diffuse;
+        vec3 diffContrib = diffuse;
+        // With normalization factor
+        //vec3 specColor = diffuse;
+        vec3 specColor = vec3(0.05) + vec3(1 - 0.05)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);        
+        //vec3 specContrib = normalFactor * pow(max(dot(reflectDir, eyeDir), 0), specExponent) * specColor * specIntensity;
+        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), specExponent) * specColor * specIntensity;
+        vec3 lighting = ambContrib + (diffContrib + specContrib) * lightColor * attenuation * max(intensity, 0);
         outColor = vec4(lighting, 1.0);
         if(dot(lighting, vec3(0.2126, 0.7152, 0.0722)) > 1.0)
         {
@@ -448,6 +461,7 @@ const char* LightPassFragSrc = GLSL(
         }
     }
 );
+
 
 const char* shLightPassFragSrc = GLSL(
     uniform sampler2D gDiffuse;
@@ -478,7 +492,6 @@ const char* shLightPassFragSrc = GLSL(
         float bias = 0.005;
         //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
 
-
         float shadow = 0.0;
         vec2 texelSize = 1.0 / (textureSize(gDiffuse, 0) * 10);
         for(int x = -1; x <= 1; ++x)
@@ -503,20 +516,23 @@ const char* shLightPassFragSrc = GLSL(
         float specExponent = texture(gNormalSpec, vTexcoord).a;
         float specIntensity = texture(gDiffuse, vTexcoord).a;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(1000.0);        
+        vec3 lightColor = vec3(500.0);        
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
         vec3 lightDist = light1 - posE;
         float attenuation = 1/dot(lightDist, lightDist);
         vec3 lightDir = normalize(lightDist);        
         vec3 eyeDir = normalize(-posE);
-        vec3 reflectDir = 2*dot(normal, lightDir)*normal - lightDir;
+        float intensity = dot(normal, lightDir);
+        vec3 tmpHalfway = lightDir + eyeDir;
+        vec3 halfwayDir = normalize(tmpHalfway * clamp(intensity, 0, 1));        
 
-        float intensity = max(dot(normal, lightDir), 0);
-        vec3 diffContrib = intensity * diffuse * lightColor * attenuation;
-        vec3 specContrib = pow(max(dot(eyeDir, reflectDir), 0), specExponent) * diffuse * specIntensity * lightColor * attenuation;
+        float normalFactor = (specExponent + 8) * 0.125;        
+        vec3 diffContrib = diffuse;
+        vec3 specColor = vec3(0.05) + vec3(1 - 0.05)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);                
+        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), specExponent) * specColor * specIntensity;        
         float shadow = ShadowCalculation(fragPosL);
-        vec3 lighting = ambContrib + (1.0 - shadow) * (diffContrib + specContrib);
+        vec3 lighting = ambContrib + (1.0 - shadow) * ((diffContrib + specContrib) * lightColor * attenuation * max(intensity, 0));
         outColor = vec4(lighting, 1.0);
         if(dot(lighting, vec3(0.2126, 0.7152, 0.0722)) > 1.0)
         {
@@ -536,8 +552,6 @@ const char* SSAOFragSrc = GLSL(
     uniform vec3 samples[64];
     uniform int kernelSize;
     uniform float radius;
-    //int kernelSize = 64;
-    //float radius = 1.0;
 
     const vec2 noiseScale = vec2(1280.0f / 4.0f, 720.0f / 4.0f);
     

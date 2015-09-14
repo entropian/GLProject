@@ -30,8 +30,8 @@
 #include "bloom.h"
 //#include "collision.h"
 
-static float g_windowWidth = 1280.0f;
-static float g_windowHeight = 720.0f;
+static float g_windowWidth = 1920.0f;
+static float g_windowHeight = 1080.0f;
 
 static RigTForm g_view;                // View transform
 //static Vec3 g_lightE, g_lightW(15.0f, 25.0f, 2.0f);
@@ -45,8 +45,8 @@ static const size_t MAX_TEXTURES = 100;
 
 GLFWwindow* window;
 
-static double g_framesPerSec = 60.0f;
-static double g_distancePerSec = 1.5f;
+static double g_framesPerSec = 60.0;
+static double g_distancePerSec = 3.0;
 static double g_timeBetweenFrames = 1.0 / g_framesPerSec;
 static double g_distancePerFrame = g_distancePerSec / g_framesPerSec;
 
@@ -156,8 +156,9 @@ void draw_scene(TransformNode *rootNode)
     Visitor visitor(viewRbt);
     visitor.visitNode(inputHandler.getWorldNode());
 
-    // SSAO Pass
     GLuint texArray[10], numTex = 0;
+    
+    // SSAO Pass
     texArray[numTex++] = g_df.gPositionDepth;
     texArray[numTex++] = g_df.gNormalSpec;
     texArray[numTex++] = g_ssaos.noiseTexture;
@@ -179,7 +180,7 @@ void draw_scene(TransformNode *rootNode)
     texArray[numTex++] = g_ssaos.colorBufferBlur;        
     drawScreenQuadMultiTex(g_hdr.fbo, g_df.shaderProgram, g_df.vao, texArray, numTex);
     //drawScreenQuadMultiTex(0, g_df.shaderProgram, g_df.vao, texArray, numTex);
-    
+
     // Bloom Blur Passes
     if(g_bloom)
     {
@@ -207,6 +208,7 @@ void draw_scene(TransformNode *rootNode)
     {
         drawScreenQuad(0, g_hdr.toneMap, g_hdr.vao, g_hdr.colorBuffer);
     }
+
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
