@@ -10,11 +10,12 @@
 static bool g_debugUniformString = true;
 static const unsigned MAX_TEXTURES_PER_MATERIAL = 32;                // Arbitrary
 static const unsigned MAX_NUM_UNIFORMS = 30;
+static const int MATERIAL_NAME_LEN = 100;
 
 
 struct UniformDesc
 {
-    char name[20];
+    char name[30];
     GLuint index;
     GLenum type;
     GLuint handle;
@@ -178,7 +179,7 @@ private:
     unsigned int textureCount;
     GLuint cubemapHandle;
     bool cubemap, depthMap, shadow;
-    char name[20];
+    char name[MATERIAL_NAME_LEN];
 };
 
 #endif       

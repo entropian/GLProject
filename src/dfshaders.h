@@ -32,7 +32,7 @@ const char* GeoPassBasicVertSrc = GLSL(
     out vec2 vTexcoord;
 
     void main()
-    {        
+    {
         vPosition = (uModelViewMat * vec4(aPosition, 1.0)).xyz;
         vNormal = (uNormalMat * vec4(aNormal, 1.0)).xyz;
         vTexcoord = aTexcoord;
@@ -141,7 +141,8 @@ const char* GeoPassOBJFragSrc = GLSL(
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = Kd;
-        gDiffuse.a = 1.0;
+        //gDiffuse.a = 1.0;
+        gDiffuse.a = Ns / 255.0;
     }
 );
 
@@ -169,7 +170,8 @@ const char* GeoPassOBJDFragSrc = GLSL(
         gNormalSpec.xyz = vNormal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
-        gDiffuse.a = 1.0;
+        //gDiffuse.a = 1.0;
+        gDiffuse.a = Ns / 255.0;
     }
 );
 
@@ -264,7 +266,8 @@ const char* GeoPassOBJNDFragSrc = GLSL(
         gNormalSpec.xyz = normal;        
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
-        gDiffuse.a = 1.0;
+        //gDiffuse.a = 1.0;
+        gDiffuse.a = Ns / 255.0;
     }
 );
 
@@ -299,7 +302,8 @@ const char* GeoPassOBJNADFragSrc = GLSL(
         gNormalSpec.xyz = normal;
         gNormalSpec.a = Ns;
         gDiffuse.rgb = texture(diffuseMap, vTexcoord).rgb;
-        gDiffuse.a = 1.0;
+        //gDiffuse.a = 1.0;
+        gDiffuse.a = Ns / 255.0;        
     }
 );
 
@@ -426,10 +430,11 @@ const char* LightPassFragSrc = GLSL(
         vec3 posE = texture(gPositionDepth, vTexcoord).rgb;
         vec3 normal = normalize(texture(gNormalSpec, vTexcoord).rgb);
         vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
-        float specExponent = texture(gNormalSpec, vTexcoord).a;
-        float specIntensity = texture(gDiffuse, vTexcoord).a;
+        //float specExponent = texture(gNormalSpec, vTexcoord).a;
+        //float specIntensity = texture(gDiffuse, vTexcoord).a;
+        float specExponent = texture(gDiffuse, vTexcoord).a * 255.0;
         float occlusion = texture(ssao, vTexcoord).r;
-        vec3 lightColor = vec3(500.0);
+        vec3 lightColor = vec3(100.0);
 
         
         vec3 ambContrib = diffuse * 0.3 * occlusion;
@@ -449,10 +454,11 @@ const char* LightPassFragSrc = GLSL(
         //vec3 diffContrib = intensity * diffuse;
         vec3 diffContrib = diffuse;
         // With normalization factor
-        //vec3 specColor = diffuse;
-        vec3 specColor = vec3(0.05) + vec3(1 - 0.05)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);        
+        //vec3 specColor = diffuse ;
+        vec3 specColor = vec3(0.03) + vec3(0.97)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);        
         //vec3 specContrib = normalFactor * pow(max(dot(reflectDir, eyeDir), 0), specExponent) * specColor * specIntensity;
-        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), specExponent) * specColor * specIntensity;
+        //vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), specExponent) * specColor * specIntensity;
+        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), max(specExponent, 1)) * specColor;
         vec3 lighting = ambContrib + (diffContrib + specContrib) * lightColor * attenuation * max(intensity, 0);
         outColor = vec4(lighting, 1.0);
         if(dot(lighting, vec3(0.2126, 0.7152, 0.0722)) > 1.0)
@@ -513,8 +519,7 @@ const char* shLightPassFragSrc = GLSL(
         vec4 fragPosL = lightSpaceMat * invViewMat * vec4(posE, 1.0);
         vec3 normal = normalize(texture(gNormalSpec, vTexcoord).rgb);
         vec3 diffuse = texture(gDiffuse, vTexcoord).rgb;
-        float specExponent = texture(gNormalSpec, vTexcoord).a;
-        float specIntensity = texture(gDiffuse, vTexcoord).a;
+        float specExponent = texture(gDiffuse, vTexcoord).a * 255.0;        
         float occlusion = texture(ssao, vTexcoord).r;
         vec3 lightColor = vec3(500.0);        
         
@@ -529,8 +534,8 @@ const char* shLightPassFragSrc = GLSL(
 
         float normalFactor = (specExponent + 8) * 0.125;        
         vec3 diffContrib = diffuse;
-        vec3 specColor = vec3(0.05) + vec3(1 - 0.05)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);                
-        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), specExponent) * specColor * specIntensity;        
+        vec3 specColor = vec3(0.03) + vec3(0.97)*pow(1 - dot(normalize(tmpHalfway), lightDir), 5);                
+        vec3 specContrib = normalFactor * pow(max(dot(halfwayDir, normal), 0), max(specExponent, 1.0)) * specColor;        
         float shadow = ShadowCalculation(fragPosL);
         vec3 lighting = ambContrib + (1.0 - shadow) * ((diffContrib + specContrib) * lightColor * attenuation * max(intensity, 0));
         outColor = vec4(lighting, 1.0);

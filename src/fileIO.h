@@ -10,6 +10,7 @@
 
 static const char *MODEL_DIR = "../models/";
 static const char *SCENE_DIR = "../scenes/";
+const int MAX_FILENAME_SIZE = 120;
 
 /*
   Stores into buffer[] the next alphabetic word in fileContent[] starting after fileContent[index] 
@@ -133,15 +134,15 @@ static size_t readFileIntoString(const char *fileName, char **fileContent)
 // Struct for storing info from MTL material entries
 struct MaterialInfo
 {    
-    char name[30];
+    char name[MAX_FILENAME_SIZE];
     Vec3 Ka, Kd, Ks, Ke;         // Ambient color, diffuse color, specular color, and emmisive color
     float Ns, Ni;                // Specular exponent and index of reflection
     int illum = 0;               // Illumination mode (0=constant, 1=diffuse, 2=diffuse+specular...)
-    char map_Ka[40];             // Ambient map file name
-    char map_Kd[40];             // Diffuse map file name
-    char map_d[40];              // Alpha mask(?) file name    
-    char map_bump[40];           // Bump map file name
-    char map_spec[40];           // Specular map file name
+    char map_Ka[MAX_FILENAME_SIZE];             // Ambient map file name
+    char map_Kd[MAX_FILENAME_SIZE];             // Diffuse map file name
+    char map_d[MAX_FILENAME_SIZE];              // Alpha mask(?) file name    
+    char map_bump[MAX_FILENAME_SIZE];           // Bump map file name
+    char map_spec[MAX_FILENAME_SIZE];           // Specular map file name
 };
 
 static void initMatInfoList(MaterialInfo *matInfoList, const size_t infoListSize)
@@ -289,7 +290,7 @@ struct OBJData
 //Extract the OBJ file data from fileContent and store them in objData
 static void extractOBJData(const char *fileContent, const size_t fileSize, OBJData *objData)
 {
-    char buffer[20];
+    char buffer[100];
     size_t posIndex = 0, normIndex = 0, texcoordIndex = 0, faceIndex = 0, groupIndex = 0;
     int index = 0;
     while(index != -1)
@@ -445,8 +446,8 @@ static void parseOBJFile(const char *fileName, OBJData *objData)
 
 struct SceneObjectEntry
 {
-    char fileName[30];
-    char MTLFileName[30];
+    char fileName[MAX_FILENAME_SIZE];
+    char MTLFileName[MAX_FILENAME_SIZE];
     Vec3 position;
     Vec3 orientation;                // Euler angle
     Vec3 scaleFactors;

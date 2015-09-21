@@ -67,14 +67,6 @@ void Mesh::loadOBJFile(const char* fileName)
     printf("Loading %s...\t", fileName);
     time_t startTime, endTime;
     time(&startTime);
-
-    /*
-    char tmp[30];
-    int i;
-    for(i = 0; fileName[i] != '.'; i++)
-        tmp[i] = fileName[i];
-    tmp[i] = '\0';
-    */
     name = std::string(fileName);
 
     OBJData objData;

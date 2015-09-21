@@ -428,7 +428,7 @@ int main()
 
     GLuint *textureHandles;
     int numTextures;
-    char textureFileNames[MAX_TEXTURES][40];
+    char textureFileNames[MAX_TEXTURES][MAX_FILENAME_SIZE];
     
     initScene(worldNode, geometries, matInfoList, MAX_MATERIALS, MTLMaterials, numMTLMat, textureHandles, numTextures,
               textureFileNames, MAX_TEXTURES, baseGeoNodes, MAX_NUM_GEO_NODES, numGeoNodes);
