@@ -10,6 +10,6 @@ Video:
 
 ![Screenshot](http://i.imgur.com/fP1ALjK.jpg "")
 
-![Screenshot](http://i.imgur.com/fP1ALjK.jpg](https://photos.fife.usercontent.google.com/pw/AP1GczNTLdXgnW_qgnkWLRLOXVRXBFgiFJGmQu4hAdS9XP3LxjmSL86slTqn=w719-h1278-s-no?authuser=0
- "")
+![Screenshot](https://photos.fife.usercontent.google.com/pw/AP1GczNTLdXgnW_qgnkWLRLOXVRXBFgiFJGmQu4hAdS9XP3LxjmSL86slTqn=w719-h1278-s-no?authuser=0)
+
 https://photos.fife.usercontent.google.com/pw/AP1GczNTLdXgnW_qgnkWLRLOXVRXBFgiFJGmQu4hAdS9XP3LxjmSL86slTqn=w719-h1278-s-no?authuser=0
